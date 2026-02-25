@@ -5,23 +5,31 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { balanceTeams } from "@/lib/team-balancer";
 
-export async function createMatch(formData: FormData) {
+type ActionResult = { success: boolean; error?: string; data?: unknown };
+
+export async function createMatch(formData: FormData): Promise<ActionResult> {
     const supabase = await createClient();
     const {
         data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) return { error: "Not authenticated" };
+    if (!user) return { success: false, error: "Not authenticated" };
 
     const date = formData.get("date") as string;
     const location = formData.get("location") as string;
     const max_players = parseInt(formData.get("max_players") as string, 10);
 
+    if (!date) return { success: false, error: "Date is required" };
+    if (!location || location.trim().length < 2)
+        return { success: false, error: "Location is required" };
+    if (isNaN(max_players) || max_players < 4 || max_players > 30)
+        return { success: false, error: "Max players must be between 4 and 30" };
+
     const { data, error } = await supabase
         .from("matches")
         .insert({
             date,
-            location,
+            location: location.trim(),
             max_players,
             status: "open",
             created_by: user.id,
@@ -29,18 +37,18 @@ export async function createMatch(formData: FormData) {
         .select("id")
         .single();
 
-    if (error) return { error: error.message };
+    if (error) return { success: false, error: error.message };
 
     redirect(`/matches/${data.id}`);
 }
 
-export async function joinMatch(matchId: string) {
+export async function joinMatch(matchId: string): Promise<ActionResult> {
     const supabase = await createClient();
     const {
         data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) return { error: "Not authenticated" };
+    if (!user) return { success: false, error: "Not authenticated" };
 
     // Check if already joined
     const { data: existing } = await supabase
@@ -50,9 +58,9 @@ export async function joinMatch(matchId: string) {
         .eq("user_id", user.id)
         .single();
 
-    if (existing) return { error: "Already joined" };
+    if (existing) return { success: false, error: "You already joined this match" };
 
-    // Check player count
+    // Check player count and match status
     const { count } = await supabase
         .from("match_participants")
         .select("*", { count: "exact", head: true })
@@ -64,29 +72,30 @@ export async function joinMatch(matchId: string) {
         .eq("id", matchId)
         .single();
 
-    if (match?.status !== "open") return { error: "Match is not open" };
-    if (count !== null && match && count >= match.max_players) {
-        return { error: "Match is full" };
-    }
+    if (!match) return { success: false, error: "Match not found" };
+    if (match.status !== "open") return { success: false, error: "Match is not open for joining" };
+    if (count !== null && count >= match.max_players)
+        return { success: false, error: "Match is full" };
 
     const { error } = await supabase
         .from("match_participants")
         .insert({ match_id: matchId, user_id: user.id });
 
-    if (error) return { error: error.message };
+    if (error) return { success: false, error: error.message };
 
     revalidatePath(`/matches/${matchId}`);
     revalidatePath("/");
+    revalidatePath("/matches");
     return { success: true };
 }
 
-export async function leaveMatch(matchId: string) {
+export async function leaveMatch(matchId: string): Promise<ActionResult> {
     const supabase = await createClient();
     const {
         data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) return { error: "Not authenticated" };
+    if (!user) return { success: false, error: "Not authenticated" };
 
     const { error } = await supabase
         .from("match_participants")
@@ -94,20 +103,31 @@ export async function leaveMatch(matchId: string) {
         .eq("match_id", matchId)
         .eq("user_id", user.id);
 
-    if (error) return { error: error.message };
+    if (error) return { success: false, error: error.message };
 
     revalidatePath(`/matches/${matchId}`);
     revalidatePath("/");
+    revalidatePath("/matches");
     return { success: true };
 }
 
-export async function closeMatch(matchId: string) {
+export async function closeMatch(matchId: string): Promise<ActionResult> {
     const supabase = await createClient();
     const {
         data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) return { error: "Not authenticated" };
+    if (!user) return { success: false, error: "Not authenticated" };
+
+    // Verify organizer
+    const { data: match } = await supabase
+        .from("matches")
+        .select("created_by")
+        .eq("id", matchId)
+        .single();
+
+    if (match?.created_by !== user.id)
+        return { success: false, error: "Only the organizer can close this match" };
 
     const { error } = await supabase
         .from("matches")
@@ -115,9 +135,10 @@ export async function closeMatch(matchId: string) {
         .eq("id", matchId)
         .eq("created_by", user.id);
 
-    if (error) return { error: error.message };
+    if (error) return { success: false, error: error.message };
 
     revalidatePath(`/matches/${matchId}`);
+    revalidatePath("/matches");
     return { success: true };
 }
 
@@ -125,13 +146,16 @@ export async function setScore(
     matchId: string,
     teamAScore: number,
     teamBScore: number
-) {
+): Promise<ActionResult> {
     const supabase = await createClient();
     const {
         data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) return { error: "Not authenticated" };
+    if (!user) return { success: false, error: "Not authenticated" };
+
+    if (teamAScore < 0 || teamBScore < 0)
+        return { success: false, error: "Scores cannot be negative" };
 
     const { error } = await supabase
         .from("matches")
@@ -143,20 +167,21 @@ export async function setScore(
         .eq("id", matchId)
         .eq("created_by", user.id);
 
-    if (error) return { error: error.message };
+    if (error) return { success: false, error: error.message };
 
     revalidatePath(`/matches/${matchId}`);
     revalidatePath("/");
+    revalidatePath("/matches");
     return { success: true };
 }
 
-export async function generateTeams(matchId: string) {
+export async function generateTeams(matchId: string): Promise<ActionResult> {
     const supabase = await createClient();
     const {
         data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) return { error: "Not authenticated" };
+    if (!user) return { success: false, error: "Not authenticated" };
 
     // Verify organizer
     const { data: match } = await supabase
@@ -165,9 +190,8 @@ export async function generateTeams(matchId: string) {
         .eq("id", matchId)
         .single();
 
-    if (match?.created_by !== user.id) {
-        return { error: "Only the organizer can generate teams" };
-    }
+    if (match?.created_by !== user.id)
+        return { success: false, error: "Only the organizer can generate teams" };
 
     // Fetch participants with skill levels
     const { data: participants } = await supabase
@@ -175,9 +199,8 @@ export async function generateTeams(matchId: string) {
         .select("user_id, profiles(skill_level)")
         .eq("match_id", matchId);
 
-    if (!participants || participants.length < 2) {
-        return { error: "Need at least 2 players to generate teams" };
-    }
+    if (!participants || participants.length < 2)
+        return { success: false, error: "Need at least 2 players to generate teams" };
 
     const playersWithSkill = participants.map((p) => ({
         user_id: p.user_id,
@@ -185,7 +208,7 @@ export async function generateTeams(matchId: string) {
             (p.profiles as unknown as { skill_level: number })?.skill_level ?? 5,
     }));
 
-    const assignments = balanceTeams(playersWithSkill);
+    const { assignments, balanceScore } = balanceTeams(playersWithSkill);
 
     // Update each participant's team
     for (const assignment of assignments) {
@@ -197,5 +220,8 @@ export async function generateTeams(matchId: string) {
     }
 
     revalidatePath(`/matches/${matchId}`);
-    return { success: true };
+    return {
+        success: true,
+        data: { balanceScore: balanceScore.toFixed(2) },
+    };
 }

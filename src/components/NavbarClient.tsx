@@ -6,7 +6,7 @@ import { useState } from "react";
 import { signOut } from "@/app/login/actions";
 import { Avatar } from "@/components/ui/Avatar";
 import { cn, getAvatarUrl } from "@/lib/utils";
-import { Menu, X, Home, PlusCircle, User, LogOut } from "lucide-react";
+import { Menu, X, Home, PlusCircle, User, LogOut, Trophy } from "lucide-react";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 
 interface NavbarClientProps {
@@ -16,6 +16,7 @@ interface NavbarClientProps {
 
 const navLinks = [
     { href: "/", label: "Dashboard", icon: Home },
+    { href: "/matches", label: "Matches", icon: Trophy },
     { href: "/matches/new", label: "New Match", icon: PlusCircle },
     { href: "/profile", label: "Profile", icon: User },
 ];

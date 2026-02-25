@@ -15,11 +15,17 @@ export default function LoginPage() {
 
         const formData = new FormData(e.currentTarget);
         const action = isSignUp ? signup : login;
-        const result = await action(formData);
 
-        if (result?.error) {
-            setError(result.error);
-            setLoading(false);
+        try {
+            const result = await action(formData);
+            if (result && !result.success) {
+                setError(result.error ?? "Something went wrong");
+                setLoading(false);
+            }
+            // If success, redirect happens server-side (loading stays true)
+        } catch {
+            // redirect() throws a NEXT_REDIRECT error — this is expected
+            // We don't need to handle it
         }
     }
 
@@ -28,7 +34,7 @@ export default function LoginPage() {
             <div className="w-full max-w-md">
                 {/* Logo / Header */}
                 <div className="mb-8 text-center">
-                    <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-[#39FF14]/10 text-3xl">
+                    <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-accent/10 text-3xl">
                         ⚽
                     </div>
                     <h1 className="text-3xl font-bold text-white">Pachanga</h1>
@@ -53,7 +59,7 @@ export default function LoginPage() {
                                 type="email"
                                 required
                                 placeholder="player@example.com"
-                                className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-white placeholder-zinc-500 transition-colors focus:border-[#39FF14] focus:outline-none focus:ring-1 focus:ring-[#39FF14]"
+                                className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-white placeholder-zinc-500 transition-colors focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
                             />
                         </div>
 
@@ -71,7 +77,7 @@ export default function LoginPage() {
                                 required
                                 minLength={6}
                                 placeholder="••••••••"
-                                className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-white placeholder-zinc-500 transition-colors focus:border-[#39FF14] focus:outline-none focus:ring-1 focus:ring-[#39FF14]"
+                                className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-white placeholder-zinc-500 transition-colors focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
                             />
                         </div>
 
@@ -84,8 +90,29 @@ export default function LoginPage() {
                         <button
                             type="submit"
                             disabled={loading}
-                            className="w-full rounded-xl bg-[#39FF14] px-6 py-3.5 text-base font-semibold text-zinc-950 transition-all hover:bg-[#32e012] hover:shadow-lg hover:shadow-[#39FF14]/20 disabled:cursor-not-allowed disabled:opacity-50 active:scale-[0.98]"
+                            className="flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-base font-semibold text-zinc-950 transition-all hover:bg-accent-hover hover:shadow-lg hover:shadow-accent-glow disabled:cursor-not-allowed disabled:opacity-50 active:scale-[0.98]"
                         >
+                            {loading && (
+                                <svg
+                                    className="h-5 w-5 animate-spin"
+                                    viewBox="0 0 24 24"
+                                    fill="none"
+                                >
+                                    <circle
+                                        className="opacity-25"
+                                        cx="12"
+                                        cy="12"
+                                        r="10"
+                                        stroke="currentColor"
+                                        strokeWidth="4"
+                                    />
+                                    <path
+                                        className="opacity-75"
+                                        fill="currentColor"
+                                        d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
+                                    />
+                                </svg>
+                            )}
                             {loading
                                 ? "Loading..."
                                 : isSignUp
@@ -100,7 +127,7 @@ export default function LoginPage() {
                                 setIsSignUp(!isSignUp);
                                 setError(null);
                             }}
-                            className="text-sm text-zinc-400 transition-colors hover:text-[#39FF14]"
+                            className="text-sm text-zinc-400 transition-colors hover:text-accent"
                         >
                             {isSignUp
                                 ? "Already have an account? Sign in"

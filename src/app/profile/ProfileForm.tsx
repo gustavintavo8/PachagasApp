@@ -112,7 +112,7 @@ export function ProfileForm({ userId, profile }: ProfileFormProps) {
                         max="10"
                         value={skillLevel}
                         onChange={(e) => setSkillLevel(parseInt(e.target.value))}
-                        className="w-full accent-[#39FF14]"
+                        className="w-full accent-[#ccff00]"
                     />
                     <div className="flex justify-between text-xs text-muted">
                         <span>Beginner</span>

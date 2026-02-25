@@ -3,41 +3,51 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 
-export async function login(formData: FormData) {
+type ActionResult = { success: boolean; error?: string };
+
+export async function login(formData: FormData): Promise<ActionResult> {
     const supabase = await createClient();
 
-    const data = {
-        email: formData.get("email") as string,
-        password: formData.get("password") as string,
-    };
+    const email = formData.get("email") as string;
+    const password = formData.get("password") as string;
 
-    const { error } = await supabase.auth.signInWithPassword(data);
+    if (!email || !password) {
+        return { success: false, error: "Email and password are required" };
+    }
+
+    const { error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
-        return { error: error.message };
+        return { success: false, error: error.message };
     }
 
     redirect("/");
 }
 
-export async function signup(formData: FormData) {
+export async function signup(formData: FormData): Promise<ActionResult> {
     const supabase = await createClient();
 
-    const data = {
-        email: formData.get("email") as string,
-        password: formData.get("password") as string,
-    };
+    const email = formData.get("email") as string;
+    const password = formData.get("password") as string;
 
-    const { error } = await supabase.auth.signUp(data);
+    if (!email || !password) {
+        return { success: false, error: "Email and password are required" };
+    }
+
+    if (password.length < 6) {
+        return { success: false, error: "Password must be at least 6 characters" };
+    }
+
+    const { error } = await supabase.auth.signUp({ email, password });
 
     if (error) {
-        return { error: error.message };
+        return { success: false, error: error.message };
     }
 
     redirect("/profile");
 }
 
-export async function signOut() {
+export async function signOut(): Promise<void> {
     const supabase = await createClient();
     await supabase.auth.signOut();
     redirect("/login");
