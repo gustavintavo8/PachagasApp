@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useRouter } from "next/navigation";
 import { updateProfile } from "./actions";
 import { AvatarUpload } from "@/components/AvatarUpload";
 import { Button } from "@/components/ui/Button";
@@ -23,14 +24,16 @@ interface ProfileFormProps {
 }
 
 export function ProfileForm({ userId, profile }: ProfileFormProps) {
+    const router = useRouter();
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [skillLevel, setSkillLevel] = useState(profile?.skill_level ?? 5);
+    const [avatarPath, setAvatarPath] = useState<string | null>(profile?.avatar_url ?? null);
 
     const avatarUrl = getAvatarUrl(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        profile?.avatar_url ?? null
+        avatarPath
     );
 
     async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
@@ -47,6 +50,7 @@ export function ProfileForm({ userId, profile }: ProfileFormProps) {
         } else {
             setSuccess(true);
             setTimeout(() => setSuccess(false), 3000);
+            router.refresh();
         }
         setLoading(false);
     }
@@ -58,10 +62,12 @@ export function ProfileForm({ userId, profile }: ProfileFormProps) {
                     uid={userId}
                     url={avatarUrl}
                     fallback={profile?.username || "P"}
+                    onUpload={(storagePath) => setAvatarPath(storagePath)}
                 />
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-6">
+                <input type="hidden" name="avatar_url" value={avatarPath ?? ""} />
                 <Input
                     id="username"
                     name="username"

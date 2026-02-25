@@ -49,7 +49,7 @@ export function AvatarUpload({ uid, url, fallback, onUpload }: AvatarUploadProps
         // Update profile
         await updateAvatar(filePath);
 
-        onUpload?.(data.publicUrl);
+        onUpload?.(filePath);
         setUploading(false);
     }
 

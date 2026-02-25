@@ -12,6 +12,7 @@ import { Button } from "@/components/ui/Button";
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Avatar } from "@/components/ui/Avatar";
 import { Dialog } from "@/components/ui/Dialog";
+import { SoccerPitch } from "@/components/SoccerPitch";
 import { formatDate, getAvatarUrl } from "@/lib/utils";
 import {
     Calendar,
@@ -210,10 +211,7 @@ export function MatchDetail({
 
             {/* Teams Display */}
             {teamsGenerated ? (
-                <div className="grid gap-6 md:grid-cols-2">
-                    <TeamCard team="A" players={teamA} color="accent" />
-                    <TeamCard team="B" players={teamB} color="blue-400" />
-                </div>
+                <SoccerPitch teamA={teamA} teamB={teamB} />
             ) : (
                 <Card>
                     <CardHeader>
