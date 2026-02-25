@@ -145,7 +145,8 @@ export async function closeMatch(matchId: string): Promise<ActionResult> {
 export async function setScore(
     matchId: string,
     teamAScore: number,
-    teamBScore: number
+    teamBScore: number,
+    goalScorers?: { userId: string; goals: number }[]
 ): Promise<ActionResult> {
     const supabase = await createClient();
     const {
@@ -168,6 +169,45 @@ export async function setScore(
         .eq("created_by", user.id);
 
     if (error) return { success: false, error: error.message };
+
+    // Update individual goal scorers if provided
+    if (goalScorers && goalScorers.length > 0) {
+        for (const scorer of goalScorers) {
+            if (scorer.goals > 0) {
+                await supabase
+                    .from("match_participants")
+                    .update({ goals: scorer.goals })
+                    .eq("match_id", matchId)
+                    .eq("user_id", scorer.userId);
+            }
+        }
+    }
+
+    // Update profile stats (matches_played & goals_scored) for all participants
+    const { data: allParticipants } = await supabase
+        .from("match_participants")
+        .select("user_id, goals")
+        .eq("match_id", matchId);
+
+    if (allParticipants) {
+        for (const participant of allParticipants) {
+            const { data: profile } = await supabase
+                .from("profiles")
+                .select("matches_played, goals_scored")
+                .eq("id", participant.user_id)
+                .single();
+
+            if (profile) {
+                await supabase
+                    .from("profiles")
+                    .update({
+                        matches_played: (profile.matches_played ?? 0) + 1,
+                        goals_scored: (profile.goals_scored ?? 0) + (participant.goals ?? 0),
+                    })
+                    .eq("id", participant.user_id);
+            }
+        }
+    }
 
     revalidatePath(`/matches/${matchId}`);
     revalidatePath("/");

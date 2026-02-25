@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import {
     joinMatch,
     leaveMatch,
@@ -24,6 +24,7 @@ import {
     Trophy,
     LogOut as LeaveIcon,
     UserPlus,
+    ChevronDown,
 } from "lucide-react";
 import type { Match, Profile } from "@/lib/types";
 
@@ -53,6 +54,8 @@ export function MatchDetail({
     const [scoreDialogOpen, setScoreDialogOpen] = useState(false);
     const [teamAScore, setTeamAScore] = useState(match.team_a_score ?? 0);
     const [teamBScore, setTeamBScore] = useState(match.team_b_score ?? 0);
+    const [goalScorers, setGoalScorers] = useState<Record<string, number>>({});
+    const [showGoalScorers, setShowGoalScorers] = useState(false);
 
     const isOrganizer = match.created_by === currentUserId;
     const hasJoined = participants.some((p) => p.user_id === currentUserId);
@@ -60,6 +63,19 @@ export function MatchDetail({
     const teamB = participants.filter((p) => p.team === "B");
     const unassigned = participants.filter((p) => !p.team);
     const teamsGenerated = teamA.length > 0 || teamB.length > 0;
+
+    const teamAGoalsAssigned = useMemo(
+        () => teamA.reduce((sum, p) => sum + (goalScorers[p.user_id] ?? 0), 0),
+        [teamA, goalScorers]
+    );
+    const teamBGoalsAssigned = useMemo(
+        () => teamB.reduce((sum, p) => sum + (goalScorers[p.user_id] ?? 0), 0),
+        [teamB, goalScorers]
+    );
+
+    function setPlayerGoals(userId: string, goals: number) {
+        setGoalScorers((prev) => ({ ...prev, [userId]: Math.max(0, goals) }));
+    }
 
     const statusColors = {
         open: "bg-accent/10 text-accent border-accent/30",
@@ -79,7 +95,15 @@ export function MatchDetail({
 
     async function handleSetScore() {
         setLoading("score");
-        const result = await setScore(match.id, teamAScore, teamBScore);
+        const scorers = Object.entries(goalScorers)
+            .filter(([, g]) => g > 0)
+            .map(([userId, goals]) => ({ userId, goals }));
+        const result = await setScore(
+            match.id,
+            teamAScore,
+            teamBScore,
+            scorers.length > 0 ? scorers : undefined
+        );
         if (result?.error) alert(result.error);
         setScoreDialogOpen(false);
         setLoading(null);
@@ -252,6 +276,7 @@ export function MatchDetail({
                 open={scoreDialogOpen}
                 onClose={() => setScoreDialogOpen(false)}
                 title="Set Final Score"
+                className="max-w-lg"
             >
                 <div className="space-y-6">
                     <div className="flex items-center justify-center gap-6">
@@ -277,6 +302,159 @@ export function MatchDetail({
                             />
                         </div>
                     </div>
+
+                    {/* Optional goal scorers section */}
+                    {teamsGenerated && (teamAScore > 0 || teamBScore > 0) && (
+                        <div className="rounded-xl border border-border bg-zinc-900/50">
+                            <button
+                                type="button"
+                                onClick={() => setShowGoalScorers(!showGoalScorers)}
+                                className="flex w-full items-center justify-between px-4 py-3 text-sm font-medium text-muted transition-colors hover:text-foreground"
+                            >
+                                <span>⚽ Asignar goleadores (opcional)</span>
+                                <ChevronDown
+                                    size={16}
+                                    className={`transition-transform duration-200 ${showGoalScorers ? "rotate-180" : ""
+                                        }`}
+                                />
+                            </button>
+
+                            {showGoalScorers && (
+                                <div className="space-y-4 border-t border-border px-4 py-4">
+                                    {/* Team A scorers */}
+                                    {teamA.length > 0 && (
+                                        <div>
+                                            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-accent">
+                                                Team A
+                                                {teamAGoalsAssigned !== teamAScore && (
+                                                    <span className="ml-2 font-normal normal-case text-yellow-400">
+                                                        ({teamAGoalsAssigned}/{teamAScore} asignados)
+                                                    </span>
+                                                )}
+                                            </p>
+                                            <div className="space-y-2">
+                                                {teamA.map((p) => (
+                                                    <div
+                                                        key={p.user_id}
+                                                        className="flex items-center justify-between rounded-lg bg-zinc-800/60 px-3 py-2"
+                                                    >
+                                                        <div className="flex items-center gap-2 min-w-0">
+                                                            <Avatar
+                                                                src={getAvatarUrl(
+                                                                    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+                                                                    p.profiles?.avatar_url ?? null
+                                                                )}
+                                                                fallback={p.profiles?.username || "P"}
+                                                                size="sm"
+                                                            />
+                                                            <span className="text-sm text-foreground truncate">
+                                                                {p.profiles?.username || "Unknown"}
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex items-center gap-1">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    setPlayerGoals(
+                                                                        p.user_id,
+                                                                        (goalScorers[p.user_id] ?? 0) - 1
+                                                                    )
+                                                                }
+                                                                className="flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-700 text-sm text-muted transition-colors hover:bg-zinc-600 hover:text-foreground"
+                                                            >
+                                                                −
+                                                            </button>
+                                                            <span className="w-8 text-center text-sm font-bold text-foreground">
+                                                                {goalScorers[p.user_id] ?? 0}
+                                                            </span>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    setPlayerGoals(
+                                                                        p.user_id,
+                                                                        (goalScorers[p.user_id] ?? 0) + 1
+                                                                    )
+                                                                }
+                                                                className="flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-700 text-sm text-muted transition-colors hover:bg-zinc-600 hover:text-foreground"
+                                                            >
+                                                                +
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+
+                                    {/* Team B scorers */}
+                                    {teamB.length > 0 && (
+                                        <div>
+                                            <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-blue-400">
+                                                Team B
+                                                {teamBGoalsAssigned !== teamBScore && (
+                                                    <span className="ml-2 font-normal normal-case text-yellow-400">
+                                                        ({teamBGoalsAssigned}/{teamBScore} asignados)
+                                                    </span>
+                                                )}
+                                            </p>
+                                            <div className="space-y-2">
+                                                {teamB.map((p) => (
+                                                    <div
+                                                        key={p.user_id}
+                                                        className="flex items-center justify-between rounded-lg bg-zinc-800/60 px-3 py-2"
+                                                    >
+                                                        <div className="flex items-center gap-2 min-w-0">
+                                                            <Avatar
+                                                                src={getAvatarUrl(
+                                                                    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+                                                                    p.profiles?.avatar_url ?? null
+                                                                )}
+                                                                fallback={p.profiles?.username || "P"}
+                                                                size="sm"
+                                                            />
+                                                            <span className="text-sm text-foreground truncate">
+                                                                {p.profiles?.username || "Unknown"}
+                                                            </span>
+                                                        </div>
+                                                        <div className="flex items-center gap-1">
+                                                            <button
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    setPlayerGoals(
+                                                                        p.user_id,
+                                                                        (goalScorers[p.user_id] ?? 0) - 1
+                                                                    )
+                                                                }
+                                                                className="flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-700 text-sm text-muted transition-colors hover:bg-zinc-600 hover:text-foreground"
+                                                            >
+                                                                −
+                                                            </button>
+                                                            <span className="w-8 text-center text-sm font-bold text-foreground">
+                                                                {goalScorers[p.user_id] ?? 0}
+                                                            </span>
+                                                            <button
+                                                                type="button"
+                                                                onClick={() =>
+                                                                    setPlayerGoals(
+                                                                        p.user_id,
+                                                                        (goalScorers[p.user_id] ?? 0) + 1
+                                                                    )
+                                                                }
+                                                                className="flex h-7 w-7 items-center justify-center rounded-lg bg-zinc-700 text-sm text-muted transition-colors hover:bg-zinc-600 hover:text-foreground"
+                                                            >
+                                                                +
+                                                            </button>
+                                                        </div>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                </div>
+                            )}
+                        </div>
+                    )}
+
                     <Button
                         onClick={handleSetScore}
                         loading={loading === "score"}
@@ -366,6 +544,11 @@ function PlayerRow({ participant }: { participant: Participant }) {
                     )}
                 </div>
             </div>
+            {participant.goals > 0 && (
+                <span className="flex items-center gap-0.5 rounded-full bg-accent/10 px-2 py-0.5 text-xs font-medium text-accent">
+                    ⚽ ×{participant.goals}
+                </span>
+            )}
             {participant.is_mvp && (
                 <span className="text-yellow-400 text-xs">🏅 MVP</span>
             )}
