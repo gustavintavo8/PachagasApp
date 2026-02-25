@@ -1,0 +1,26 @@
+import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
+import { ProfileForm } from "./ProfileForm";
+
+export default async function ProfilePage() {
+    const supabase = await createClient();
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) redirect("/login");
+
+    const { data: profile } = await supabase
+        .from("profiles")
+        .select("*")
+        .eq("id", user.id)
+        .single();
+
+    return (
+        <div className="mx-auto max-w-lg px-4 py-8">
+            <h1 className="mb-2 text-2xl font-bold text-foreground">Your Profile</h1>
+            <p className="mb-8 text-muted">Set up your player info</p>
+            <ProfileForm userId={user.id} profile={profile} />
+        </div>
+    );
+}

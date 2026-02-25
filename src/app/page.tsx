@@ -1,65 +1,223 @@
-import Image from "next/image";
+import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
+import Link from "next/link";
+import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
+import { Button } from "@/components/ui/Button";
+import { Avatar } from "@/components/ui/Avatar";
+import { formatDate, getTimeUntil, getAvatarUrl } from "@/lib/utils";
+import {
+  Calendar,
+  MapPin,
+  Users,
+  Trophy,
+  Target,
+  PlusCircle,
+  Clock,
+} from "lucide-react";
 
-export default function Home() {
+export default async function Dashboard() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) redirect("/login");
+
+  // Fetch user profile
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("*")
+    .eq("id", user.id)
+    .single();
+
+  // Fetch open matches
+  const { data: openMatches } = await supabase
+    .from("matches")
+    .select("*, match_participants(user_id)")
+    .eq("status", "open")
+    .gte("date", new Date().toISOString())
+    .order("date", { ascending: true });
+
+  // Find the next match the user is part of
+  const { data: userParticipations } = await supabase
+    .from("match_participants")
+    .select("match_id, matches(*)")
+    .eq("user_id", user.id);
+
+  const nextMatch = userParticipations
+    ?.map((p) => p.matches as unknown as (typeof openMatches extends (infer T)[] | null ? T : never))
+    .filter((m) => m && new Date(m.date) > new Date() && m.status !== "finished")
+    .sort((a, b) => new Date(a!.date).getTime() - new Date(b!.date).getTime())[0];
+
+  const avatarUrl = getAvatarUrl(
+    process.env.NEXT_PUBLIC_SUPABASE_URL!,
+    profile?.avatar_url ?? null
+  );
+
   return (
-    <div className="flex min-h-screen items-center justify-center bg-zinc-50 font-sans dark:bg-black">
-      <main className="flex min-h-screen w-full max-w-3xl flex-col items-center justify-between py-32 px-16 bg-white dark:bg-black sm:items-start">
-        <Image
-          className="dark:invert"
-          src="/next.svg"
-          alt="Next.js logo"
-          width={100}
-          height={20}
-          priority
-        />
-        <div className="flex flex-col items-center gap-6 text-center sm:items-start sm:text-left">
-          <h1 className="max-w-xs text-3xl font-semibold leading-10 tracking-tight text-black dark:text-zinc-50">
-            To get started, edit the page.tsx file.
-          </h1>
-          <p className="max-w-md text-lg leading-8 text-zinc-600 dark:text-zinc-400">
-            Looking for a starting point or more instructions? Head over to{" "}
-            <a
-              href="https://vercel.com/templates?framework=next.js&utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Templates
-            </a>{" "}
-            or the{" "}
-            <a
-              href="https://nextjs.org/learn?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-              className="font-medium text-zinc-950 dark:text-zinc-50"
-            >
-              Learning
-            </a>{" "}
-            center.
+    <div className="mx-auto max-w-5xl px-4 py-8">
+      {/* Welcome Header */}
+      <div className="mb-8 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <Avatar
+            src={avatarUrl}
+            fallback={profile?.username || user.email || "P"}
+            size="lg"
+          />
+          <div>
+            <h1 className="text-2xl font-bold text-foreground">
+              Hey, {profile?.username || "Player"} 👋
+            </h1>
+            <p className="text-muted">Ready for the next pachanga?</p>
+          </div>
+        </div>
+        <Link href="/matches/new">
+          <Button size="lg">
+            <PlusCircle size={18} />
+            New Match
+          </Button>
+        </Link>
+      </div>
+
+      <div className="grid gap-6 md:grid-cols-3">
+        {/* Stats Cards */}
+        <Card className="relative overflow-hidden">
+          <div className="absolute right-4 top-4 text-accent/20">
+            <Trophy size={48} />
+          </div>
+          <p className="text-sm text-muted">Matches Played</p>
+          <p className="mt-1 text-3xl font-bold text-foreground">
+            {profile?.matches_played ?? 0}
           </p>
+        </Card>
+
+        <Card className="relative overflow-hidden">
+          <div className="absolute right-4 top-4 text-accent/20">
+            <Target size={48} />
+          </div>
+          <p className="text-sm text-muted">Goals Scored</p>
+          <p className="mt-1 text-3xl font-bold text-foreground">
+            {profile?.goals_scored ?? 0}
+          </p>
+        </Card>
+
+        <Card className="relative overflow-hidden">
+          <div className="absolute right-4 top-4 text-accent/20">
+            <Clock size={48} />
+          </div>
+          <p className="text-sm text-muted">Next Match</p>
+          {nextMatch ? (
+            <p className="mt-1 text-3xl font-bold text-accent">
+              {getTimeUntil(nextMatch.date)}
+            </p>
+          ) : (
+            <p className="mt-1 text-lg text-muted">None yet</p>
+          )}
+        </Card>
+      </div>
+
+      {/* Next Match Highlight */}
+      {nextMatch && (
+        <div className="mt-8">
+          <h2 className="mb-4 text-lg font-semibold text-foreground">
+            ⚡ Your Next Match
+          </h2>
+          <Link href={`/matches/${nextMatch.id}`}>
+            <Card className="border-accent/30 bg-accent/5 transition-colors hover:bg-accent/10">
+              <div className="flex items-center justify-between">
+                <div className="space-y-2">
+                  <div className="flex items-center gap-2 text-accent">
+                    <Calendar size={16} />
+                    <span className="font-medium">
+                      {formatDate(nextMatch.date)}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 text-muted">
+                    <MapPin size={16} />
+                    <span>{nextMatch.location}</span>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="text-3xl font-bold text-accent">
+                    {getTimeUntil(nextMatch.date)}
+                  </p>
+                  <p className="text-xs text-muted">until kickoff</p>
+                </div>
+              </div>
+            </Card>
+          </Link>
         </div>
-        <div className="flex flex-col gap-4 text-base font-medium sm:flex-row">
-          <a
-            className="flex h-12 w-full items-center justify-center gap-2 rounded-full bg-foreground px-5 text-background transition-colors hover:bg-[#383838] dark:hover:bg-[#ccc] md:w-[158px]"
-            href="https://vercel.com/new?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            <Image
-              className="dark:invert"
-              src="/vercel.svg"
-              alt="Vercel logomark"
-              width={16}
-              height={16}
-            />
-            Deploy Now
-          </a>
-          <a
-            className="flex h-12 w-full items-center justify-center rounded-full border border-solid border-black/[.08] px-5 transition-colors hover:border-transparent hover:bg-black/[.04] dark:border-white/[.145] dark:hover:bg-[#1a1a1a] md:w-[158px]"
-            href="https://nextjs.org/docs?utm_source=create-next-app&utm_medium=appdir-template-tw&utm_campaign=create-next-app"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            Documentation
-          </a>
-        </div>
-      </main>
+      )}
+
+      {/* Open Matches */}
+      <div className="mt-8">
+        <h2 className="mb-4 text-lg font-semibold text-foreground">
+          🏟️ Open Matches
+        </h2>
+        {openMatches && openMatches.length > 0 ? (
+          <div className="grid gap-4 sm:grid-cols-2">
+            {openMatches.map((match) => {
+              const playerCount = (
+                match.match_participants as { user_id: string }[]
+              ).length;
+              const isFull = playerCount >= match.max_players;
+              const hasJoined = (
+                match.match_participants as { user_id: string }[]
+              ).some((p) => p.user_id === user.id);
+
+              return (
+                <Link key={match.id} href={`/matches/${match.id}`}>
+                  <Card className="h-full transition-all hover:border-border-hover hover:bg-surface-hover">
+                    <div className="mb-3 flex items-start justify-between">
+                      <div>
+                        <div className="flex items-center gap-2 text-sm text-muted">
+                          <Calendar size={14} />
+                          {formatDate(match.date)}
+                        </div>
+                        <div className="mt-1 flex items-center gap-2 text-foreground">
+                          <MapPin size={14} />
+                          <span className="font-medium">{match.location}</span>
+                        </div>
+                      </div>
+                      {hasJoined && (
+                        <span className="rounded-full bg-accent/10 px-2 py-0.5 text-xs font-medium text-accent">
+                          Joined
+                        </span>
+                      )}
+                    </div>
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-2 text-sm text-muted">
+                        <Users size={14} />
+                        <span>
+                          {playerCount}/{match.max_players} players
+                        </span>
+                      </div>
+                      {isFull ? (
+                        <span className="text-xs font-medium text-red-400">
+                          Full
+                        </span>
+                      ) : (
+                        <span className="text-xs font-medium text-accent">
+                          Open
+                        </span>
+                      )}
+                    </div>
+                  </Card>
+                </Link>
+              );
+            })}
+          </div>
+        ) : (
+          <Card className="text-center">
+            <p className="text-muted">No open matches right now.</p>
+            <Link href="/matches/new" className="mt-2 inline-block">
+              <Button variant="outline" size="sm">
+                Create one
+              </Button>
+            </Link>
+          </Card>
+        )}
+      </div>
     </div>
   );
 }
