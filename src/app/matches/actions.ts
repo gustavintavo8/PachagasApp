@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { balanceTeams } from "@/lib/team-balancer";
@@ -170,41 +171,48 @@ export async function setScore(
 
     if (error) return { success: false, error: error.message };
 
+    // Use admin client for all participant-level updates (bypasses RLS)
+    const adminSupabase = createAdminClient();
+
     // Update individual goal scorers if provided
     if (goalScorers && goalScorers.length > 0) {
         for (const scorer of goalScorers) {
             if (scorer.goals > 0) {
-                await supabase
+                const { error: scorerError } = await adminSupabase
                     .from("match_participants")
                     .update({ goals: scorer.goals })
                     .eq("match_id", matchId)
                     .eq("user_id", scorer.userId);
+                if (scorerError) console.error("Error updating scorer:", scorer.userId, scorerError.message);
             }
         }
     }
 
     // Update profile stats (matches_played & goals_scored) for all participants
-    const { data: allParticipants } = await supabase
+    const { data: allParticipants, error: fetchError } = await adminSupabase
         .from("match_participants")
         .select("user_id, goals")
         .eq("match_id", matchId);
 
+    if (fetchError) console.error("Error fetching participants:", fetchError.message);
+
     if (allParticipants) {
         for (const participant of allParticipants) {
-            const { data: profile } = await supabase
+            const { data: profile } = await adminSupabase
                 .from("profiles")
                 .select("matches_played, goals_scored")
                 .eq("id", participant.user_id)
                 .single();
 
             if (profile) {
-                await supabase
+                const { error: updateError } = await adminSupabase
                     .from("profiles")
                     .update({
                         matches_played: (profile.matches_played ?? 0) + 1,
                         goals_scored: (profile.goals_scored ?? 0) + (participant.goals ?? 0),
                     })
                     .eq("id", participant.user_id);
+                if (updateError) console.error("Error updating profile:", participant.user_id, updateError.message);
             }
         }
     }
