@@ -1,6 +1,6 @@
 <div align="center">
 
-# ⚽ Pachanga
+# <img src="public/icon-192.png" width="40" alt="Pachanga Icon"> Pachanga
 
 **La app definitiva para organizar tus pachangas de fútbol.**
 
@@ -29,7 +29,7 @@
 |---------|-------------|
 | 🔐 **Autenticación** | Email/contraseña + Google OAuth via Supabase Auth |
 | 👤 **Perfiles** | Avatar, posición, nivel de habilidad, estadísticas |
-| ⚽ **Gestión de Partidos** | Crear, unirse, abandonar, cerrar y finalizar partidos |
+| <img src="public/icon-192.png" width="20" alt="Pachanga Icon"> **Gestión de Partidos** | Crear, unirse, abandonar, cerrar y finalizar partidos |
 | ⚖️ **Generador de Equipos** | Algoritmo de balanceo por nivel de habilidad |
 | 🏟️ **Cancha Visual** | Representación visual del campo con posiciones de jugadores |
 | 📊 **Resultado y Goleadores** | Registro de marcador y goles individuales |
@@ -216,5 +216,5 @@ MIT © Pachanga
 ---
 
 <div align="center">
-  <sub>Built with ☕ and ⚽ for futboleros everywhere.</sub>
+  <sub>Built with ☕ and <img src="public/icon-192.png" width="16" alt="Pachanga Icon"> for futboleros everywhere.</sub>
 </div>
