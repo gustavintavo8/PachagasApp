@@ -11,38 +11,35 @@ export async function GET(request: Request) {
         const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
         if (!error && data.user) {
-            // Check if profile exists, if not create it
-            const { data: existingProfile } = await supabase
-                .from("profiles")
-                .select("id")
-                .eq("id", data.user.id)
-                .single();
+            // Extract name from OAuth metadata
+            const meta = data.user.user_metadata;
+            const username =
+                meta?.full_name ||
+                meta?.name ||
+                meta?.preferred_username ||
+                data.user.email?.split("@")[0] ||
+                "Jugador";
+            const avatarUrl = meta?.avatar_url || meta?.picture || null;
+            const email = data.user.email;
 
-            if (!existingProfile) {
-                // Extract name from OAuth metadata
-                const meta = data.user.user_metadata;
-                const username =
-                    meta?.full_name ||
-                    meta?.name ||
-                    meta?.preferred_username ||
-                    data.user.email?.split("@")[0] ||
-                    "Jugador";
-                const avatarUrl = meta?.avatar_url || meta?.picture || null;
+            // Use admin client to bypass RLS and perform an upsert
+            const adminClient = createAdminClient();
 
-                const adminClient = createAdminClient();
-                const { error: insertError } = await adminClient.from("profiles").insert({
-                    id: data.user.id,
-                    username,
-                    avatar_url: avatarUrl,
-                    position: null,
-                    skill_level: 5,
-                    matches_played: 0,
-                    goals_scored: 0,
-                });
+            // We use upsert so that if a DB trigger already created the basic row,
+            // we overwrite it with the rich Google data (name, avatar, email)
+            const { error: upsertError } = await adminClient.from("profiles").upsert({
+                id: data.user.id,
+                username,
+                avatar_url: avatarUrl,
+                email: email, // Save the email if the column exists
+                position: null,
+                skill_level: 5,
+                matches_played: 0,
+                goals_scored: 0,
+            }, { onConflict: 'id' });
 
-                if (insertError) {
-                    console.error("Error creating profile:", insertError);
-                }
+            if (upsertError) {
+                console.error("Error upserting profile:", upsertError);
             }
 
             return NextResponse.redirect(`${origin}/`);
