@@ -11,35 +11,54 @@ export async function GET(request: Request) {
         const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
         if (!error && data.user) {
-            // Extract name from OAuth metadata
+            // Check if profile exists
+            const { data: existingProfile } = await supabase
+                .from("profiles")
+                .select("*")
+                .eq("id", data.user.id)
+                .single();
+
             const meta = data.user.user_metadata;
-            const username =
+            const googleUsername =
                 meta?.full_name ||
                 meta?.name ||
                 meta?.preferred_username ||
                 data.user.email?.split("@")[0] ||
                 "Jugador";
-            const avatarUrl = meta?.avatar_url || meta?.picture || null;
+            const googleAvatarUrl = meta?.avatar_url || meta?.picture || null;
             const email = data.user.email;
 
-            // Use admin client to bypass RLS and perform an upsert
             const adminClient = createAdminClient();
 
-            // We use upsert so that if a DB trigger already created the basic row,
-            // we overwrite it with the rich Google data (name, avatar, email)
-            const { error: upsertError } = await adminClient.from("profiles").upsert({
-                id: data.user.id,
-                username,
-                avatar_url: avatarUrl,
-                email: email, // Save the email if the column exists
-                position: null,
-                skill_level: 5,
-                matches_played: 0,
-                goals_scored: 0,
-            }, { onConflict: 'id' });
+            if (!existingProfile) {
+                // User has no profile at all, create it
+                const { error: insertError } = await adminClient.from("profiles").insert({
+                    id: data.user.id,
+                    username: googleUsername,
+                    avatar_url: googleAvatarUrl,
+                    email: email,
+                    position: null,
+                    skill_level: 5,
+                    matches_played: 0,
+                    goals_scored: 0,
+                });
 
-            if (upsertError) {
-                console.error("Error upserting profile:", upsertError);
+                if (insertError) {
+                    console.error("Error creating profile:", insertError);
+                }
+            } else {
+                // Profile exists. Only update if it's an empty/default profile (e.g. created by DB trigger)
+                // We check if matches_played is 0 and there's no custom avatar yet
+                if (existingProfile.matches_played === 0 && !existingProfile.avatar_url) {
+                    await adminClient.from("profiles").update({
+                        username: existingProfile.username && existingProfile.username !== "Jugador" ? existingProfile.username : googleUsername,
+                        avatar_url: googleAvatarUrl,
+                        email: existingProfile.email || email,
+                    }).eq("id", data.user.id);
+                } else if (!existingProfile.email && email) {
+                    // Just patch the email if it's missing but everything else is fine
+                    await adminClient.from("profiles").update({ email }).eq("id", data.user.id);
+                }
             }
 
             return NextResponse.redirect(`${origin}/`);
