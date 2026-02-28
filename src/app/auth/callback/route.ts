@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
@@ -28,7 +29,8 @@ export async function GET(request: Request) {
                     "Jugador";
                 const avatarUrl = meta?.avatar_url || meta?.picture || null;
 
-                await supabase.from("profiles").insert({
+                const adminClient = createAdminClient();
+                const { error: insertError } = await adminClient.from("profiles").insert({
                     id: data.user.id,
                     username,
                     avatar_url: avatarUrl,
@@ -37,6 +39,10 @@ export async function GET(request: Request) {
                     matches_played: 0,
                     goals_scored: 0,
                 });
+
+                if (insertError) {
+                    console.error("Error creating profile:", insertError);
+                }
             }
 
             return NextResponse.redirect(`${origin}/`);
