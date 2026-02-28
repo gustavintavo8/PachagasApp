@@ -1,6 +1,6 @@
 <div align="center">
 
-# <img src="public/icon-192.png" width="40" alt="Pachanga Icon"> Pachanga
+<img src="public/banner.png" alt="Pachangas App Banner" width="100%">
 
 **La app definitiva para organizar tus pachangas de fútbol.**
 
@@ -25,6 +25,7 @@
 ## ✨ Características
 
 ### Core
+
 | Feature | Descripción |
 |---------|-------------|
 | 🔐 **Autenticación** | Email/contraseña + Google OAuth via Supabase Auth |
@@ -35,6 +36,7 @@
 | 📊 **Resultado y Goleadores** | Registro de marcador y goles individuales |
 
 ### Social
+
 | Feature | Descripción |
 |---------|-------------|
 | 💬 **Chat por Partido** | Mensajería en tiempo real con Supabase Realtime |
@@ -44,6 +46,7 @@
 | 📤 **Compartir Partido** | Enlace directo, WhatsApp y Telegram |
 
 ### Analytics & Discovery
+
 | Feature | Descripción |
 |---------|-------------|
 | 📈 **Gráficas de Jugador** | Goles/mes (barras) + evolución de winrate (área) |
@@ -53,6 +56,7 @@
 | 👥 **Directorio de Jugadores** | Browse de todos los usuarios con stats y perfil |
 
 ### Plataforma
+
 | Feature | Descripción |
 |---------|-------------|
 | 📱 **PWA** | Instalable como app nativa (manifest + service worker) |
