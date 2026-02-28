@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
+import { headers } from "next/headers";
 
 type ActionResult = { success: boolean; error?: string };
 
@@ -12,7 +13,7 @@ export async function login(formData: FormData): Promise<ActionResult> {
     const password = formData.get("password") as string;
 
     if (!email || !password) {
-        return { success: false, error: "Email and password are required" };
+        return { success: false, error: "Email y contraseña son obligatorios" };
     }
 
     const { error } = await supabase.auth.signInWithPassword({ email, password });
@@ -31,11 +32,11 @@ export async function signup(formData: FormData): Promise<ActionResult> {
     const password = formData.get("password") as string;
 
     if (!email || !password) {
-        return { success: false, error: "Email and password are required" };
+        return { success: false, error: "Email y contraseña son obligatorios" };
     }
 
     if (password.length < 6) {
-        return { success: false, error: "Password must be at least 6 characters" };
+        return { success: false, error: "La contraseña debe tener al menos 6 caracteres" };
     }
 
     const { error } = await supabase.auth.signUp({ email, password });
@@ -45,6 +46,25 @@ export async function signup(formData: FormData): Promise<ActionResult> {
     }
 
     redirect("/profile");
+}
+
+export async function signInWithOAuth(provider: "google" | "apple"): Promise<{ url?: string; error?: string }> {
+    const supabase = await createClient();
+    const headersList = await headers();
+    const origin = headersList.get("origin") || headersList.get("x-forwarded-host") || "http://localhost:3000";
+
+    const { data, error } = await supabase.auth.signInWithOAuth({
+        provider,
+        options: {
+            redirectTo: `${origin}/auth/callback`,
+        },
+    });
+
+    if (error) {
+        return { error: error.message };
+    }
+
+    return { url: data.url };
 }
 
 export async function signOut(): Promise<void> {

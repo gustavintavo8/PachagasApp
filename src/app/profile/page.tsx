@@ -1,6 +1,12 @@
+import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { ProfileForm } from "./ProfileForm";
+
+export const metadata: Metadata = {
+    title: "Perfil — Pachanga",
+    description: "Configura tu perfil de jugador.",
+};
 
 export default async function ProfilePage() {
     const supabase = await createClient();
@@ -18,8 +24,8 @@ export default async function ProfilePage() {
 
     return (
         <div className="mx-auto max-w-lg px-4 py-8">
-            <h1 className="mb-2 text-2xl font-bold text-foreground">Your Profile</h1>
-            <p className="mb-8 text-muted">Set up your player info</p>
+            <h1 className="mb-2 text-2xl font-bold text-foreground">Tu Perfil</h1>
+            <p className="mb-8 text-muted">Configura tu info de jugador</p>
             <ProfileForm userId={user.id} profile={profile} />
         </div>
     );

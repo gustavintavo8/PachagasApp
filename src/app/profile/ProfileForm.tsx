@@ -12,10 +12,10 @@ import type { Profile } from "@/lib/types";
 
 const positions = ["GK", "DEF", "MID", "FWD"] as const;
 const positionLabels: Record<string, string> = {
-    GK: "🧤 Goalkeeper",
-    DEF: "🛡️ Defender",
-    MID: "🎯 Midfielder",
-    FWD: "⚡ Forward",
+    GK: "🧤 Portero",
+    DEF: "🛡️ Defensa",
+    MID: "🎯 Centrocampista",
+    FWD: "⚡ Delantero",
 };
 
 interface ProfileFormProps {
@@ -71,8 +71,8 @@ export function ProfileForm({ userId, profile }: ProfileFormProps) {
                 <Input
                     id="username"
                     name="username"
-                    label="Nickname"
-                    placeholder="e.g. CR7, Messi, Fumble King"
+                    label="Apodo"
+                    placeholder="ej. CR7, Messi, Fumble King"
                     defaultValue={profile?.username ?? ""}
                     required
                 />
@@ -80,7 +80,7 @@ export function ProfileForm({ userId, profile }: ProfileFormProps) {
                 {/* Position Select */}
                 <div className="space-y-2">
                     <label className="block text-sm font-medium text-zinc-300">
-                        Position
+                        Posición
                     </label>
                     <div className="grid grid-cols-2 gap-2">
                         {positions.map((pos) => (
@@ -107,7 +107,7 @@ export function ProfileForm({ userId, profile }: ProfileFormProps) {
                 {/* Skill Level Slider */}
                 <div className="space-y-2">
                     <label className="block text-sm font-medium text-zinc-300">
-                        Skill Level:{" "}
+                        Nivel:{" "}
                         <span className="text-accent font-bold">{skillLevel}</span>
                         <span className="text-muted"> / 10</span>
                     </label>
@@ -121,7 +121,7 @@ export function ProfileForm({ userId, profile }: ProfileFormProps) {
                         className="w-full accent-[#ccff00]"
                     />
                     <div className="flex justify-between text-xs text-muted">
-                        <span>Beginner</span>
+                        <span>Principiante</span>
                         <span>Pro</span>
                     </div>
                 </div>
@@ -134,12 +134,12 @@ export function ProfileForm({ userId, profile }: ProfileFormProps) {
 
                 {success && (
                     <div className="rounded-lg border border-accent/30 bg-accent/10 px-4 py-3 text-sm text-accent">
-                        ✅ Profile updated!
+                        ✅ ¡Perfil actualizado!
                     </div>
                 )}
 
                 <Button type="submit" loading={loading} size="lg" className="w-full">
-                    Save Profile
+                    Guardar Perfil
                 </Button>
             </form>
         </Card>

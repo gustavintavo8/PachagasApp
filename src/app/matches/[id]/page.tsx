@@ -34,12 +34,22 @@ export default async function MatchPage({
         .eq("id", match.created_by)
         .single();
 
+    const { data: currentProfile } = await supabase
+        .from("profiles")
+        .select("username, avatar_url")
+        .eq("id", user.id)
+        .single();
+
     return (
         <MatchDetail
             match={match}
             participants={participants || []}
             currentUserId={user.id}
             organizerName={organizerProfile?.username || "Unknown"}
+            currentUserProfile={{
+                username: currentProfile?.username ?? null,
+                avatar_url: currentProfile?.avatar_url ?? null,
+            }}
         />
     );
 }

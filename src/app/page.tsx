@@ -66,9 +66,9 @@ export default async function Dashboard() {
           />
           <div>
             <h1 className="text-2xl font-bold text-foreground">
-              Hey, {profile?.username || "Player"} 👋
+              Hola, {profile?.username || "Jugador"} 👋
             </h1>
-            <p className="text-muted">Ready for the next pachanga?</p>
+            <p className="text-muted">¿Listo para la próxima pachanga?</p>
           </div>
         </div>
         <Link href="/matches/new">
@@ -85,7 +85,7 @@ export default async function Dashboard() {
           <div className="absolute right-4 top-4 text-accent/20">
             <Trophy size={48} />
           </div>
-          <p className="text-sm text-muted">Matches Played</p>
+          <p className="text-sm text-muted">Partidos Jugados</p>
           <p className="mt-1 text-3xl font-bold text-foreground">
             {profile?.matches_played ?? 0}
           </p>
@@ -95,7 +95,7 @@ export default async function Dashboard() {
           <div className="absolute right-4 top-4 text-accent/20">
             <Target size={48} />
           </div>
-          <p className="text-sm text-muted">Goals Scored</p>
+          <p className="text-sm text-muted">Goles Marcados</p>
           <p className="mt-1 text-3xl font-bold text-foreground">
             {profile?.goals_scored ?? 0}
           </p>
@@ -105,13 +105,13 @@ export default async function Dashboard() {
           <div className="absolute right-4 top-4 text-accent/20">
             <Clock size={48} />
           </div>
-          <p className="text-sm text-muted">Next Match</p>
+          <p className="text-sm text-muted">Próximo Partido</p>
           {nextMatch ? (
             <p className="mt-1 text-3xl font-bold text-accent">
               {getTimeUntil(nextMatch.date)}
             </p>
           ) : (
-            <p className="mt-1 text-lg text-muted">None yet</p>
+            <p className="mt-1 text-lg text-muted">Ninguno aún</p>
           )}
         </Card>
       </div>
@@ -120,7 +120,7 @@ export default async function Dashboard() {
       {nextMatch && (
         <div className="mt-8">
           <h2 className="mb-4 text-lg font-semibold text-foreground">
-            ⚡ Your Next Match
+            ⚡ Tu Próximo Partido
           </h2>
           <Link href={`/matches/${nextMatch.id}`}>
             <Card className="border-accent/30 bg-accent/5 transition-colors hover:bg-accent/10">
@@ -141,7 +141,7 @@ export default async function Dashboard() {
                   <p className="text-3xl font-bold text-accent">
                     {getTimeUntil(nextMatch.date)}
                   </p>
-                  <p className="text-xs text-muted">until kickoff</p>
+                  <p className="text-xs text-muted">para el pitido inicial</p>
                 </div>
               </div>
             </Card>
@@ -152,7 +152,7 @@ export default async function Dashboard() {
       {/* Open Matches */}
       <div className="mt-8">
         <h2 className="mb-4 text-lg font-semibold text-foreground">
-          🏟️ Open Matches
+          🏟️ Partidos Abiertos
         </h2>
         {openMatches && openMatches.length > 0 ? (
           <div className="grid gap-4 sm:grid-cols-2">
@@ -181,7 +181,7 @@ export default async function Dashboard() {
                       </div>
                       {hasJoined && (
                         <span className="rounded-full bg-accent/10 px-2 py-0.5 text-xs font-medium text-accent">
-                          Joined
+                          Apuntado
                         </span>
                       )}
                     </div>
@@ -189,7 +189,7 @@ export default async function Dashboard() {
                       <div className="flex items-center gap-2 text-sm text-muted">
                         <Users size={14} />
                         <span>
-                          {playerCount}/{match.max_players} players
+                          {playerCount}/{match.max_players} jugadores
                         </span>
                       </div>
                       {isFull ? (
@@ -198,7 +198,7 @@ export default async function Dashboard() {
                         </span>
                       ) : (
                         <span className="text-xs font-medium text-accent">
-                          Open
+                          Abierto
                         </span>
                       )}
                     </div>
@@ -209,10 +209,10 @@ export default async function Dashboard() {
           </div>
         ) : (
           <Card className="text-center">
-            <p className="text-muted">No open matches right now.</p>
+            <p className="text-muted">No hay partidos abiertos ahora mismo.</p>
             <Link href="/matches/new" className="mt-2 inline-block">
               <Button variant="outline" size="sm">
-                Create one
+                Crea uno
               </Button>
             </Link>
           </Card>

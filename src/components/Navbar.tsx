@@ -1,5 +1,6 @@
 import { createClient } from "@/lib/supabase/server";
 import { NavbarClient } from "./NavbarClient";
+import { NotificationBell } from "./NotificationBell";
 
 export async function Navbar() {
     const supabase = await createClient();
@@ -17,5 +18,7 @@ export async function Navbar() {
         profile = data;
     }
 
-    return <NavbarClient user={user} profile={profile} />;
+    return <NavbarClient user={user} profile={profile}>
+        {user && <NotificationBell userId={user.id} />}
+    </NavbarClient>;
 }

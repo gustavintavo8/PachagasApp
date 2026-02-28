@@ -5,8 +5,29 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { balanceTeams } from "@/lib/team-balancer";
+import { rateLimit } from "@/lib/rate-limit";
 
 type ActionResult = { success: boolean; error?: string; data?: unknown };
+
+async function sendNotification(
+    userIds: string[],
+    type: string,
+    title: string,
+    message: string,
+    matchId?: string
+) {
+    if (userIds.length === 0) return;
+    const admin = createAdminClient();
+    const rows = userIds.map((uid) => ({
+        user_id: uid,
+        type,
+        title,
+        message,
+        match_id: matchId ?? null,
+    }));
+    const { error } = await admin.from("notifications").insert(rows);
+    if (error) console.error("Error sending notifications:", error.message);
+}
 
 export async function createMatch(formData: FormData): Promise<ActionResult> {
     const supabase = await createClient();
@@ -15,6 +36,9 @@ export async function createMatch(formData: FormData): Promise<ActionResult> {
     } = await supabase.auth.getUser();
 
     if (!user) return { success: false, error: "Not authenticated" };
+
+    const { allowed } = rateLimit(`create-match:${user.id}`, 5, 60_000);
+    if (!allowed) return { success: false, error: "Demasiadas acciones. Espera un momento." };
 
     const date = formData.get("date") as string;
     const location = formData.get("location") as string;
@@ -83,6 +107,27 @@ export async function joinMatch(matchId: string): Promise<ActionResult> {
         .insert({ match_id: matchId, user_id: user.id });
 
     if (error) return { success: false, error: error.message };
+
+    // Notify the organizer that someone joined
+    const { data: joinerProfile } = await supabase
+        .from("profiles")
+        .select("username")
+        .eq("id", user.id)
+        .single();
+    const { data: matchForNotif } = await supabase
+        .from("matches")
+        .select("created_by, location")
+        .eq("id", matchId)
+        .single();
+    if (matchForNotif && matchForNotif.created_by !== user.id) {
+        sendNotification(
+            [matchForNotif.created_by],
+            "join",
+            "Nuevo jugador",
+            `${joinerProfile?.username || "Alguien"} se unió a ${matchForNotif.location}`,
+            matchId
+        );
+    }
 
     revalidatePath(`/matches/${matchId}`);
     revalidatePath("/");
@@ -217,6 +262,25 @@ export async function setScore(
         }
     }
 
+    // Notify all participants about the score
+    if (allParticipants) {
+        const participantIds = allParticipants
+            .map((p) => p.user_id)
+            .filter((id) => id !== user.id);
+        const { data: matchForNotif } = await supabase
+            .from("matches")
+            .select("location")
+            .eq("id", matchId)
+            .single();
+        sendNotification(
+            participantIds,
+            "score",
+            "¡Resultado registrado!",
+            `${matchForNotif?.location || "Partido"}: ${teamAScore} - ${teamBScore}`,
+            matchId
+        );
+    }
+
     revalidatePath(`/matches/${matchId}`);
     revalidatePath("/");
     revalidatePath("/matches");
@@ -266,6 +330,21 @@ export async function generateTeams(matchId: string): Promise<ActionResult> {
             .eq("match_id", matchId)
             .eq("user_id", assignment.user_id);
     }
+
+    // Notify all participants that teams have been generated
+    const { data: matchForNotif } = await supabase
+        .from("matches")
+        .select("location")
+        .eq("id", matchId)
+        .single();
+    const participantIds = participants.map((p) => p.user_id).filter((id) => id !== user.id);
+    sendNotification(
+        participantIds,
+        "teams",
+        "¡Equipos generados!",
+        `Se han generado los equipos para ${matchForNotif?.location || "tu partido"}`,
+        matchId
+    );
 
     revalidatePath(`/matches/${matchId}`);
     return {

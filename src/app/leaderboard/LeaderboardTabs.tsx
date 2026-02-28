@@ -1,0 +1,217 @@
+"use client";
+
+import { useState } from "react";
+import Link from "next/link";
+import { Avatar } from "@/components/ui/Avatar";
+import { Card } from "@/components/ui/Card";
+import { getAvatarUrl } from "@/lib/utils";
+import { Trophy, Target, TrendingUp, Medal } from "lucide-react";
+
+interface PlayerData {
+    id: string;
+    username: string | null;
+    avatar_url: string | null;
+    position: string | null;
+    skill_level: number | null;
+    matches_played: number;
+    goals_scored: number;
+    wins: number;
+    draws: number;
+    losses: number;
+    mvps: number;
+}
+
+interface LeaderboardTabsProps {
+    data: PlayerData[];
+    currentUserId: string;
+}
+
+const tabs = [
+    { key: "wins", label: "Victorias", icon: TrendingUp },
+    { key: "goals", label: "Goles", icon: Target },
+    { key: "matches", label: "Partidos", icon: Trophy },
+    { key: "mvps", label: "MVPs", icon: Medal },
+] as const;
+
+type TabKey = (typeof tabs)[number]["key"];
+
+function getSortedData(data: PlayerData[], tab: TabKey): PlayerData[] {
+    return [...data].sort((a, b) => {
+        switch (tab) {
+            case "wins":
+                return b.wins - a.wins || b.matches_played - a.matches_played;
+            case "goals":
+                return b.goals_scored - a.goals_scored;
+            case "matches":
+                return b.matches_played - a.matches_played;
+            case "mvps":
+                return b.mvps - a.mvps || b.wins - a.wins;
+        }
+    });
+}
+
+function getStatValue(player: PlayerData, tab: TabKey): number {
+    switch (tab) {
+        case "wins": return player.wins;
+        case "goals": return player.goals_scored;
+        case "matches": return player.matches_played;
+        case "mvps": return player.mvps;
+    }
+}
+
+function getStatLabel(tab: TabKey): string {
+    switch (tab) {
+        case "wins": return "victorias";
+        case "goals": return "goles";
+        case "matches": return "partidos";
+        case "mvps": return "MVPs";
+    }
+}
+
+const podiumColors = [
+    "from-yellow-500/20 to-yellow-600/5 border-yellow-500/40",
+    "from-zinc-400/20 to-zinc-500/5 border-zinc-400/40",
+    "from-amber-700/20 to-amber-800/5 border-amber-700/40",
+];
+
+const podiumBadgeColors = [
+    "bg-yellow-500 text-black",
+    "bg-zinc-400 text-black",
+    "bg-amber-700 text-white",
+];
+
+export function LeaderboardTabs({ data, currentUserId }: LeaderboardTabsProps) {
+    const [activeTab, setActiveTab] = useState<TabKey>("wins");
+    const sorted = getSortedData(data, activeTab);
+    const top3 = sorted.slice(0, 3);
+    const rest = sorted.slice(3);
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+
+    return (
+        <div>
+            {/* Tab Switcher */}
+            <div className="mb-6 flex gap-2 overflow-x-auto">
+                {tabs.map((tab) => {
+                    const Icon = tab.icon;
+                    const active = activeTab === tab.key;
+                    return (
+                        <button
+                            key={tab.key}
+                            onClick={() => setActiveTab(tab.key)}
+                            className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-all ${active
+                                    ? "border-accent bg-accent/10 text-accent"
+                                    : "border-border bg-surface text-muted hover:border-border-hover hover:text-foreground"
+                                }`}
+                        >
+                            <Icon size={16} />
+                            {tab.label}
+                        </button>
+                    );
+                })}
+            </div>
+
+            {/* Podium — Top 3 */}
+            {top3.length > 0 && (
+                <div className="mb-8 grid gap-4 sm:grid-cols-3">
+                    {top3.map((player, idx) => (
+                        <Link key={player.id} href={`/players/${player.id}`}>
+                            <Card
+                                className={`relative bg-gradient-to-b ${podiumColors[idx]} transition-all hover:scale-[1.02]`}
+                            >
+                                <div className="flex flex-col items-center text-center">
+                                    <span
+                                        className={`absolute -top-3 left-4 flex h-7 w-7 items-center justify-center rounded-full text-xs font-bold ${podiumBadgeColors[idx]}`}
+                                    >
+                                        {idx + 1}
+                                    </span>
+                                    <Avatar
+                                        src={getAvatarUrl(supabaseUrl, player.avatar_url)}
+                                        fallback={player.username || "P"}
+                                        size="lg"
+                                        className="mb-3"
+                                    />
+                                    <div className="flex items-center gap-2">
+                                        <p className="font-semibold text-foreground truncate max-w-[140px]">
+                                            {player.username || "Unknown"}
+                                        </p>
+                                        {player.id === currentUserId && (
+                                            <span className="rounded-full bg-accent/10 px-1.5 py-0.5 text-[10px] font-medium text-accent">
+                                                Tú
+                                            </span>
+                                        )}
+                                    </div>
+                                    <p className="mt-2 text-3xl font-bold text-foreground">
+                                        {getStatValue(player, activeTab)}
+                                    </p>
+                                    <p className="text-xs text-muted">{getStatLabel(activeTab)}</p>
+                                    <div className="mt-2 flex gap-3 text-xs text-muted">
+                                        <span className="text-green-400">{player.wins}W</span>
+                                        <span>{player.draws}D</span>
+                                        <span className="text-red-400">{player.losses}L</span>
+                                    </div>
+                                </div>
+                            </Card>
+                        </Link>
+                    ))}
+                </div>
+            )}
+
+            {/* Rest of the ranking */}
+            {rest.length > 0 && (
+                <div className="space-y-2">
+                    {rest.map((player, idx) => (
+                        <Link key={player.id} href={`/players/${player.id}`}>
+                            <div className="flex items-center gap-4 rounded-xl border border-border bg-surface px-4 py-3 transition-all hover:bg-surface-hover">
+                                <span className="w-8 text-center text-sm font-bold text-muted">
+                                    {idx + 4}
+                                </span>
+                                <Avatar
+                                    src={getAvatarUrl(supabaseUrl, player.avatar_url)}
+                                    fallback={player.username || "P"}
+                                    size="sm"
+                                />
+                                <div className="flex-1 min-w-0">
+                                    <div className="flex items-center gap-2">
+                                        <p className="truncate text-sm font-medium text-foreground">
+                                            {player.username || "Unknown"}
+                                        </p>
+                                        {player.id === currentUserId && (
+                                            <span className="rounded-full bg-accent/10 px-1.5 py-0.5 text-[10px] font-medium text-accent">
+                                                Tú
+                                            </span>
+                                        )}
+                                    </div>
+                                    <div className="flex gap-2 text-xs text-muted">
+                                        <span className="text-green-400">{player.wins}W</span>
+                                        <span>{player.draws}D</span>
+                                        <span className="text-red-400">{player.losses}L</span>
+                                    </div>
+                                </div>
+                                <div className="text-right">
+                                    <p className="text-lg font-bold text-foreground">
+                                        {getStatValue(player, activeTab)}
+                                    </p>
+                                    <p className="text-[10px] text-muted">{getStatLabel(activeTab)}</p>
+                                </div>
+                            </div>
+                        </Link>
+                    ))}
+                </div>
+            )}
+
+            {sorted.length === 0 && (
+                <Card className="text-center">
+                    <div className="py-8">
+                        <Trophy size={48} className="mx-auto mb-4 text-muted/30" />
+                        <p className="text-lg font-medium text-muted">
+                            Aún no hay datos de ranking
+                        </p>
+                        <p className="mt-1 text-sm text-muted/70">
+                            Juega partidos para aparecer en la clasificación
+                        </p>
+                    </div>
+                </Card>
+            )}
+        </div>
+    );
+}

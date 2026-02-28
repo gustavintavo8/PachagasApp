@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo } from "react";
+import { useToast } from "@/components/ui/Toast";
 import {
     joinMatch,
     leaveMatch,
@@ -8,11 +9,15 @@ import {
     setScore,
     generateTeams,
 } from "../actions";
+import Link from "next/link";
 import { Button } from "@/components/ui/Button";
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Avatar } from "@/components/ui/Avatar";
 import { Dialog } from "@/components/ui/Dialog";
 import { SoccerPitch } from "@/components/SoccerPitch";
+import { MatchChat } from "@/components/MatchChat";
+import { MatchPhotos } from "@/components/MatchPhotos";
+import { PlayerRating } from "@/components/PlayerRating";
 import { formatDate, getAvatarUrl } from "@/lib/utils";
 import {
     Calendar,
@@ -25,6 +30,12 @@ import {
     LogOut as LeaveIcon,
     UserPlus,
     ChevronDown,
+    Copy,
+    MessageCircle,
+    Camera,
+    Share2,
+    ExternalLink,
+    Star,
 } from "lucide-react";
 import type { Match, Profile } from "@/lib/types";
 
@@ -42,6 +53,10 @@ interface MatchDetailProps {
     participants: Participant[];
     currentUserId: string;
     organizerName: string;
+    currentUserProfile: {
+        username: string | null;
+        avatar_url: string | null;
+    };
 }
 
 export function MatchDetail({
@@ -49,8 +64,11 @@ export function MatchDetail({
     participants,
     currentUserId,
     organizerName,
+    currentUserProfile,
 }: MatchDetailProps) {
+    const { toast } = useToast();
     const [loading, setLoading] = useState<string | null>(null);
+    const [activeTab, setActiveTab] = useState<"chat" | "photos" | "rating">("chat");
     const [scoreDialogOpen, setScoreDialogOpen] = useState(false);
     const [teamAScore, setTeamAScore] = useState(match.team_a_score ?? 0);
     const [teamBScore, setTeamBScore] = useState(match.team_b_score ?? 0);
@@ -85,11 +103,16 @@ export function MatchDetail({
 
     async function handleAction(
         action: () => Promise<{ error?: string; success?: boolean }>,
-        key: string
+        key: string,
+        successMsg?: string
     ) {
         setLoading(key);
         const result = await action();
-        if (result?.error) alert(result.error);
+        if (result?.error) {
+            toast(result.error, "error");
+        } else if (successMsg) {
+            toast(successMsg, "success");
+        }
         setLoading(null);
     }
 
@@ -104,7 +127,11 @@ export function MatchDetail({
             teamBScore,
             scorers.length > 0 ? scorers : undefined
         );
-        if (result?.error) alert(result.error);
+        if (result?.error) {
+            toast(result.error, "error");
+        } else {
+            toast("¡Partido finalizado! Resultado guardado.", "success");
+        }
         setScoreDialogOpen(false);
         setLoading(null);
     }
@@ -122,7 +149,7 @@ export function MatchDetail({
                     {isOrganizer && (
                         <span className="flex items-center gap-1 rounded-full bg-purple-500/10 px-3 py-1 text-xs font-medium text-purple-400 border border-purple-500/30">
                             <Shield size={12} />
-                            Organizer
+                            Organizador
                         </span>
                     )}
                 </div>
@@ -139,10 +166,42 @@ export function MatchDetail({
                     </span>
                     <span className="flex items-center gap-1.5">
                         <Users size={14} />
-                        {participants.length}/{match.max_players} players
+                        {participants.length}/{match.max_players} jugadores
                     </span>
-                    <span>by {organizerName}</span>
+                    <span>por {organizerName}</span>
                 </div>
+            </div>
+            {/* Share Buttons */}
+            <div className="mb-6 flex flex-wrap items-center gap-2">
+                <button
+                    onClick={() => {
+                        const url = `${window.location.origin}/matches/${match.id}`;
+                        navigator.clipboard.writeText(url);
+                        toast("¡Enlace copiado!", "success");
+                    }}
+                    className="flex items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-2 text-xs font-medium text-muted transition-all hover:border-accent hover:text-accent"
+                >
+                    <Copy size={14} />
+                    Copiar enlace
+                </button>
+                <a
+                    href={`https://wa.me/?text=${encodeURIComponent(`¡Únete a la pachanga! 🏟️\n📍 ${match.location}\n📅 ${formatDate(match.date)}\n👉 ${typeof window !== "undefined" ? window.location.origin : ""}/matches/${match.id}`)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 rounded-xl border border-green-500/30 bg-green-500/10 px-3 py-2 text-xs font-medium text-green-400 transition-all hover:bg-green-500/20"
+                >
+                    <ExternalLink size={14} />
+                    WhatsApp
+                </a>
+                <a
+                    href={`https://t.me/share/url?url=${encodeURIComponent(`${typeof window !== "undefined" ? window.location.origin : ""}/matches/${match.id}`)}&text=${encodeURIComponent(`¡Únete a la pachanga! 🏟️ ${match.location} — ${formatDate(match.date)}`)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="flex items-center gap-1.5 rounded-xl border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-xs font-medium text-blue-400 transition-all hover:bg-blue-500/20"
+                >
+                    <ExternalLink size={14} />
+                    Telegram
+                </a>
             </div>
 
             {/* Action Buttons */}
@@ -152,10 +211,10 @@ export function MatchDetail({
                     <Button
                         size="lg"
                         loading={loading === "join"}
-                        onClick={() => handleAction(() => joinMatch(match.id), "join")}
+                        onClick={() => handleAction(() => joinMatch(match.id), "join", "¡Te has unido al partido!")}
                     >
                         <UserPlus size={18} />
-                        Join Match
+                        Unirse
                     </Button>
                 )}
                 {match.status === "open" && hasJoined && !isOrganizer && (
@@ -163,10 +222,10 @@ export function MatchDetail({
                         variant="outline"
                         size="lg"
                         loading={loading === "leave"}
-                        onClick={() => handleAction(() => leaveMatch(match.id), "leave")}
+                        onClick={() => handleAction(() => leaveMatch(match.id), "leave", "Has salido del partido")}
                     >
                         <LeaveIcon size={18} />
-                        Leave
+                        Salir
                     </Button>
                 )}
 
@@ -178,22 +237,22 @@ export function MatchDetail({
                             size="lg"
                             loading={loading === "generate"}
                             onClick={() =>
-                                handleAction(() => generateTeams(match.id), "generate")
+                                handleAction(() => generateTeams(match.id), "generate", "¡Equipos generados!")
                             }
                         >
                             <Shuffle size={18} />
-                            Generate Teams
+                            Generar Equipos
                         </Button>
                         <Button
                             variant="danger"
                             size="lg"
                             loading={loading === "close"}
                             onClick={() =>
-                                handleAction(() => closeMatch(match.id), "close")
+                                handleAction(() => closeMatch(match.id), "close", "Partido cerrado")
                             }
                         >
                             <Lock size={18} />
-                            Close Match
+                            Cerrar Partido
                         </Button>
                     </>
                 )}
@@ -205,9 +264,17 @@ export function MatchDetail({
                             onClick={() => setScoreDialogOpen(true)}
                         >
                             <Trophy size={18} />
-                            Set Final Score
+                            Poner Resultado
                         </Button>
                     )}
+                {match.status === "finished" && isOrganizer && (
+                    <Link href={`/matches/new?location=${encodeURIComponent(match.location)}&max_players=${match.max_players}`}>
+                        <Button variant="outline" size="lg">
+                            <Copy size={18} />
+                            Repetir Partido
+                        </Button>
+                    </Link>
+                )}
             </div>
 
             {/* Score Display */}
@@ -270,6 +337,63 @@ export function MatchDetail({
                     </div>
                 </Card>
             )}
+
+            {/* Chat & Photos Tabs */}
+            <div className="mt-8">
+                <div className="mb-4 flex gap-2">
+                    <button
+                        onClick={() => setActiveTab("chat")}
+                        className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-all ${activeTab === "chat"
+                            ? "border-accent bg-accent/10 text-accent"
+                            : "border-border bg-surface text-muted hover:border-border-hover hover:text-foreground"
+                            }`}
+                    >
+                        <MessageCircle size={16} />
+                        Chat
+                    </button>
+                    <button
+                        onClick={() => setActiveTab("photos")}
+                        className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-all ${activeTab === "photos"
+                            ? "border-accent bg-accent/10 text-accent"
+                            : "border-border bg-surface text-muted hover:border-border-hover hover:text-foreground"
+                            }`}
+                    >
+                        <Camera size={16} />
+                        Fotos
+                    </button>
+                    {match.status === "finished" && (
+                        <button
+                            onClick={() => setActiveTab("rating")}
+                            className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-all ${activeTab === "rating"
+                                ? "border-yellow-400 bg-yellow-400/10 text-yellow-400"
+                                : "border-border bg-surface text-muted hover:border-border-hover hover:text-foreground"
+                                }`}
+                        >
+                            <Star size={16} />
+                            Valorar
+                        </button>
+                    )}
+                </div>
+
+                {activeTab === "chat" ? (
+                    <MatchChat
+                        matchId={match.id}
+                        currentUserId={currentUserId}
+                        currentUserProfile={currentUserProfile}
+                    />
+                ) : activeTab === "photos" ? (
+                    <MatchPhotos
+                        matchId={match.id}
+                        currentUserId={currentUserId}
+                    />
+                ) : (
+                    <PlayerRating
+                        matchId={match.id}
+                        currentUserId={currentUserId}
+                        participants={participants}
+                    />
+                )}
+            </div>
 
             {/* Score Dialog */}
             <Dialog

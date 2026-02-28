@@ -1,27 +1,31 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useState } from "react";
 import { signOut } from "@/app/login/actions";
 import { Avatar } from "@/components/ui/Avatar";
 import { cn, getAvatarUrl } from "@/lib/utils";
-import { Menu, X, Home, PlusCircle, User, LogOut, Trophy } from "lucide-react";
+import { Menu, X, Home, PlusCircle, LogOut, Trophy, BarChart3, CalendarDays, UsersRound } from "lucide-react";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 
 interface NavbarClientProps {
     user: SupabaseUser | null;
-    profile: { username: string | null; avatar_url: string | null } | null;
+    profile: { username: string; avatar_url: string } | null;
+    children?: React.ReactNode;
 }
 
 const navLinks = [
     { href: "/", label: "Dashboard", icon: Home },
-    { href: "/matches", label: "Matches", icon: Trophy },
-    { href: "/matches/new", label: "New Match", icon: PlusCircle },
-    { href: "/profile", label: "Profile", icon: User },
+    { href: "/matches", label: "Partidos", icon: Trophy },
+    { href: "/matches/new", label: "Nuevo", icon: PlusCircle },
+    { href: "/leaderboard", label: "Ranking", icon: BarChart3 },
+    { href: "/calendar", label: "Calendario", icon: CalendarDays },
+    { href: "/players", label: "Jugadores", icon: UsersRound },
 ];
 
-export function NavbarClient({ user, profile }: NavbarClientProps) {
+export function NavbarClient({ user, profile, children }: NavbarClientProps) {
     const pathname = usePathname();
     const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -37,7 +41,13 @@ export function NavbarClient({ user, profile }: NavbarClientProps) {
             <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-4">
                 {/* Logo */}
                 <Link href="/" className="flex items-center gap-2">
-                    <span className="text-2xl">⚽</span>
+                    <Image
+                        src="/icon-192.png"
+                        alt="Pachanga"
+                        width={32}
+                        height={32}
+                        className="rounded-lg"
+                    />
                     <span className="text-lg font-bold text-foreground">Pachanga</span>
                 </Link>
 
@@ -45,7 +55,7 @@ export function NavbarClient({ user, profile }: NavbarClientProps) {
                 <div className="hidden items-center gap-1 md:flex">
                     {navLinks.map((link) => {
                         const Icon = link.icon;
-                        const active = pathname === link.href;
+                        const active = pathname === link.href || (link.href === "/matches" && pathname === "/history");
                         return (
                             <Link
                                 key={link.href}
@@ -66,11 +76,14 @@ export function NavbarClient({ user, profile }: NavbarClientProps) {
 
                 {/* User Section (Desktop) */}
                 <div className="hidden items-center gap-3 md:flex">
-                    <Avatar
-                        src={avatarUrl}
-                        fallback={profile?.username || user.email || "U"}
-                        size="sm"
-                    />
+                    {children}
+                    <Link href="/profile" className="transition-transform hover:scale-105">
+                        <Avatar
+                            src={avatarUrl}
+                            fallback={profile?.username || user.email || "U"}
+                            size="sm"
+                        />
+                    </Link>
                     <form action={signOut}>
                         <button
                             type="submit"
@@ -96,7 +109,7 @@ export function NavbarClient({ user, profile }: NavbarClientProps) {
                     <div className="space-y-1">
                         {navLinks.map((link) => {
                             const Icon = link.icon;
-                            const active = pathname === link.href;
+                            const active = pathname === link.href || (link.href === "/matches" && pathname === "/history");
                             return (
                                 <Link
                                     key={link.href}
@@ -115,14 +128,27 @@ export function NavbarClient({ user, profile }: NavbarClientProps) {
                             );
                         })}
                     </div>
-                    <div className="mt-3 border-t border-border pt-3">
+                    {/* Mobile: Profile + Sign Out */}
+                    <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
+                        <Link
+                            href="/profile"
+                            onClick={() => setMobileOpen(false)}
+                            className="flex items-center gap-3 rounded-xl px-4 py-3 text-base font-medium text-muted transition-colors hover:bg-surface-hover hover:text-foreground"
+                        >
+                            <Avatar
+                                src={avatarUrl}
+                                fallback={profile?.username || user.email || "U"}
+                                size="sm"
+                            />
+                            Mi Perfil
+                        </Link>
                         <form action={signOut}>
                             <button
                                 type="submit"
-                                className="flex w-full items-center gap-3 rounded-xl px-4 py-3 text-base font-medium text-muted transition-colors hover:bg-surface-hover hover:text-foreground"
+                                className="flex items-center gap-3 rounded-xl px-4 py-3 text-base font-medium text-muted transition-colors hover:bg-surface-hover hover:text-foreground"
                             >
                                 <LogOut size={20} />
-                                Sign Out
+                                Salir
                             </button>
                         </form>
                     </div>

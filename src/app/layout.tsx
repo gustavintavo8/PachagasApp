@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Navbar } from "@/components/Navbar";
+import { ToastProvider } from "@/components/ui/Toast";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -14,9 +15,9 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Pachanga — Soccer Pickup Matches",
+  title: "Pachanga — Organiza tus partidos de fútbol",
   description:
-    "Organize and join pickup soccer matches. Balance teams, track stats, and have fun!",
+    "Organiza partidos de fútbol, equilibra equipos, lleva tus estadísticas y disfruta del deporte.",
 };
 
 export default function RootLayout({
@@ -25,13 +26,22 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className="dark">
+    <html lang="es" className="dark">
+      <head>
+        <link rel="manifest" href="/manifest.json" />
+        <meta name="theme-color" content="#ccff00" />
+        <meta name="apple-mobile-web-app-capable" content="yes" />
+        <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+      </head>
       <body
         className={`${geistSans.variable} ${geistMono.variable} antialiased`}
       >
-        <Navbar />
-        <main className="min-h-[calc(100vh-4rem)]">{children}</main>
+        <ToastProvider>
+          <Navbar />
+          <main className="min-h-[calc(100vh-4rem)]">{children}</main>
+        </ToastProvider>
       </body>
     </html>
   );
 }
+

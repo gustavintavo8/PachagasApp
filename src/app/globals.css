@@ -67,3 +67,37 @@ textarea {
 input[type="range"] {
   accent-color: #ccff00;
 }
+
+/* Skeleton shimmer animation */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    #27272a 0%,
+    #3f3f46 40%,
+    #27272a 80%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+  border-radius: 0.75rem;
+}
+
+/* Toast slide-in animation */
+@keyframes toast-in {
+  from {
+    opacity: 0;
+    transform: translateX(100%) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0) scale(1);
+  }
+}
+
+.animate-toast-in {
+  animation: toast-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+}

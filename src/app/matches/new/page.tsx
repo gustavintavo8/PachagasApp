@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { createMatch } from "../actions";
 import { Button } from "@/components/ui/Button";
 import { Card } from "@/components/ui/Card";
@@ -8,6 +9,10 @@ import { Input } from "@/components/ui/Input";
 import { CalendarDays, MapPin, Users } from "lucide-react";
 
 export default function NewMatchPage() {
+    const searchParams = useSearchParams();
+    const prefillLocation = searchParams.get("location") ?? "";
+    const prefillMaxPlayers = searchParams.get("max_players") ?? "10";
+
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
@@ -28,9 +33,9 @@ export default function NewMatchPage() {
     return (
         <div className="mx-auto max-w-lg px-4 py-8">
             <h1 className="mb-2 text-2xl font-bold text-foreground">
-                ⚽ Create a Match
+                ⚽ Crear Partido
             </h1>
-            <p className="mb-8 text-muted">Set up the next pachanga</p>
+            <p className="mb-8 text-muted">Organiza la próxima pachanga</p>
 
             <Card>
                 <form onSubmit={handleSubmit} className="space-y-6">
@@ -40,7 +45,7 @@ export default function NewMatchPage() {
                             className="flex items-center gap-2 text-sm font-medium text-zinc-300"
                         >
                             <CalendarDays size={16} />
-                            Date & Time
+                            Fecha y Hora
                         </label>
                         <input
                             id="date"
@@ -54,12 +59,13 @@ export default function NewMatchPage() {
                     <div className="space-y-2">
                         <label className="flex items-center gap-2 text-sm font-medium text-zinc-300">
                             <MapPin size={16} />
-                            Location
+                            Ubicación
                         </label>
                         <Input
                             id="location"
                             name="location"
-                            placeholder="e.g. Central Park Field 3"
+                            placeholder="ej. Campo Municipal, Pista 3"
+                            defaultValue={prefillLocation}
                             required
                         />
                     </div>
@@ -67,7 +73,7 @@ export default function NewMatchPage() {
                     <div className="space-y-2">
                         <label className="flex items-center gap-2 text-sm font-medium text-zinc-300">
                             <Users size={16} />
-                            Max Players
+                            Máximo de Jugadores
                         </label>
                         <Input
                             id="max_players"
@@ -75,7 +81,7 @@ export default function NewMatchPage() {
                             type="number"
                             min="4"
                             max="30"
-                            defaultValue="10"
+                            defaultValue={prefillMaxPlayers}
                             required
                         />
                     </div>
@@ -87,10 +93,11 @@ export default function NewMatchPage() {
                     )}
 
                     <Button type="submit" loading={loading} size="lg" className="w-full">
-                        Create Match
+                        Crear Partido
                     </Button>
                 </form>
             </Card>
         </div>
     );
 }
+
