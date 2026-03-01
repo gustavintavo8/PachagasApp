@@ -64,6 +64,19 @@ export async function createMatch(formData: FormData): Promise<ActionResult> {
 
     if (error) return { success: false, error: error.message };
 
+    // Auto-join the creator
+    const { error: joinError } = await supabase
+        .from("match_participants")
+        .insert({
+            match_id: data.id,
+            user_id: user.id,
+            team: null,
+            goals: 0,
+            is_mvp: false,
+        });
+
+    if (joinError) console.error("Error auto-joining creator:", joinError.message);
+
     revalidatePath("/");
     revalidatePath("/matches");
     revalidatePath("/calendar");
@@ -211,6 +224,14 @@ export async function setScore(
     if (teamAScore < 0 || teamBScore < 0)
         return { success: false, error: "Scores cannot be negative" };
 
+    const { data: match } = await supabase
+        .from("matches")
+        .select("status")
+        .eq("id", matchId)
+        .single();
+
+    const isAlreadyFinished = match?.status === "finished";
+
     const { error } = await supabase
         .from("matches")
         .update({
@@ -240,7 +261,7 @@ export async function setScore(
         }
     }
 
-    // Update profile stats (matches_played & goals_scored) for all participants
+    // Update profile stats (matches_played & goals_scored) for all participants ONLY if not already finished
     const { data: allParticipants, error: fetchError } = await adminSupabase
         .from("match_participants")
         .select("user_id, goals")
@@ -248,23 +269,26 @@ export async function setScore(
 
     if (fetchError) console.error("Error fetching participants:", fetchError.message);
 
-    if (allParticipants) {
-        for (const participant of allParticipants) {
-            const { data: profile } = await adminSupabase
-                .from("profiles")
-                .select("matches_played, goals_scored")
-                .eq("id", participant.user_id)
-                .single();
-
-            if (profile) {
-                const { error: updateError } = await adminSupabase
+    // Update profile stats (matches_played & goals_scored) for all participants ONLY if not already finished
+    if (!isAlreadyFinished) {
+        if (allParticipants) {
+            for (const participant of allParticipants) {
+                const { data: profile } = await adminSupabase
                     .from("profiles")
-                    .update({
-                        matches_played: (profile.matches_played ?? 0) + 1,
-                        goals_scored: (profile.goals_scored ?? 0) + (participant.goals ?? 0),
-                    })
-                    .eq("id", participant.user_id);
-                if (updateError) console.error("Error updating profile:", participant.user_id, updateError.message);
+                    .select("matches_played, goals_scored")
+                    .eq("id", participant.user_id)
+                    .single();
+
+                if (profile) {
+                    const { error: updateError } = await adminSupabase
+                        .from("profiles")
+                        .update({
+                            matches_played: (profile.matches_played ?? 0) + 1,
+                            goals_scored: (profile.goals_scored ?? 0) + (participant.goals ?? 0),
+                        })
+                        .eq("id", participant.user_id);
+                    if (updateError) console.error("Error updating profile:", participant.user_id, updateError.message);
+                }
             }
         }
     }

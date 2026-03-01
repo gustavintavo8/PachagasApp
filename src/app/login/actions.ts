@@ -51,7 +51,9 @@ export async function signup(formData: FormData): Promise<ActionResult> {
 export async function signInWithOAuth(provider: "google" | "apple"): Promise<{ url?: string; error?: string }> {
     const supabase = await createClient();
     const headersList = await headers();
-    const origin = headersList.get("origin") || headersList.get("x-forwarded-host") || "http://localhost:3000";
+    const protocol = headersList.get("x-forwarded-proto") || "http";
+    const host = headersList.get("x-forwarded-host") || headersList.get("host") || "localhost:3000";
+    const origin = `${protocol}://${host}`;
 
     const { data, error } = await supabase.auth.signInWithOAuth({
         provider,

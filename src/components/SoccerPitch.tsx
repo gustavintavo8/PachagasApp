@@ -427,7 +427,7 @@ function TeamHalf({
                             transform: "translateY(-50%)",
                         }}
                     >
-                        <div className="flex items-center justify-center gap-3 sm:gap-6 md:gap-8">
+                        <div className="flex flex-wrap items-center justify-center gap-3 px-2 sm:gap-6 md:gap-8">
                             {players.map((p) => (
                                 <PlayerMarker
                                     key={p.user_id}

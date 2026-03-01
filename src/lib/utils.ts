@@ -11,7 +11,7 @@ export function getAvatarUrl(supabaseUrl: string, path: string | null) {
 }
 
 export function formatDate(dateString: string) {
-    return new Date(dateString).toLocaleDateString("en-US", {
+    return new Date(dateString).toLocaleDateString("es-ES", {
         weekday: "short",
         month: "short",
         day: "numeric",

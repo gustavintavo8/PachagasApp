@@ -62,7 +62,8 @@ export async function updateAvatar(path: string): Promise<ActionResult> {
 
     const { error } = await supabase
         .from("profiles")
-        .upsert({ id: user.id, avatar_url: path });
+        .update({ avatar_url: path })
+        .eq("id", user.id);
 
     if (error) {
         return { success: false, error: error.message };

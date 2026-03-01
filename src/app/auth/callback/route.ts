@@ -3,7 +3,11 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
 
 export async function GET(request: Request) {
-    const { searchParams, origin } = new URL(request.url);
+    const url = new URL(request.url);
+    const searchParams = url.searchParams;
+    const protocol = request.headers.get("x-forwarded-proto") || url.protocol;
+    const host = request.headers.get("x-forwarded-host") || request.headers.get("host") || url.host;
+    const origin = `${protocol}://${host}`;
     const code = searchParams.get("code");
 
     if (code) {
