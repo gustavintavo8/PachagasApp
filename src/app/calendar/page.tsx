@@ -25,11 +25,18 @@ export default async function CalendarPage() {
     const matchIds = participations?.map((p) => p.match_id) || [];
 
     // Also include matches the user created
-    const { data: allMatches } = await supabase
+    // Build filter conditionally to avoid invalid PostgREST syntax when matchIds is empty
+    let matchQuery = supabase
         .from("matches")
-        .select("id, date, location, status, max_players, created_by")
-        .or(`id.in.(${matchIds.join(",")}),created_by.eq.${user.id}`)
-        .order("date", { ascending: true });
+        .select("id, date, location, status, max_players, created_by");
+
+    if (matchIds.length > 0) {
+        matchQuery = matchQuery.or(`id.in.(${matchIds.join(",")}),created_by.eq.${user.id}`);
+    } else {
+        matchQuery = matchQuery.eq("created_by", user.id);
+    }
+
+    const { data: allMatches } = await matchQuery.order("date", { ascending: true });
 
     // Get participant counts
     const { data: participantCounts } = await supabase

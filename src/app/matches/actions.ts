@@ -64,6 +64,9 @@ export async function createMatch(formData: FormData): Promise<ActionResult> {
 
     if (error) return { success: false, error: error.message };
 
+    revalidatePath("/");
+    revalidatePath("/matches");
+    revalidatePath("/calendar");
     redirect(`/matches/${data.id}`);
 }
 
@@ -132,6 +135,7 @@ export async function joinMatch(matchId: string): Promise<ActionResult> {
     revalidatePath(`/matches/${matchId}`);
     revalidatePath("/");
     revalidatePath("/matches");
+    revalidatePath("/calendar");
     return { success: true };
 }
 
@@ -154,6 +158,7 @@ export async function leaveMatch(matchId: string): Promise<ActionResult> {
     revalidatePath(`/matches/${matchId}`);
     revalidatePath("/");
     revalidatePath("/matches");
+    revalidatePath("/calendar");
     return { success: true };
 }
 
@@ -184,7 +189,9 @@ export async function closeMatch(matchId: string): Promise<ActionResult> {
     if (error) return { success: false, error: error.message };
 
     revalidatePath(`/matches/${matchId}`);
+    revalidatePath("/");
     revalidatePath("/matches");
+    revalidatePath("/calendar");
     return { success: true };
 }
 
@@ -284,6 +291,7 @@ export async function setScore(
     revalidatePath(`/matches/${matchId}`);
     revalidatePath("/");
     revalidatePath("/matches");
+    revalidatePath("/calendar");
     return { success: true };
 }
 
@@ -347,6 +355,7 @@ export async function generateTeams(matchId: string): Promise<ActionResult> {
     );
 
     revalidatePath(`/matches/${matchId}`);
+    revalidatePath("/calendar");
     return {
         success: true,
         data: { balanceScore: balanceScore.toFixed(2) },
