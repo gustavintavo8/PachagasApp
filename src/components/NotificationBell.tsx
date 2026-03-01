@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Bell } from "lucide-react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 
 interface Notification {
     id: string;
@@ -24,6 +25,7 @@ export function NotificationBell({ userId }: NotificationBellProps) {
     const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState(true);
     const supabase = createClient();
+    const router = useRouter();
 
     const unreadCount = notifications.filter((n) => !n.read).length;
 
@@ -55,6 +57,7 @@ export function NotificationBell({ userId }: NotificationBellProps) {
                 },
                 (payload) => {
                     setNotifications((prev) => [payload.new as Notification, ...prev]);
+                    router.refresh();
                 }
             )
             .subscribe();

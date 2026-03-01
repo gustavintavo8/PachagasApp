@@ -126,6 +126,11 @@ export function PlayerRating({
             toast(error.message, "error");
         } else {
             setSubmitted((prev) => new Set([...prev, userId]));
+            setRatings((prev) => {
+                const next = { ...prev };
+                delete next[userId];
+                return next;
+            });
             toast("¡Valoración enviada!", "success");
         }
         setSubmitting(false);
