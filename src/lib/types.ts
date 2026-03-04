@@ -8,7 +8,7 @@ export type Profile = {
     goals_scored: number;
 };
 
-export type MatchStatus = "open" | "closed" | "finished";
+export type MatchStatus = "open" | "closed" | "finished" | "cancelled";
 
 export type Match = {
     id: string;

@@ -8,6 +8,9 @@ import {
     closeMatch,
     setScore,
     generateTeams,
+    cancelMatch,
+    rescheduleMatch,
+    kickPlayer,
 } from "../actions";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
@@ -36,6 +39,11 @@ import {
     Share2,
     ExternalLink,
     Star,
+    Ban,
+    CalendarClock,
+    XCircle,
+    X,
+    Crown,
 } from "lucide-react";
 import type { Match, Profile } from "@/lib/types";
 
@@ -57,6 +65,7 @@ interface MatchDetailProps {
         username: string | null;
         avatar_url: string | null;
     };
+    isAdmin: boolean;
 }
 
 export function MatchDetail({
@@ -65,6 +74,7 @@ export function MatchDetail({
     currentUserId,
     organizerName,
     currentUserProfile,
+    isAdmin,
 }: MatchDetailProps) {
     const { toast } = useToast();
     const [loading, setLoading] = useState<string | null>(null);
@@ -74,8 +84,12 @@ export function MatchDetail({
     const [teamBScore, setTeamBScore] = useState(match.team_b_score ?? 0);
     const [goalScorers, setGoalScorers] = useState<Record<string, number>>({});
     const [showGoalScorers, setShowGoalScorers] = useState(false);
+    const [rescheduleDialogOpen, setRescheduleDialogOpen] = useState(false);
+    const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+    const [newDate, setNewDate] = useState("");
 
     const isOrganizer = match.created_by === currentUserId;
+    const canManage = isAdmin || isOrganizer;
     const hasJoined = participants.some((p) => p.user_id === currentUserId);
     const teamA = participants.filter((p) => p.team === "A");
     const teamB = participants.filter((p) => p.team === "B");
@@ -95,10 +109,11 @@ export function MatchDetail({
         setGoalScorers((prev) => ({ ...prev, [userId]: Math.max(0, goals) }));
     }
 
-    const statusColors = {
+    const statusColors: Record<string, string> = {
         open: "bg-accent/10 text-accent border-accent/30",
         closed: "bg-yellow-500/10 text-yellow-400 border-yellow-500/30",
         finished: "bg-zinc-500/10 text-zinc-400 border-zinc-500/30",
+        cancelled: "bg-red-500/10 text-red-400 border-red-500/30",
     };
 
     async function handleAction(
@@ -142,14 +157,20 @@ export function MatchDetail({
             <div className="mb-6">
                 <div className="mb-3 flex items-center gap-3">
                     <span
-                        className={`rounded-full border px-3 py-1 text-xs font-medium ${statusColors[match.status]}`}
+                        className={`rounded-full border px-3 py-1 text-xs font-medium ${statusColors[match.status] || statusColors.open}`}
                     >
-                        {match.status.toUpperCase()}
+                        {match.status === "cancelled" ? "CANCELADO" : match.status.toUpperCase()}
                     </span>
                     {isOrganizer && (
                         <span className="flex items-center gap-1 rounded-full bg-purple-500/10 px-3 py-1 text-xs font-medium text-purple-400 border border-purple-500/30">
                             <Shield size={12} />
                             Organizador
+                        </span>
+                    )}
+                    {isAdmin && (
+                        <span className="flex items-center gap-1 rounded-full bg-red-500/10 px-3 py-1 text-xs font-medium text-red-400 border border-red-500/30">
+                            <Crown size={12} />
+                            Admin
                         </span>
                     )}
                 </div>
@@ -217,7 +238,7 @@ export function MatchDetail({
                         Unirse
                     </Button>
                 )}
-                {match.status === "open" && hasJoined && !isOrganizer && (
+                {match.status === "open" && hasJoined && !isOrganizer && !isAdmin && (
                     <Button
                         variant="outline"
                         size="lg"
@@ -229,8 +250,8 @@ export function MatchDetail({
                     </Button>
                 )}
 
-                {/* Organizer actions */}
-                {isOrganizer && match.status === "open" && (
+                {/* Organizer / Admin actions */}
+                {(canManage) && match.status === "open" && (
                     <>
                         <Button
                             variant="outline"
@@ -256,7 +277,7 @@ export function MatchDetail({
                         </Button>
                     </>
                 )}
-                {isOrganizer &&
+                {(canManage) &&
                     (match.status === "closed" || match.status === "open") && (
                         <Button
                             variant="outline"
@@ -267,7 +288,32 @@ export function MatchDetail({
                             Poner Resultado
                         </Button>
                     )}
-                {match.status === "finished" && isOrganizer && (
+
+                {/* Reschedule — admin or organizer, only on active matches */}
+                {canManage && match.status !== "finished" && match.status !== "cancelled" && (
+                    <Button
+                        variant="outline"
+                        size="lg"
+                        onClick={() => setRescheduleDialogOpen(true)}
+                    >
+                        <CalendarClock size={18} />
+                        Cambiar Fecha
+                    </Button>
+                )}
+
+                {/* Cancel — admin or organizer, only on active matches */}
+                {canManage && match.status !== "finished" && match.status !== "cancelled" && (
+                    <Button
+                        variant="danger"
+                        size="lg"
+                        onClick={() => setCancelDialogOpen(true)}
+                    >
+                        <Ban size={18} />
+                        Cancelar Partido
+                    </Button>
+                )}
+
+                {(canManage) && match.status === "finished" && (
                     <Link href={`/matches/new?location=${encodeURIComponent(match.location)}&max_players=${match.max_players}`}>
                         <Button variant="outline" size="lg">
                             <Copy size={18} />
@@ -313,7 +359,19 @@ export function MatchDetail({
                     </CardHeader>
                     <div className="space-y-3">
                         {participants.map((p) => (
-                            <PlayerRow key={p.user_id} participant={p} />
+                            <PlayerRow
+                                key={p.user_id}
+                                participant={p}
+                                onKick={
+                                    isAdmin && match.status === "open" && p.user_id !== currentUserId
+                                        ? async () => {
+                                            const result = await kickPlayer(match.id, p.user_id);
+                                            if (result?.error) toast(result.error, "error");
+                                            else toast(`${p.profiles?.username || "Jugador"} expulsado`, "success");
+                                        }
+                                        : undefined
+                                }
+                            />
                         ))}
                         {participants.length === 0 && (
                             <p className="py-4 text-center text-muted">
@@ -332,7 +390,19 @@ export function MatchDetail({
                     </CardHeader>
                     <div className="space-y-3">
                         {unassigned.map((p) => (
-                            <PlayerRow key={p.user_id} participant={p} />
+                            <PlayerRow
+                                key={p.user_id}
+                                participant={p}
+                                onKick={
+                                    isAdmin && match.status === "open" && p.user_id !== currentUserId
+                                        ? async () => {
+                                            const result = await kickPlayer(match.id, p.user_id);
+                                            if (result?.error) toast(result.error, "error");
+                                            else toast(`${p.profiles?.username || "Jugador"} expulsado`, "success");
+                                        }
+                                        : undefined
+                                }
+                            />
                         ))}
                     </div>
                 </Card>
@@ -589,6 +659,79 @@ export function MatchDetail({
                     </Button>
                 </div>
             </Dialog>
+
+            {/* Reschedule Dialog */}
+            <Dialog
+                open={rescheduleDialogOpen}
+                onClose={() => setRescheduleDialogOpen(false)}
+                title="Cambiar Fecha y Hora"
+                className="max-w-md"
+            >
+                <div className="space-y-4">
+                    <input
+                        type="datetime-local"
+                        value={newDate}
+                        onChange={(e) => setNewDate(e.target.value)}
+                        className="w-full rounded-xl border border-border bg-zinc-800 px-4 py-3 text-foreground transition-colors focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent [color-scheme:dark]"
+                    />
+                    <Button
+                        onClick={async () => {
+                            if (!newDate) { toast("Selecciona una fecha", "error"); return; }
+                            setLoading("reschedule");
+                            const result = await rescheduleMatch(match.id, newDate);
+                            if (result?.error) toast(result.error, "error");
+                            else toast("¡Fecha actualizada!", "success");
+                            setRescheduleDialogOpen(false);
+                            setLoading(null);
+                        }}
+                        loading={loading === "reschedule"}
+                        size="lg"
+                        className="w-full"
+                    >
+                        Confirmar Nueva Fecha
+                    </Button>
+                </div>
+            </Dialog>
+
+            {/* Cancel Confirmation Dialog */}
+            <Dialog
+                open={cancelDialogOpen}
+                onClose={() => setCancelDialogOpen(false)}
+                title="¿Cancelar Partido?"
+                className="max-w-md"
+            >
+                <div className="space-y-4">
+                    <p className="text-sm text-muted">
+                        Esta acción es irreversible. Todos los jugadores serán notificados.
+                    </p>
+                    <div className="flex gap-3">
+                        <Button
+                            variant="outline"
+                            size="lg"
+                            className="flex-1"
+                            onClick={() => setCancelDialogOpen(false)}
+                        >
+                            Volver
+                        </Button>
+                        <Button
+                            variant="danger"
+                            size="lg"
+                            className="flex-1"
+                            loading={loading === "cancel"}
+                            onClick={async () => {
+                                setLoading("cancel");
+                                const result = await cancelMatch(match.id);
+                                if (result?.error) toast(result.error, "error");
+                                else toast("Partido cancelado", "success");
+                                setCancelDialogOpen(false);
+                                setLoading(null);
+                            }}
+                        >
+                            Sí, Cancelar
+                        </Button>
+                    </div>
+                </div>
+            </Dialog>
         </div>
     );
 }
@@ -634,7 +777,8 @@ function TeamCard({
     );
 }
 
-function PlayerRow({ participant }: { participant: Participant }) {
+function PlayerRow({ participant, onKick }: { participant: Participant; onKick?: () => void }) {
+    const [kicking, setKicking] = useState(false);
     const profile = participant.profiles;
     const avatarUrl = getAvatarUrl(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -675,6 +819,20 @@ function PlayerRow({ participant }: { participant: Participant }) {
             )}
             {participant.is_mvp && (
                 <span className="text-yellow-400 text-xs">🏅 MVP</span>
+            )}
+            {onKick && (
+                <button
+                    onClick={async () => {
+                        setKicking(true);
+                        await onKick();
+                        setKicking(false);
+                    }}
+                    disabled={kicking}
+                    className="ml-1 flex h-6 w-6 items-center justify-center rounded-full text-red-400 transition-colors hover:bg-red-500/20 hover:text-red-300 disabled:opacity-50"
+                    title={`Expulsar a ${profile?.username || "jugador"}`}
+                >
+                    <XCircle size={14} />
+                </button>
             )}
         </div>
     );

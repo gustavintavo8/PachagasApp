@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect, notFound } from "next/navigation";
 import { MatchDetail } from "./MatchDetail";
+import { isAdmin } from "@/lib/permissions";
 
 export default async function MatchPage({
     params,
@@ -40,6 +41,7 @@ export default async function MatchPage({
                 username: currentProfile?.username ?? null,
                 avatar_url: currentProfile?.avatar_url ?? null,
             }}
+            isAdmin={isAdmin(user.email)}
         />
     );
 }

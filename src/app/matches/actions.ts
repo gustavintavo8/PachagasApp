@@ -6,6 +6,7 @@ import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { balanceTeams } from "@/lib/team-balancer";
 import { rateLimit } from "@/lib/rate-limit";
+import { isAdmin } from "@/lib/permissions";
 
 type ActionResult = { success: boolean; error?: string; data?: unknown };
 
@@ -183,21 +184,23 @@ export async function closeMatch(matchId: string): Promise<ActionResult> {
 
     if (!user) return { success: false, error: "Not authenticated" };
 
-    // Verify organizer
+    // Verify organizer or admin
     const { data: match } = await supabase
         .from("matches")
         .select("created_by")
         .eq("id", matchId)
         .single();
 
-    if (match?.created_by !== user.id)
+    const admin = isAdmin(user.email);
+    if (match?.created_by !== user.id && !admin)
         return { success: false, error: "Only the organizer can close this match" };
 
-    const { error } = await supabase
+    // Admin uses admin client to bypass RLS
+    const client = admin ? createAdminClient() : supabase;
+    const { error } = await client
         .from("matches")
         .update({ status: "closed" })
-        .eq("id", matchId)
-        .eq("created_by", user.id);
+        .eq("id", matchId);
 
     if (error) return { success: false, error: error.message };
 
@@ -232,15 +235,19 @@ export async function setScore(
 
     const isAlreadyFinished = match?.status === "finished";
 
-    const { error } = await supabase
+    // Admin can set score on any match
+    const admin = isAdmin(user.email);
+    const client = admin ? createAdminClient() : supabase;
+    let query = client
         .from("matches")
         .update({
             team_a_score: teamAScore,
             team_b_score: teamBScore,
             status: "finished",
         })
-        .eq("id", matchId)
-        .eq("created_by", user.id);
+        .eq("id", matchId);
+    if (!admin) query = query.eq("created_by", user.id);
+    const { error } = await query;
 
     if (error) return { success: false, error: error.message };
 
@@ -327,14 +334,15 @@ export async function generateTeams(matchId: string): Promise<ActionResult> {
 
     if (!user) return { success: false, error: "Not authenticated" };
 
-    // Verify organizer
+    // Verify organizer or admin
     const { data: match } = await supabase
         .from("matches")
         .select("created_by")
         .eq("id", matchId)
         .single();
 
-    if (match?.created_by !== user.id)
+    const admin = isAdmin(user.email);
+    if (match?.created_by !== user.id && !admin)
         return { success: false, error: "Only the organizer can generate teams" };
 
     // Fetch participants with skill levels
@@ -384,4 +392,166 @@ export async function generateTeams(matchId: string): Promise<ActionResult> {
         success: true,
         data: { balanceScore: balanceScore.toFixed(2) },
     };
+}
+
+export async function cancelMatch(matchId: string): Promise<ActionResult> {
+    const supabase = await createClient();
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return { success: false, error: "Not authenticated" };
+
+    const { data: match } = await supabase
+        .from("matches")
+        .select("created_by, location")
+        .eq("id", matchId)
+        .single();
+
+    if (!match) return { success: false, error: "Match not found" };
+
+    const admin = isAdmin(user.email);
+    if (match.created_by !== user.id && !admin)
+        return { success: false, error: "No tienes permiso para cancelar este partido" };
+
+    const client = admin ? createAdminClient() : supabase;
+    const { error } = await client
+        .from("matches")
+        .update({ status: "cancelled" })
+        .eq("id", matchId);
+
+    if (error) return { success: false, error: error.message };
+
+    // Notify all participants
+    const { data: participants } = await supabase
+        .from("match_participants")
+        .select("user_id")
+        .eq("match_id", matchId);
+
+    if (participants) {
+        const ids = participants.map((p) => p.user_id).filter((id) => id !== user.id);
+        sendNotification(
+            ids,
+            "cancel",
+            "Partido cancelado",
+            `El partido en ${match.location} ha sido cancelado`,
+            matchId
+        );
+    }
+
+    revalidatePath(`/matches/${matchId}`);
+    revalidatePath("/");
+    revalidatePath("/matches");
+    revalidatePath("/calendar");
+    return { success: true };
+}
+
+export async function rescheduleMatch(
+    matchId: string,
+    newDate: string
+): Promise<ActionResult> {
+    const supabase = await createClient();
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return { success: false, error: "Not authenticated" };
+    if (!newDate) return { success: false, error: "Date is required" };
+
+    const { data: match } = await supabase
+        .from("matches")
+        .select("created_by, location, status")
+        .eq("id", matchId)
+        .single();
+
+    if (!match) return { success: false, error: "Match not found" };
+    if (match.status === "finished" || match.status === "cancelled")
+        return { success: false, error: "No se puede cambiar la fecha de un partido finalizado o cancelado" };
+
+    const admin = isAdmin(user.email);
+    if (match.created_by !== user.id && !admin)
+        return { success: false, error: "No tienes permiso para cambiar la fecha" };
+
+    const client = admin ? createAdminClient() : supabase;
+    const { error } = await client
+        .from("matches")
+        .update({ date: newDate })
+        .eq("id", matchId);
+
+    if (error) return { success: false, error: error.message };
+
+    // Notify all participants
+    const { data: participants } = await supabase
+        .from("match_participants")
+        .select("user_id")
+        .eq("match_id", matchId);
+
+    if (participants) {
+        const ids = participants.map((p) => p.user_id).filter((id) => id !== user.id);
+        const formattedDate = new Date(newDate).toLocaleString("es-ES", {
+            dateStyle: "medium",
+            timeStyle: "short",
+        });
+        sendNotification(
+            ids,
+            "reschedule",
+            "Fecha cambiada",
+            `${match.location} se ha movido al ${formattedDate}`,
+            matchId
+        );
+    }
+
+    revalidatePath(`/matches/${matchId}`);
+    revalidatePath("/");
+    revalidatePath("/matches");
+    revalidatePath("/calendar");
+    return { success: true };
+}
+
+export async function kickPlayer(
+    matchId: string,
+    targetUserId: string
+): Promise<ActionResult> {
+    const supabase = await createClient();
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return { success: false, error: "Not authenticated" };
+
+    if (!isAdmin(user.email))
+        return { success: false, error: "Solo el administrador puede expulsar jugadores" };
+
+    if (targetUserId === user.id)
+        return { success: false, error: "No puedes expulsarte a ti mismo" };
+
+    const adminClient = createAdminClient();
+    const { error } = await adminClient
+        .from("match_participants")
+        .delete()
+        .eq("match_id", matchId)
+        .eq("user_id", targetUserId);
+
+    if (error) return { success: false, error: error.message };
+
+    // Notify the kicked player
+    const { data: match } = await supabase
+        .from("matches")
+        .select("location")
+        .eq("id", matchId)
+        .single();
+
+    sendNotification(
+        [targetUserId],
+        "kick",
+        "Expulsado del partido",
+        `Has sido eliminado del partido en ${match?.location || "un partido"}`,
+        matchId
+    );
+
+    revalidatePath(`/matches/${matchId}`);
+    revalidatePath("/");
+    revalidatePath("/matches");
+    revalidatePath("/calendar");
+    return { success: true };
 }
