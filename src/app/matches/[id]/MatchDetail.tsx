@@ -798,15 +798,17 @@ function PlayerRow({ participant, adminUserIds, onKick }: { participant: Partici
                 size="sm"
             />
             <div className="flex-1 min-w-0">
-                <p className="text-sm font-medium text-foreground truncate">
-                    {profile?.username || "Unknown"}
-                </p>
-                {adminUserIds?.includes(participant.user_id) && (
-                    <span className="flex items-center gap-0.5 rounded-full bg-red-500/10 px-1.5 py-0.5 text-[10px] font-medium text-red-400">
-                        <Crown size={9} />
-                        Admin
-                    </span>
-                )}
+                <div className="flex items-center gap-1.5">
+                    <p className="text-sm font-medium text-foreground truncate">
+                        {profile?.username || "Unknown"}
+                    </p>
+                    {adminUserIds?.includes(participant.user_id) && (
+                        <span className="shrink-0 flex items-center gap-0.5 rounded-full bg-red-500/10 px-1.5 py-0.5 text-[10px] font-medium text-red-400">
+                            <Crown size={9} />
+                            Admin
+                        </span>
+                    )}
+                </div>
                 <div className="flex items-center gap-2 text-xs text-muted">
                     {profile?.position && (
                         <span>{positionBadge[profile.position]} {positionShort[profile.position] || profile.position}</span>
