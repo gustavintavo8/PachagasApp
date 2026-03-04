@@ -1,7 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect, notFound } from "next/navigation";
 import { MatchDetail } from "./MatchDetail";
-import { isAdmin } from "@/lib/permissions";
+import { isAdmin, getAdminUserIds } from "@/lib/permissions";
 
 export default async function MatchPage({
     params,
@@ -24,11 +24,12 @@ export default async function MatchPage({
 
     if (!match) notFound();
 
-    const [{ data: participants }, { data: organizerProfile }, { data: currentProfile }] =
+    const [{ data: participants }, { data: organizerProfile }, { data: currentProfile }, adminUserIds] =
         await Promise.all([
             supabase.from("match_participants").select("*, profiles(*)").eq("match_id", id),
             supabase.from("profiles").select("username").eq("id", match.created_by).single(),
             supabase.from("profiles").select("username, avatar_url").eq("id", user.id).single(),
+            getAdminUserIds(),
         ]);
 
     return (
@@ -42,6 +43,7 @@ export default async function MatchPage({
                 avatar_url: currentProfile?.avatar_url ?? null,
             }}
             isAdmin={isAdmin(user.email)}
+            adminUserIds={adminUserIds}
         />
     );
 }

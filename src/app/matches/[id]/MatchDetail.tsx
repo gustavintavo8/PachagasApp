@@ -64,6 +64,7 @@ interface MatchDetailProps {
         avatar_url: string | null;
     };
     isAdmin: boolean;
+    adminUserIds: string[];
 }
 
 export function MatchDetail({
@@ -73,6 +74,7 @@ export function MatchDetail({
     organizerName,
     currentUserProfile,
     isAdmin,
+    adminUserIds,
 }: MatchDetailProps) {
     const { toast } = useToast();
     const [loading, setLoading] = useState<string | null>(null);
@@ -348,6 +350,7 @@ export function MatchDetail({
                             <PlayerRow
                                 key={p.user_id}
                                 participant={p}
+                                adminUserIds={adminUserIds}
                                 onKick={
                                     isAdmin && match.status === "open" && p.user_id !== currentUserId
                                         ? async () => {
@@ -379,6 +382,7 @@ export function MatchDetail({
                             <PlayerRow
                                 key={p.user_id}
                                 participant={p}
+                                adminUserIds={adminUserIds}
                                 onKick={
                                     isAdmin && match.status === "open" && p.user_id !== currentUserId
                                         ? async () => {
@@ -726,10 +730,12 @@ function TeamCard({
     team,
     players,
     color,
+    adminUserIds,
 }: {
     team: "A" | "B";
     players: Participant[];
     color: string;
+    adminUserIds: string[];
 }) {
     const avgSkill =
         players.length > 0
@@ -753,7 +759,7 @@ function TeamCard({
             </CardHeader>
             <div className="space-y-3">
                 {players.map((p) => (
-                    <PlayerRow key={p.user_id} participant={p} />
+                    <PlayerRow key={p.user_id} participant={p} adminUserIds={adminUserIds} />
                 ))}
                 {players.length === 0 && (
                     <p className="text-center text-sm text-muted">No players</p>
@@ -763,7 +769,7 @@ function TeamCard({
     );
 }
 
-function PlayerRow({ participant, onKick }: { participant: Participant; onKick?: () => void }) {
+function PlayerRow({ participant, adminUserIds, onKick }: { participant: Participant; adminUserIds?: string[]; onKick?: () => void }) {
     const [kicking, setKicking] = useState(false);
     const profile = participant.profiles;
     const avatarUrl = getAvatarUrl(
@@ -795,6 +801,12 @@ function PlayerRow({ participant, onKick }: { participant: Participant; onKick?:
                 <p className="text-sm font-medium text-foreground truncate">
                     {profile?.username || "Unknown"}
                 </p>
+                {adminUserIds?.includes(participant.user_id) && (
+                    <span className="flex items-center gap-0.5 rounded-full bg-red-500/10 px-1.5 py-0.5 text-[10px] font-medium text-red-400">
+                        <Crown size={9} />
+                        Admin
+                    </span>
+                )}
                 <div className="flex items-center gap-2 text-xs text-muted">
                     {profile?.position && (
                         <span>{positionBadge[profile.position]} {positionShort[profile.position] || profile.position}</span>

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Card } from "@/components/ui/Card";
 import { Avatar } from "@/components/ui/Avatar";
 import { getAvatarUrl } from "@/lib/utils";
-import { Search, Trophy, Target, Users } from "lucide-react";
+import { Search, Trophy, Target, Users, Crown } from "lucide-react";
 import type { Profile } from "@/lib/types";
 
 const positions = ["ALL", "GK", "DEF", "MID", "FWD"] as const;
@@ -20,9 +20,10 @@ const positionLabels: Record<string, string> = {
 interface PlayersListProps {
     profiles: Profile[];
     currentUserId: string;
+    adminUserIds: string[];
 }
 
-export function PlayersList({ profiles, currentUserId }: PlayersListProps) {
+export function PlayersList({ profiles, currentUserId, adminUserIds }: PlayersListProps) {
     const [search, setSearch] = useState("");
     const [positionFilter, setPositionFilter] = useState<string>("ALL");
 
@@ -116,6 +117,12 @@ export function PlayersList({ profiles, currentUserId }: PlayersListProps) {
                                                 {isYou && (
                                                     <span className="shrink-0 rounded-full bg-accent/10 px-2 py-0.5 text-xs font-medium text-accent">
                                                         Tú
+                                                    </span>
+                                                )}
+                                                {adminUserIds.includes(profile.id) && (
+                                                    <span className="shrink-0 flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 text-xs font-medium text-red-400">
+                                                        <Crown size={10} />
+                                                        Admin
                                                     </span>
                                                 )}
                                             </div>

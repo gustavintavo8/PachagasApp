@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { PlayersList } from "./PlayersList";
+import { getAdminUserIds } from "@/lib/permissions";
 import type { Profile } from "@/lib/types";
 
 export const metadata: Metadata = {
@@ -17,11 +18,13 @@ export default async function PlayersPage() {
 
     if (!user) redirect("/login");
 
-    // Fetch all profiles
-    const { data: profiles } = await supabase
-        .from("profiles")
-        .select("*")
-        .order("matches_played", { ascending: false });
+    const [{ data: profiles }, adminUserIds] = await Promise.all([
+        supabase
+            .from("profiles")
+            .select("*")
+            .order("matches_played", { ascending: false }),
+        getAdminUserIds(),
+    ]);
 
     return (
         <div className="mx-auto max-w-5xl px-4 py-8">
@@ -32,6 +35,7 @@ export default async function PlayersPage() {
             <PlayersList
                 profiles={(profiles as Profile[]) || []}
                 currentUserId={user.id}
+                adminUserIds={adminUserIds}
             />
         </div>
     );

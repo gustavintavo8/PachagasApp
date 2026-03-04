@@ -1,10 +1,11 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
-import { Card } from "@/components/ui/Card";
+import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Avatar } from "@/components/ui/Avatar";
 import { PlayerCharts } from "@/components/PlayerCharts";
 import { formatDate, getAvatarUrl } from "@/lib/utils";
+import { getAdminUserIds } from "@/lib/permissions";
 import {
     Calendar,
     MapPin,
@@ -13,6 +14,7 @@ import {
     ArrowLeft,
     User,
     Star,
+    Crown,
 } from "lucide-react";
 
 import type { Metadata } from "next";
@@ -110,6 +112,8 @@ export default async function PlayerProfilePage({
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
     const avatarUrl = getAvatarUrl(supabaseUrl, profile.avatar_url);
     const isYou = id === user.id;
+    const adminUserIds = await getAdminUserIds();
+    const isProfileAdmin = adminUserIds.includes(id);
 
     const positionLabels: Record<string, string> = {
         GK: "🧤 Portero",
@@ -145,6 +149,12 @@ export default async function PlayerProfilePage({
                             {isYou && (
                                 <span className="rounded-full bg-accent/10 px-2.5 py-0.5 text-xs font-medium text-accent">
                                     Tú
+                                </span>
+                            )}
+                            {isProfileAdmin && (
+                                <span className="flex items-center gap-1 rounded-full bg-red-500/10 px-2.5 py-0.5 text-xs font-medium text-red-400">
+                                    <Crown size={12} />
+                                    Admin
                                 </span>
                             )}
                         </div>
