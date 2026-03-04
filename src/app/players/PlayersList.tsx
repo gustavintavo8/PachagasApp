@@ -91,6 +91,12 @@ export function PlayersList({ profiles, currentUserId }: PlayersListProps) {
                             MID: "🎯",
                             FWD: "⚡",
                         };
+                        const positionShort: Record<string, string> = {
+                            GK: "POR",
+                            DEF: "DEF",
+                            MID: "MED",
+                            FWD: "DEL",
+                        };
 
                         return (
                             <Link key={profile.id} href={`/players/${profile.id}`}>
@@ -117,7 +123,7 @@ export function PlayersList({ profiles, currentUserId }: PlayersListProps) {
                                                 {profile.position && (
                                                     <span>
                                                         {positionBadge[profile.position]}{" "}
-                                                        {profile.position}
+                                                        {positionShort[profile.position] || profile.position}
                                                     </span>
                                                 )}
                                                 {profile.skill_level && (

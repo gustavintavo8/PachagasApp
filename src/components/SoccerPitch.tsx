@@ -26,17 +26,17 @@ const POSITION_CONFIG: Record<
     string,
     { zone: number; label: string; emoji: string }
 > = {
-    GK: { zone: 85, label: "GK", emoji: "🧤" },
+    GK: { zone: 85, label: "POR", emoji: "🧤" },
     DEF: { zone: 65, label: "DEF", emoji: "🛡️" },
-    MID: { zone: 40, label: "MID", emoji: "🎯" },
-    FWD: { zone: 15, label: "FWD", emoji: "⚡" },
+    MID: { zone: 40, label: "MED", emoji: "🎯" },
+    FWD: { zone: 15, label: "DEL", emoji: "⚡" },
 };
 
 const positionFullNames: Record<string, string> = {
-    GK: "Goalkeeper",
-    DEF: "Defender",
-    MID: "Midfielder",
-    FWD: "Forward",
+    GK: "Portero",
+    DEF: "Defensa",
+    MID: "Mediocampista",
+    FWD: "Delantero",
 };
 
 function groupByPosition(players: Participant[]) {
@@ -55,14 +55,6 @@ function groupByPosition(players: Participant[]) {
         }
     }
     return groups;
-}
-
-function avgSkill(players: Participant[]) {
-    if (players.length === 0) return "0";
-    return (
-        players.reduce((s, p) => s + (p.profiles?.skill_level ?? 5), 0) /
-        players.length
-    ).toFixed(1);
 }
 
 /* ═══════════════════════════════════════════════
@@ -120,12 +112,9 @@ export function SoccerPitch({ teamA, teamB }: SoccerPitchProps) {
                     <span className="text-sm font-bold text-accent">
                         Team A
                     </span>
-                    <span className="rounded-full bg-accent/10 px-2 py-0.5 text-xs text-accent">
-                        Avg: {avgSkill(teamA)}
-                    </span>
                 </div>
                 <span className="text-xs text-muted">
-                    {teamA.length} players
+                    {teamA.length} jugadores
                 </span>
             </div>
 
@@ -369,12 +358,9 @@ export function SoccerPitch({ teamA, teamB }: SoccerPitchProps) {
                     <span className="text-sm font-bold text-blue-400">
                         Team B
                     </span>
-                    <span className="rounded-full bg-blue-400/10 px-2 py-0.5 text-xs text-blue-400">
-                        Avg: {avgSkill(teamB)}
-                    </span>
                 </div>
                 <span className="text-xs text-muted">
-                    {teamB.length} players
+                    {teamB.length} jugadores
                 </span>
             </div>
         </div>

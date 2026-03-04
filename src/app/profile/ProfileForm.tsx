@@ -12,10 +12,10 @@ import type { Profile } from "@/lib/types";
 
 const positions = ["GK", "DEF", "MID", "FWD"] as const;
 const positionLabels: Record<string, string> = {
-    GK: "🧤 Portero",
-    DEF: "🛡️ Defensa",
-    MID: "🎯 Centrocampista",
-    FWD: "⚡ Delantero",
+    GK: "🧤 Portero (POR)",
+    DEF: "🛡️ Defensa (DEF)",
+    MID: "🎯 Mediocampista (MED)",
+    FWD: "⚡ Delantero (DEL)",
 };
 
 interface ProfileFormProps {

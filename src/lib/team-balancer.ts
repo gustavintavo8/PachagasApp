@@ -1,65 +1,80 @@
 /**
- * Team Balancing Algorithm — Snake Draft
+ * Team Balancing Algorithm — Position-Based Random Assignment
  *
  * Strategy:
- * 1. Sort players by skill_level descending.
- * 2. Distribute using snake draft: A, B, B, A, A, B, B, A...
- *    - Round 1 (pair 0): picks go to A, B
- *    - Round 2 (pair 1): picks go to B, A   ← reversed
- *    - Round 3 (pair 2): picks go to A, B
- *    - ...
- * 3. This minimises the total skill sum difference between teams.
+ * 1. Group players by position (GK, DEF, MID, FWD).
+ * 2. For each position group, shuffle randomly.
+ * 3. Distribute evenly: alternate between Team A and Team B.
+ *    This ensures, e.g., 2 GKs → 1 per team.
+ * 4. No skill weighting — purely random within each position group.
  */
+
+export type Position = "GK" | "DEF" | "MID" | "FWD";
 
 export interface TeamPlayer {
     user_id: string;
-    skill_level: number;
+    position: Position;
 }
 
 export interface BalanceResult {
     teamA: TeamPlayer[];
     teamB: TeamPlayer[];
     assignments: { user_id: string; team: "A" | "B" }[];
-    balanceScore: number; // absolute difference in avg skill (lower = better)
+}
+
+/** Fisher-Yates shuffle (in place) */
+function shuffle<T>(arr: T[]): T[] {
+    for (let i = arr.length - 1; i > 0; i--) {
+        const j = Math.floor(Math.random() * (i + 1));
+        [arr[i], arr[j]] = [arr[j], arr[i]];
+    }
+    return arr;
 }
 
 export function balanceTeams(participants: TeamPlayer[]): BalanceResult {
-    // Sort by skill descending
-    const sorted = [...participants].sort(
-        (a, b) => b.skill_level - a.skill_level
-    );
+    // Group by position
+    const groups: Record<Position, TeamPlayer[]> = {
+        GK: [],
+        DEF: [],
+        MID: [],
+        FWD: [],
+    };
+
+    for (const p of participants) {
+        groups[p.position].push(p);
+    }
 
     const teamA: TeamPlayer[] = [];
     const teamB: TeamPlayer[] = [];
 
-    // Snake draft: A, B, B, A, A, B, B, A...
-    for (let i = 0; i < sorted.length; i++) {
-        const round = Math.floor(i / 2); // which pair we're in
-        const posInPair = i % 2;         // 0 = first pick, 1 = second pick
+    // Process each position group: shuffle then alternate A/B
+    const positionOrder: Position[] = ["GK", "DEF", "MID", "FWD"];
 
-        // Even rounds: first→A, second→B
-        // Odd rounds:  first→B, second→A
-        const goesToA =
-            (round % 2 === 0 && posInPair === 0) ||
-            (round % 2 === 1 && posInPair === 1);
-
-        if (goesToA) {
-            teamA.push(sorted[i]);
-        } else {
-            teamB.push(sorted[i]);
+    for (const pos of positionOrder) {
+        const players = shuffle([...groups[pos]]);
+        for (let i = 0; i < players.length; i++) {
+            if (teamA.filter((p) => p.position === pos).length <=
+                teamB.filter((p) => p.position === pos).length) {
+                teamA.push(players[i]);
+            } else {
+                teamB.push(players[i]);
+            }
         }
     }
 
-    const sumA = teamA.reduce((s, p) => s + p.skill_level, 0);
-    const sumB = teamB.reduce((s, p) => s + p.skill_level, 0);
-    const avgA = teamA.length > 0 ? sumA / teamA.length : 0;
-    const avgB = teamB.length > 0 ? sumB / teamB.length : 0;
-    const balanceScore = Math.abs(avgA - avgB);
+    // If teams are uneven overall, move a player from the larger team
+    while (Math.abs(teamA.length - teamB.length) > 1) {
+        if (teamA.length > teamB.length) {
+            teamB.push(teamA.pop()!);
+        } else {
+            teamA.push(teamB.pop()!);
+        }
+    }
 
     const assignments: { user_id: string; team: "A" | "B" }[] = [
         ...teamA.map((p) => ({ user_id: p.user_id, team: "A" as const })),
         ...teamB.map((p) => ({ user_id: p.user_id, team: "B" as const })),
     ];
 
-    return { teamA, teamB, assignments, balanceScore };
+    return { teamA, teamB, assignments };
 }

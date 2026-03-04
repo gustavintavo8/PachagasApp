@@ -345,22 +345,43 @@ export async function generateTeams(matchId: string): Promise<ActionResult> {
     if (match?.created_by !== user.id && !admin)
         return { success: false, error: "Only the organizer can generate teams" };
 
-    // Fetch participants with skill levels
+    // Fetch participants with positions
     const { data: participants } = await supabase
         .from("match_participants")
-        .select("user_id, profiles(skill_level)")
+        .select("user_id, profiles(position)")
         .eq("match_id", matchId);
 
     if (!participants || participants.length < 2)
         return { success: false, error: "Need at least 2 players to generate teams" };
 
-    const playersWithSkill = participants.map((p) => ({
-        user_id: p.user_id,
-        skill_level:
-            (p.profiles as unknown as { skill_level: number })?.skill_level ?? 5,
-    }));
+    type ValidPosition = "GK" | "DEF" | "MID" | "FWD";
+    const validPositions: ValidPosition[] = ["GK", "DEF", "MID", "FWD"];
 
-    const { assignments, balanceScore } = balanceTeams(playersWithSkill);
+    // Update players without a position to MID in the database
+    const adminClient = createAdminClient();
+    const playersWithPosition = participants.map((p) => {
+        const rawPos = (p.profiles as unknown as { position: string | null })?.position;
+        const position: ValidPosition = rawPos && validPositions.includes(rawPos as ValidPosition)
+            ? (rawPos as ValidPosition)
+            : "MID";
+        return { user_id: p.user_id, position };
+    });
+
+    // Persist MID default for players who had null position
+    const noPositionIds = participants
+        .filter((p) => !(p.profiles as unknown as { position: string | null })?.position)
+        .map((p) => p.user_id);
+
+    if (noPositionIds.length > 0) {
+        for (const uid of noPositionIds) {
+            await adminClient
+                .from("profiles")
+                .update({ position: "MID" })
+                .eq("id", uid);
+        }
+    }
+
+    const { assignments } = balanceTeams(playersWithPosition);
 
     // Update each participant's team
     for (const assignment of assignments) {
@@ -388,10 +409,7 @@ export async function generateTeams(matchId: string): Promise<ActionResult> {
 
     revalidatePath(`/matches/${matchId}`);
     revalidatePath("/calendar");
-    return {
-        success: true,
-        data: { balanceScore: balanceScore.toFixed(2) },
-    };
+    return { success: true };
 }
 
 export async function cancelMatch(matchId: string): Promise<ActionResult> {

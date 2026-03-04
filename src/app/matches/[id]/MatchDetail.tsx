@@ -777,6 +777,12 @@ function PlayerRow({ participant, onKick }: { participant: Participant; onKick?:
         MID: "🎯",
         FWD: "⚡",
     };
+    const positionShort: Record<string, string> = {
+        GK: "POR",
+        DEF: "DEF",
+        MID: "MED",
+        FWD: "DEL",
+    };
 
     return (
         <div className="flex items-center gap-3 rounded-xl bg-zinc-800/50 px-3 py-2">
@@ -791,7 +797,7 @@ function PlayerRow({ participant, onKick }: { participant: Participant; onKick?:
                 </p>
                 <div className="flex items-center gap-2 text-xs text-muted">
                     {profile?.position && (
-                        <span>{positionBadge[profile.position]} {profile.position}</span>
+                        <span>{positionBadge[profile.position]} {positionShort[profile.position] || profile.position}</span>
                     )}
                     {profile?.skill_level && (
                         <span>⭐ {profile.skill_level}</span>

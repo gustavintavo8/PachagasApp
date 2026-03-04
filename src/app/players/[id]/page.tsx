@@ -114,7 +114,7 @@ export default async function PlayerProfilePage({
     const positionLabels: Record<string, string> = {
         GK: "🧤 Portero",
         DEF: "🛡️ Defensa",
-        MID: "🎯 Centrocampista",
+        MID: "🎯 Mediocampista",
         FWD: "⚡ Delantero",
     };
 
