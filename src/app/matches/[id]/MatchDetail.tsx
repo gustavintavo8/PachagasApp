@@ -5,7 +5,6 @@ import { useToast } from "@/components/ui/Toast";
 import {
     joinMatch,
     leaveMatch,
-    closeMatch,
     setScore,
     generateTeams,
     cancelMatch,
@@ -28,7 +27,6 @@ import {
     Users,
     Shield,
     Shuffle,
-    Lock,
     Trophy,
     LogOut as LeaveIcon,
     UserPlus,
@@ -251,43 +249,31 @@ export function MatchDetail({
                 )}
 
                 {/* Organizer / Admin actions */}
-                {(canManage) && match.status === "open" && (
-                    <>
-                        <Button
-                            variant="outline"
-                            size="lg"
-                            loading={loading === "generate"}
-                            onClick={() =>
-                                handleAction(() => generateTeams(match.id), "generate", "¡Equipos generados!")
-                            }
-                        >
-                            <Shuffle size={18} />
-                            Generar Equipos
-                        </Button>
-                        <Button
-                            variant="danger"
-                            size="lg"
-                            loading={loading === "close"}
-                            onClick={() =>
-                                handleAction(() => closeMatch(match.id), "close", "Partido cerrado")
-                            }
-                        >
-                            <Lock size={18} />
-                            Cerrar Partido
-                        </Button>
-                    </>
+                {canManage && match.status === "open" && (
+                    <Button
+                        variant="outline"
+                        size="lg"
+                        loading={loading === "generate"}
+                        onClick={() =>
+                            handleAction(() => generateTeams(match.id), "generate", "¡Equipos generados!")
+                        }
+                    >
+                        <Shuffle size={18} />
+                        Generar Equipos
+                    </Button>
                 )}
-                {(canManage) &&
-                    (match.status === "closed" || match.status === "open") && (
-                        <Button
-                            variant="outline"
-                            size="lg"
-                            onClick={() => setScoreDialogOpen(true)}
-                        >
-                            <Trophy size={18} />
-                            Poner Resultado
-                        </Button>
-                    )}
+
+                {/* Poner Resultado — only after teams are generated */}
+                {canManage && teamsGenerated && match.status !== "finished" && match.status !== "cancelled" && (
+                    <Button
+                        variant="outline"
+                        size="lg"
+                        onClick={() => setScoreDialogOpen(true)}
+                    >
+                        <Trophy size={18} />
+                        Poner Resultado
+                    </Button>
+                )}
 
                 {/* Reschedule — admin or organizer, only on active matches */}
                 {canManage && match.status !== "finished" && match.status !== "cancelled" && (
@@ -313,7 +299,7 @@ export function MatchDetail({
                     </Button>
                 )}
 
-                {(canManage) && match.status === "finished" && (
+                {canManage && match.status === "finished" && (
                     <Link href={`/matches/new?location=${encodeURIComponent(match.location)}&max_players=${match.max_players}`}>
                         <Button variant="outline" size="lg">
                             <Copy size={18} />
