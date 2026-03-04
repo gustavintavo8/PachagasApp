@@ -23,22 +23,12 @@ export default async function MatchPage({
 
     if (!match) notFound();
 
-    const { data: participants } = await supabase
-        .from("match_participants")
-        .select("*, profiles(*)")
-        .eq("match_id", id);
-
-    const { data: organizerProfile } = await supabase
-        .from("profiles")
-        .select("username")
-        .eq("id", match.created_by)
-        .single();
-
-    const { data: currentProfile } = await supabase
-        .from("profiles")
-        .select("username, avatar_url")
-        .eq("id", user.id)
-        .single();
+    const [{ data: participants }, { data: organizerProfile }, { data: currentProfile }] =
+        await Promise.all([
+            supabase.from("match_participants").select("*, profiles(*)").eq("match_id", id),
+            supabase.from("profiles").select("username").eq("id", match.created_by).single(),
+            supabase.from("profiles").select("username, avatar_url").eq("id", user.id).single(),
+        ]);
 
     return (
         <MatchDetail

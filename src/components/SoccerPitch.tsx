@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { Avatar } from "@/components/ui/Avatar";
 import { getAvatarUrl } from "@/lib/utils";
 import type { Profile } from "@/lib/types";
@@ -485,10 +485,19 @@ function PlayerMarker({
     return (
         <div
             data-player-marker
+            role="button"
+            tabIndex={0}
             className="flex cursor-pointer flex-col items-center gap-0.5"
             onClick={(e) => {
                 const el = e.currentTarget as HTMLElement;
                 onPlayerClick(participant, el);
+            }}
+            onKeyDown={(e) => {
+                if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    const el = e.currentTarget as HTMLElement;
+                    onPlayerClick(participant, el);
+                }
             }}
         >
             {/* Avatar circle */}
@@ -542,7 +551,7 @@ function PlayerPopover({
     const popoverRef = useRef<HTMLDivElement>(null);
     const [adjustedPos, setAdjustedPos] = useState({ x, y });
 
-    useEffect(() => {
+    useLayoutEffect(() => {
         if (!popoverRef.current) return;
         const el = popoverRef.current;
         const parent = el.offsetParent as HTMLElement;

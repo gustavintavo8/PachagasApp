@@ -5,7 +5,7 @@ import {
     useContext,
     useState,
     useCallback,
-    useEffect,
+    useSyncExternalStore,
     type ReactNode,
 } from "react";
 import { createPortal } from "react-dom";
@@ -44,11 +44,11 @@ const styles: Record<ToastType, string> = {
     info: "border-accent/30 bg-accent/10 text-accent",
 };
 
+const emptySubscribe = () => () => {};
+
 export function ToastProvider({ children }: { children: ReactNode }) {
     const [toasts, setToasts] = useState<Toast[]>([]);
-    const [mounted, setMounted] = useState(false);
-
-    useEffect(() => setMounted(true), []);
+    const mounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
 
     const toast = useCallback((message: string, type: ToastType = "info") => {
         const id = crypto.randomUUID();

@@ -18,31 +18,35 @@ export default function LoginPage() {
         const formData = new FormData(e.currentTarget);
         const action = isSignUp ? signup : login;
 
+        let result: { success?: boolean; error?: string } | undefined;
         try {
-            const result = await action(formData);
-            if (result && !result.success) {
-                setError(result.error ?? "Algo salió mal");
-                setLoading(false);
-            }
+            result = await action(formData);
         } catch {
             // redirect() throws NEXT_REDIRECT — expected
+            return;
+        }
+        if (result && !result.success) {
+            setError(result.error ?? "Algo salió mal");
+            setLoading(false);
         }
     }
 
     async function handleOAuth(provider: "google" | "apple") {
         setError(null);
         setOauthLoading(provider);
+        let result: { error?: string; url?: string };
         try {
-            const result = await signInWithOAuth(provider);
-            if (result.error) {
-                setError(result.error);
-                setOauthLoading(null);
-            } else if (result.url) {
-                window.location.href = result.url;
-            }
+            result = await signInWithOAuth(provider);
         } catch {
             setError("Error al conectar con el proveedor");
             setOauthLoading(null);
+            return;
+        }
+        if (result.error) {
+            setError(result.error);
+            setOauthLoading(null);
+        } else if (result.url) {
+            window.location.href = result.url;
         }
     }
 

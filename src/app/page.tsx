@@ -23,26 +23,21 @@ export default async function Dashboard() {
 
   if (!user) redirect("/login");
 
-  // Fetch user profile
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single();
-
-  // Fetch open matches
-  const { data: openMatches } = await supabase
-    .from("matches")
-    .select("*, match_participants(user_id)")
-    .eq("status", "open")
-    .gte("date", new Date().toISOString())
-    .order("date", { ascending: true });
-
-  // Find the next match the user is part of
-  const { data: userParticipations } = await supabase
-    .from("match_participants")
-    .select("match_id, matches(*)")
-    .eq("user_id", user.id);
+  // Fetch profile, open matches, and user participations in parallel
+  const [{ data: profile }, { data: openMatches }, { data: userParticipations }] =
+    await Promise.all([
+      supabase.from("profiles").select("*").eq("id", user.id).single(),
+      supabase
+        .from("matches")
+        .select("*, match_participants(user_id)")
+        .eq("status", "open")
+        .gte("date", new Date().toISOString())
+        .order("date", { ascending: true }),
+      supabase
+        .from("match_participants")
+        .select("match_id, matches(*)")
+        .eq("user_id", user.id),
+    ]);
 
   const nextMatch = userParticipations
     ?.map((p) => p.matches as unknown as (typeof openMatches extends (infer T)[] | null ? T : never))

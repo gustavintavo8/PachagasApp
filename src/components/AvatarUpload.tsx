@@ -15,7 +15,8 @@ interface AvatarUploadProps {
 
 export function AvatarUpload({ uid, url, fallback, onUpload }: AvatarUploadProps) {
     const [uploading, setUploading] = useState(false);
-    const [avatarUrl, setAvatarUrl] = useState(url);
+    const [uploadedUrl, setUploadedUrl] = useState<string | null>(null);
+    const avatarUrl = uploadedUrl ?? url;
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     async function handleUpload(event: React.ChangeEvent<HTMLInputElement>) {
@@ -44,7 +45,7 @@ export function AvatarUpload({ uid, url, fallback, onUpload }: AvatarUploadProps
             .from("avatars")
             .getPublicUrl(filePath);
 
-        setAvatarUrl(data.publicUrl);
+        setUploadedUrl(data.publicUrl);
 
         // Update profile
         await updateAvatar(filePath);
@@ -55,7 +56,18 @@ export function AvatarUpload({ uid, url, fallback, onUpload }: AvatarUploadProps
 
     return (
         <div className="flex flex-col items-center gap-3">
-            <div className="group relative cursor-pointer" onClick={() => fileInputRef.current?.click()}>
+            <div
+                role="button"
+                tabIndex={0}
+                className="group relative cursor-pointer"
+                onClick={() => fileInputRef.current?.click()}
+                onKeyDown={(e) => {
+                    if (e.key === "Enter" || e.key === " ") {
+                        e.preventDefault();
+                        fileInputRef.current?.click();
+                    }
+                }}
+            >
                 <Avatar src={avatarUrl} fallback={fallback} size="xl" />
                 <div className="absolute inset-0 flex items-center justify-center rounded-full bg-black/50 opacity-0 transition-opacity group-hover:opacity-100">
                     <Camera size={24} className="text-white" />

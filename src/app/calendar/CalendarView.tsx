@@ -33,8 +33,8 @@ const statusDot: Record<string, string> = {
 
 export function CalendarView({ matches }: CalendarViewProps) {
     const today = new Date();
-    const [currentMonth, setCurrentMonth] = useState(today.getMonth());
-    const [currentYear, setCurrentYear] = useState(today.getFullYear());
+    const [currentMonth, setCurrentMonth] = useState(() => today.getMonth());
+    const [currentYear, setCurrentYear] = useState(() => today.getFullYear());
     const [selectedDate, setSelectedDate] = useState<string | null>(null);
 
     function prev() {

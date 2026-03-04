@@ -7,6 +7,7 @@ import { Card } from "@/components/ui/Card";
 import { Avatar } from "@/components/ui/Avatar";
 import { getAvatarUrl } from "@/lib/utils";
 import { Camera, Plus, X, ImageIcon, Loader2 } from "lucide-react";
+import Image from "next/image";
 
 interface Photo {
     id: string;
@@ -65,27 +66,25 @@ export function MatchPhotos({ matchId, currentUserId }: MatchPhotosProps) {
 
         setUploading(true);
 
-        try {
-            // Generate unique filename
-            const ext = file.name.split(".").pop() || "jpg";
-            const fileName = `${matchId}/${currentUserId}-${Date.now()}.${ext}`;
+        const ext = file.name.split(".").pop() || "jpg";
+        const fileName = `${matchId}/${currentUserId}-${Date.now()}.${ext}`;
 
-            // Upload to storage
+        let publicUrl: string;
+        let photoRow: unknown;
+        try {
             const { error: uploadError } = await supabase.storage
                 .from("match_photos")
                 .upload(fileName, file, { upsert: false });
 
             if (uploadError) throw uploadError;
 
-            // Get public URL
             const { data: urlData } = supabase.storage
                 .from("match_photos")
                 .getPublicUrl(fileName);
 
-            const publicUrl = urlData.publicUrl;
+            publicUrl = urlData.publicUrl;
 
-            // Insert into database
-            const { data: photoRow, error: dbError } = await supabase
+            const { data, error: dbError } = await supabase
                 .from("match_photos")
                 .insert({
                     match_id: matchId,
@@ -96,17 +95,19 @@ export function MatchPhotos({ matchId, currentUserId }: MatchPhotosProps) {
                 .single();
 
             if (dbError) throw dbError;
-
-            setPhotos((prev) => [photoRow as unknown as Photo, ...prev]);
-            toast("¡Foto subida!", "success");
+            photoRow = data;
         } catch (err: unknown) {
             const message = err instanceof Error ? err.message : "Error al subir la foto";
             toast(message, "error");
-        } finally {
             setUploading(false);
-            // Reset input
             if (fileInputRef.current) fileInputRef.current.value = "";
+            return;
         }
+
+        setPhotos((prev) => [photoRow as Photo, ...prev]);
+        toast("¡Foto subida!", "success");
+        setUploading(false);
+        if (fileInputRef.current) fileInputRef.current.value = "";
     }
 
     function timeAgo(dateStr: string) {
@@ -186,15 +187,24 @@ export function MatchPhotos({ matchId, currentUserId }: MatchPhotosProps) {
                             return (
                                 <div
                                     key={photo.id}
+                                    role="button"
+                                    tabIndex={0}
                                     className="group relative cursor-pointer overflow-hidden rounded-xl border border-border bg-zinc-800 transition-all hover:border-accent/50 hover:shadow-lg hover:shadow-accent/5"
                                     onClick={() => setLightboxUrl(photo.photo_url)}
+                                    onKeyDown={(e) => {
+                                        if (e.key === "Enter" || e.key === " ") {
+                                            e.preventDefault();
+                                            setLightboxUrl(photo.photo_url);
+                                        }
+                                    }}
                                 >
-                                    <div className="aspect-square">
-                                        <img
+                                    <div className="aspect-square relative">
+                                        <Image
                                             src={photo.photo_url}
                                             alt="Match photo"
-                                            className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                                            loading="lazy"
+                                            fill
+                                            className="object-cover transition-transform duration-300 group-hover:scale-105"
+                                            sizes="(max-width: 640px) 50vw, 33vw"
                                         />
                                     </div>
                                     {/* Overlay */}
@@ -223,25 +233,36 @@ export function MatchPhotos({ matchId, currentUserId }: MatchPhotosProps) {
             </div>
 
             {/* Lightbox */}
-            {lightboxUrl && (
-                <div
-                    className="fixed inset-0 z-[200] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4"
-                    onClick={() => setLightboxUrl(null)}
-                >
-                    <button
+            {
+                lightboxUrl && (
+                    <div
+                        className="fixed inset-0 z-[200] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4"
+                        role="button"
+                        tabIndex={0}
                         onClick={() => setLightboxUrl(null)}
-                        className="absolute right-4 top-4 rounded-full bg-zinc-800/80 p-2 text-white transition-colors hover:bg-zinc-700"
+                        onKeyDown={(e) => {
+                            if (e.key === "Escape" || e.key === "Enter") {
+                                setLightboxUrl(null);
+                            }
+                        }}
                     >
-                        <X size={24} />
-                    </button>
-                    <img
-                        src={lightboxUrl}
-                        alt="Full size"
-                        className="max-h-[90vh] max-w-full rounded-xl object-contain"
-                        onClick={(e) => e.stopPropagation()}
-                    />
-                </div>
-            )}
-        </div>
+                        <button
+                            onClick={() => setLightboxUrl(null)}
+                            className="absolute right-4 top-4 rounded-full bg-zinc-800/80 p-2 text-white transition-colors hover:bg-zinc-700"
+                        >
+                            <X size={24} />
+                        </button>
+                        <Image
+                            src={lightboxUrl!}
+                            alt="Full size"
+                            width={1200}
+                            height={900}
+                            className="max-h-[90vh] max-w-full rounded-xl object-contain"
+                            onClick={(e) => e.stopPropagation()}
+                        />
+                    </div>
+                )
+            }
+        </div >
     );
 }

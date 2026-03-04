@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import { createMatch } from "../actions";
 import { Button } from "@/components/ui/Button";
@@ -9,6 +9,24 @@ import { Input } from "@/components/ui/Input";
 import { CalendarDays, MapPin, Users } from "lucide-react";
 
 export default function NewMatchPage() {
+    return (
+        <Suspense fallback={<NewMatchSkeleton />}>
+            <NewMatchForm />
+        </Suspense>
+    );
+}
+
+function NewMatchSkeleton() {
+    return (
+        <div className="mx-auto max-w-lg px-4 py-8">
+            <div className="skeleton mb-2 h-8 w-48 rounded-lg" />
+            <div className="skeleton mb-8 h-5 w-64 rounded-lg" />
+            <div className="skeleton h-96 rounded-2xl" />
+        </div>
+    );
+}
+
+function NewMatchForm() {
     const searchParams = useSearchParams();
     const prefillLocation = searchParams.get("location") ?? "";
     const prefillMaxPlayers = searchParams.get("max_players") ?? "10";
@@ -57,7 +75,10 @@ export default function NewMatchPage() {
                     </div>
 
                     <div className="space-y-2">
-                        <label className="flex items-center gap-2 text-sm font-medium text-zinc-300">
+                        <label
+                            htmlFor="location"
+                            className="flex items-center gap-2 text-sm font-medium text-zinc-300"
+                        >
                             <MapPin size={16} />
                             Ubicación
                         </label>
@@ -71,7 +92,10 @@ export default function NewMatchPage() {
                     </div>
 
                     <div className="space-y-2">
-                        <label className="flex items-center gap-2 text-sm font-medium text-zinc-300">
+                        <label
+                            htmlFor="max_players"
+                            className="flex items-center gap-2 text-sm font-medium text-zinc-300"
+                        >
                             <Users size={16} />
                             Máximo de Jugadores
                         </label>
@@ -100,4 +124,3 @@ export default function NewMatchPage() {
         </div>
     );
 }
-
