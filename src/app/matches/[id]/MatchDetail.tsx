@@ -351,6 +351,7 @@ export function MatchDetail({
                                 key={p.user_id}
                                 participant={p}
                                 adminUserIds={adminUserIds}
+                                organizerId={match.created_by}
                                 onKick={
                                     isAdmin && match.status === "open" && p.user_id !== currentUserId
                                         ? async () => {
@@ -383,6 +384,7 @@ export function MatchDetail({
                                 key={p.user_id}
                                 participant={p}
                                 adminUserIds={adminUserIds}
+                                organizerId={match.created_by}
                                 onKick={
                                     isAdmin && match.status === "open" && p.user_id !== currentUserId
                                         ? async () => {
@@ -731,11 +733,13 @@ function TeamCard({
     players,
     color,
     adminUserIds,
+    organizerId,
 }: {
     team: "A" | "B";
     players: Participant[];
     color: string;
     adminUserIds: string[];
+    organizerId: string;
 }) {
     const avgSkill =
         players.length > 0
@@ -759,7 +763,7 @@ function TeamCard({
             </CardHeader>
             <div className="space-y-3">
                 {players.map((p) => (
-                    <PlayerRow key={p.user_id} participant={p} adminUserIds={adminUserIds} />
+                    <PlayerRow key={p.user_id} participant={p} adminUserIds={adminUserIds} organizerId={organizerId} />
                 ))}
                 {players.length === 0 && (
                     <p className="text-center text-sm text-muted">No players</p>
@@ -769,7 +773,7 @@ function TeamCard({
     );
 }
 
-function PlayerRow({ participant, adminUserIds, onKick }: { participant: Participant; adminUserIds?: string[]; onKick?: () => void }) {
+function PlayerRow({ participant, adminUserIds, organizerId, onKick }: { participant: Participant; adminUserIds?: string[]; organizerId?: string; onKick?: () => void }) {
     const [kicking, setKicking] = useState(false);
     const profile = participant.profiles;
     const avatarUrl = getAvatarUrl(
@@ -806,6 +810,12 @@ function PlayerRow({ participant, adminUserIds, onKick }: { participant: Partici
                         <span className="shrink-0 flex items-center gap-0.5 rounded-full bg-red-500/10 px-1.5 py-0.5 text-[10px] font-medium text-red-400">
                             <Crown size={9} />
                             Admin
+                        </span>
+                    )}
+                    {organizerId === participant.user_id && (
+                        <span className="shrink-0 flex items-center gap-0.5 rounded-full bg-purple-500/10 px-1.5 py-0.5 text-[10px] font-medium text-purple-400">
+                            <Shield size={9} />
+                            Organizador
                         </span>
                     )}
                 </div>
