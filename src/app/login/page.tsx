@@ -7,32 +7,39 @@ import { login, signup, signInWithOAuth } from "./actions";
 export default function LoginPage() {
     const [isSignUp, setIsSignUp] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [oauthLoading, setOauthLoading] = useState<string | null>(null);
 
     async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
         setError(null);
+        setSuccessMessage(null);
         setLoading(true);
 
         const formData = new FormData(e.currentTarget);
         const action = isSignUp ? signup : login;
 
-        let result: { success?: boolean; error?: string } | undefined;
         try {
-            result = await action(formData);
+            const result = await action(formData);
+            if (result && !result.success) {
+                setError(result.error ?? "Algo salió mal");
+            } else if (result?.message) {
+                setSuccessMessage(result.message);
+                // Switch to login mode so user can login after confirming
+                setIsSignUp(false);
+            }
         } catch {
-            // redirect() throws NEXT_REDIRECT — expected
+            // redirect() throws NEXT_REDIRECT — expected for login success
             return;
-        }
-        if (result && !result.success) {
-            setError(result.error ?? "Algo salió mal");
+        } finally {
             setLoading(false);
         }
     }
 
     async function handleOAuth(provider: "google" | "apple") {
         setError(null);
+        setSuccessMessage(null);
         setOauthLoading(provider);
         let result: { error?: string; url?: string };
         try {
@@ -70,8 +77,49 @@ export default function LoginPage() {
                     </p>
                 </div>
 
+                {/* Mode Tabs */}
+                <div className="mb-6 flex rounded-xl border border-zinc-800 bg-zinc-900 p-1">
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setIsSignUp(false);
+                            setError(null);
+                        }}
+                        className={`flex-1 rounded-lg py-2.5 text-sm font-semibold transition-all ${!isSignUp
+                                ? "bg-accent text-zinc-950 shadow-md shadow-accent/20"
+                                : "text-zinc-400 hover:text-zinc-200"
+                            }`}
+                    >
+                        Iniciar Sesión
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setIsSignUp(true);
+                            setError(null);
+                            setSuccessMessage(null);
+                        }}
+                        className={`flex-1 rounded-lg py-2.5 text-sm font-semibold transition-all ${isSignUp
+                                ? "bg-accent text-zinc-950 shadow-md shadow-accent/20"
+                                : "text-zinc-400 hover:text-zinc-200"
+                            }`}
+                    >
+                        Registrarse
+                    </button>
+                </div>
+
                 {/* Form Card */}
                 <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 shadow-xl shadow-black/20">
+                    {/* Success Message */}
+                    {successMessage && (
+                        <div className="mb-5 flex items-start gap-3 rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-400">
+                            <svg className="mt-0.5 h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span>{successMessage}</span>
+                        </div>
+                    )}
+
                     {/* OAuth Buttons */}
                     <div className="space-y-3 mb-6">
                         <button
@@ -89,10 +137,8 @@ export default function LoginPage() {
                                     <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335" />
                                 </svg>
                             )}
-                            Continuar con Google
+                            {isSignUp ? "Registrarse con Google" : "Continuar con Google"}
                         </button>
-
-
                     </div>
 
                     {/* Divider */}
@@ -140,33 +186,44 @@ export default function LoginPage() {
                                 placeholder="••••••••"
                                 className="w-full rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-white placeholder-zinc-500 transition-colors focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent"
                             />
+                            {isSignUp && (
+                                <p className="mt-1.5 text-xs text-zinc-500">Mínimo 6 caracteres</p>
+                            )}
                         </div>
 
                         {error && (
-                            <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
-                                {error}
+                            <div className="flex items-start gap-3 rounded-xl border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
+                                <svg className="mt-0.5 h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-2.999L13.732 4.001c-.77-1.333-2.694-1.333-3.464 0L3.34 16.001C2.57 17.335 3.536 19 5.076 19z" />
+                                </svg>
+                                <span>{error}</span>
                             </div>
                         )}
 
                         <button
                             type="submit"
                             disabled={loading}
-                            className="flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-base font-semibold text-zinc-950 transition-all hover:bg-accent-hover hover:shadow-lg hover:shadow-accent-glow disabled:cursor-not-allowed disabled:opacity-50 active:scale-[0.98]"
+                            className={`flex w-full items-center justify-center gap-2 rounded-xl px-6 py-3.5 text-base font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-50 active:scale-[0.98] ${isSignUp
+                                    ? "bg-accent text-zinc-950 hover:bg-accent-hover hover:shadow-lg hover:shadow-accent-glow"
+                                    : "bg-accent text-zinc-950 hover:bg-accent-hover hover:shadow-lg hover:shadow-accent-glow"
+                                }`}
                         >
                             {loading && <Spinner dark />}
                             {loading
                                 ? "Cargando..."
                                 : isSignUp
-                                    ? "Crear Cuenta"
-                                    : "Iniciar Sesión"}
+                                    ? "🚀 Crear Cuenta"
+                                    : "⚽ Iniciar Sesión"}
                         </button>
                     </form>
 
+                    {/* Bottom Helper */}
                     <div className="mt-6 text-center">
                         <button
                             onClick={() => {
                                 setIsSignUp(!isSignUp);
                                 setError(null);
+                                setSuccessMessage(null);
                             }}
                             className="text-sm text-zinc-400 transition-colors hover:text-accent"
                         >
