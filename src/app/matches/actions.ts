@@ -660,7 +660,7 @@ export async function voteForMvp(
     // Verify match exists and is finished
     const { data: match } = await supabase
         .from("matches")
-        .select("status, finished_at")
+        .select("status, finished_at, date")
         .eq("id", matchId)
         .single();
 
@@ -668,9 +668,10 @@ export async function voteForMvp(
     if (match.status !== "finished")
         return { success: false, error: "El partido no ha finalizado aún" };
 
-    // Check 24h voting window
-    if (match.finished_at) {
-        const finishedAt = new Date(match.finished_at).getTime();
+    // Check 24h voting window (use finished_at, fallback to match date)
+    const referenceTime = match.finished_at || match.date;
+    if (referenceTime) {
+        const finishedAt = new Date(referenceTime).getTime();
         const now = Date.now();
         if (now - finishedAt > MVP_VOTING_WINDOW_MS)
             return { success: false, error: "El plazo de votación ha terminado (24h)" };

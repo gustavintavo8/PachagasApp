@@ -26,6 +26,7 @@ interface MvpVotingProps {
     currentUserId: string;
     participants: Participant[];
     matchFinishedAt: string | null;
+    matchDate: string;
 }
 
 const MVP_VOTING_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -54,12 +55,15 @@ export function MvpVoting({
     currentUserId,
     participants,
     matchFinishedAt,
+    matchDate,
 }: MvpVotingProps) {
+    // If finished_at is null (pre-migration match), use the match date as fallback
+    const effectiveFinishedAt = matchFinishedAt || matchDate;
     const [votes, setVotes] = useState<MvpVote[]>([]);
     const [loading, setLoading] = useState(true);
     const [voting, setVoting] = useState(false);
     const [timeLeft, setTimeLeft] = useState(() =>
-        matchFinishedAt ? getTimeRemaining(matchFinishedAt) : { expired: true, hours: 0, minutes: 0, seconds: 0 }
+        getTimeRemaining(effectiveFinishedAt)
     );
     const supabase = createClient();
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
@@ -106,16 +110,16 @@ export function MvpVoting({
 
     // Countdown timer
     useEffect(() => {
-        if (!matchFinishedAt || votingClosed) return;
+        if (votingClosed) return;
 
         const interval = setInterval(() => {
-            const remaining = getTimeRemaining(matchFinishedAt);
+            const remaining = getTimeRemaining(effectiveFinishedAt);
             setTimeLeft(remaining);
             if (remaining.expired) clearInterval(interval);
         }, 1000);
 
         return () => clearInterval(interval);
-    }, [matchFinishedAt, votingClosed]);
+    }, [effectiveFinishedAt, votingClosed]);
 
     // Realtime subscription for new votes
     useEffect(() => {
@@ -235,10 +239,10 @@ export function MvpVoting({
                             <div
                                 key={p.user_id}
                                 className={`flex items-center gap-3 px-4 py-3.5 transition-colors ${isWinner
-                                        ? "bg-yellow-400/5"
-                                        : isVotedFor
-                                            ? "bg-accent/5"
-                                            : ""
+                                    ? "bg-yellow-400/5"
+                                    : isVotedFor
+                                        ? "bg-accent/5"
+                                        : ""
                                     }`}
                             >
                                 {/* Avatar */}

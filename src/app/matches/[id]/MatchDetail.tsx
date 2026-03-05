@@ -447,6 +447,7 @@ export function MatchDetail({
                         currentUserId={currentUserId}
                         participants={participants}
                         matchFinishedAt={match.finished_at}
+                        matchDate={match.date}
                     />
                 )}
             </div>
