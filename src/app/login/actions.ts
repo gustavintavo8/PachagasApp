@@ -1,6 +1,7 @@
 "use server";
 
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 
@@ -39,10 +40,30 @@ export async function signup(formData: FormData): Promise<ActionResult> {
         return { success: false, error: "La contraseña debe tener al menos 6 caracteres" };
     }
 
-    const { error } = await supabase.auth.signUp({ email, password });
+    const { data, error } = await supabase.auth.signUp({ email, password });
 
     if (error) {
         return { success: false, error: error.message };
+    }
+
+    // Create profile with email prefix as username
+    if (data.user) {
+        const username = email.split("@")[0];
+        const adminClient = createAdminClient();
+
+        const { error: profileError } = await adminClient.from("profiles").upsert({
+            id: data.user.id,
+            username,
+            email,
+            position: null,
+            skill_level: 5,
+            matches_played: 0,
+            goals_scored: 0,
+        }, { onConflict: "id" });
+
+        if (profileError) {
+            console.error("Error creating profile:", profileError);
+        }
     }
 
     redirect("/profile");
