@@ -44,18 +44,50 @@ export async function signup(formData: FormData): Promise<ActionResult> {
     const username = email.split("@")[0];
 
     // Create user via admin API — no confirmation email, no rate limits
-    const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
+    let { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
         email,
         password,
         email_confirm: true,
     });
 
     if (createError) {
-        // Handle duplicate email
+        // Handle duplicate: user exists in auth.users but maybe not in profiles (deleted manually)
         if (createError.message?.includes("already been registered") || createError.message?.includes("already exists")) {
-            return { success: false, error: "Este email ya está registrado. Inicia sesión." };
+            // Check if they have a profile
+            const { data: users } = await adminClient.auth.admin.listUsers();
+            const existingUser = users?.users?.find((u) => u.email === email);
+
+            if (existingUser) {
+                const { data: existingProfile } = await adminClient
+                    .from("profiles")
+                    .select("id")
+                    .eq("id", existingUser.id)
+                    .single();
+
+                if (!existingProfile) {
+                    // Orphaned auth user — delete and retry
+                    await adminClient.auth.admin.deleteUser(existingUser.id);
+
+                    const { data: retryUser, error: retryError } = await adminClient.auth.admin.createUser({
+                        email,
+                        password,
+                        email_confirm: true,
+                    });
+
+                    if (retryError) {
+                        return { success: false, error: retryError.message };
+                    }
+
+                    newUser = retryUser;
+                } else {
+                    return { success: false, error: "Este email ya está registrado. Inicia sesión." };
+                }
+            } else {
+                return { success: false, error: "Este email ya está registrado. Inicia sesión." };
+            }
+        } else {
+            return { success: false, error: createError.message };
         }
-        return { success: false, error: createError.message };
     }
 
     // Create profile
