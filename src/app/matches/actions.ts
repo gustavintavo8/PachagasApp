@@ -244,6 +244,7 @@ export async function setScore(
             team_a_score: teamAScore,
             team_b_score: teamBScore,
             status: "finished",
+            finished_at: new Date().toISOString(),
         })
         .eq("id", matchId);
     if (!admin) query = query.eq("created_by", user.id);
@@ -571,5 +572,171 @@ export async function kickPlayer(
     revalidatePath("/");
     revalidatePath("/matches");
     revalidatePath("/calendar");
+    return { success: true };
+}
+
+// ─── MVP Voting ───────────────────────────────────────────────────
+
+const MVP_VOTING_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 hours
+
+async function resolveMvp(matchId: string) {
+    const adminClient = createAdminClient();
+
+    // Count votes per candidate
+    const { data: votes } = await adminClient
+        .from("mvp_votes")
+        .select("voted_for")
+        .eq("match_id", matchId);
+
+    if (!votes || votes.length === 0) return;
+
+    const voteCounts: Record<string, number> = {};
+    for (const v of votes) {
+        voteCounts[v.voted_for] = (voteCounts[v.voted_for] || 0) + 1;
+    }
+
+    // Find the player with the most votes
+    let maxVotes = 0;
+    let winnerId: string | null = null;
+    let isTie = false;
+
+    for (const [userId, count] of Object.entries(voteCounts)) {
+        if (count > maxVotes) {
+            maxVotes = count;
+            winnerId = userId;
+            isTie = false;
+        } else if (count === maxVotes) {
+            isTie = true;
+        }
+    }
+
+    // On tie → no MVP
+    if (isTie || !winnerId) return;
+
+    // Reset any existing MVP flags for this match
+    await adminClient
+        .from("match_participants")
+        .update({ is_mvp: false })
+        .eq("match_id", matchId);
+
+    // Set the winner as MVP
+    await adminClient
+        .from("match_participants")
+        .update({ is_mvp: true })
+        .eq("match_id", matchId)
+        .eq("user_id", winnerId);
+
+    // Notify the winner
+    const { data: matchInfo } = await adminClient
+        .from("matches")
+        .select("location")
+        .eq("id", matchId)
+        .single();
+
+    sendNotification(
+        [winnerId],
+        "mvp",
+        "🏅 ¡Eres el MVP!",
+        `Has sido elegido MVP del partido en ${matchInfo?.location || "tu partido"}`,
+        matchId
+    );
+}
+
+export async function voteForMvp(
+    matchId: string,
+    votedForUserId: string
+): Promise<ActionResult> {
+    const supabase = await createClient();
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return { success: false, error: "No autenticado" };
+
+    // Can't vote for yourself
+    if (user.id === votedForUserId)
+        return { success: false, error: "No puedes votarte a ti mismo" };
+
+    // Verify match exists and is finished
+    const { data: match } = await supabase
+        .from("matches")
+        .select("status, finished_at")
+        .eq("id", matchId)
+        .single();
+
+    if (!match) return { success: false, error: "Partido no encontrado" };
+    if (match.status !== "finished")
+        return { success: false, error: "El partido no ha finalizado aún" };
+
+    // Check 24h voting window
+    if (match.finished_at) {
+        const finishedAt = new Date(match.finished_at).getTime();
+        const now = Date.now();
+        if (now - finishedAt > MVP_VOTING_WINDOW_MS)
+            return { success: false, error: "El plazo de votación ha terminado (24h)" };
+    }
+
+    // Verify voter is a participant
+    const { data: voterPart } = await supabase
+        .from("match_participants")
+        .select("user_id")
+        .eq("match_id", matchId)
+        .eq("user_id", user.id)
+        .single();
+
+    if (!voterPart)
+        return { success: false, error: "No participaste en este partido" };
+
+    // Verify voted-for player is a participant
+    const { data: targetPart } = await supabase
+        .from("match_participants")
+        .select("user_id")
+        .eq("match_id", matchId)
+        .eq("user_id", votedForUserId)
+        .single();
+
+    if (!targetPart)
+        return { success: false, error: "El jugador seleccionado no participó en este partido" };
+
+    // Check if already voted
+    const { data: existingVote } = await supabase
+        .from("mvp_votes")
+        .select("id")
+        .eq("match_id", matchId)
+        .eq("voter_id", user.id)
+        .single();
+
+    if (existingVote)
+        return { success: false, error: "Ya has votado en este partido" };
+
+    // Insert vote
+    const { error } = await supabase
+        .from("mvp_votes")
+        .insert({
+            match_id: matchId,
+            voter_id: user.id,
+            voted_for: votedForUserId,
+        });
+
+    if (error) return { success: false, error: error.message };
+
+    // Check if all participants have voted → resolve immediately
+    const { count: totalParticipants } = await supabase
+        .from("match_participants")
+        .select("*", { count: "exact", head: true })
+        .eq("match_id", matchId);
+
+    const { count: totalVotes } = await supabase
+        .from("mvp_votes")
+        .select("*", { count: "exact", head: true })
+        .eq("match_id", matchId);
+
+    // All participants voted (minus the person being voted for — they can't vote for themselves,
+    // so max votes = totalParticipants). But we resolve when everyone has cast their vote.
+    if (totalParticipants !== null && totalVotes !== null && totalVotes >= totalParticipants) {
+        await resolveMvp(matchId);
+    }
+
+    revalidatePath(`/matches/${matchId}`);
     return { success: true };
 }

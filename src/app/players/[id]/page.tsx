@@ -13,8 +13,8 @@ import {
     Target,
     ArrowLeft,
     User,
-    Star,
     Crown,
+    Medal,
 } from "lucide-react";
 
 import type { Metadata } from "next";
@@ -84,30 +84,25 @@ export default async function PlayerProfilePage({
         else losses++;
     }
 
-    // Fetch average ratings
-    const { data: ratingsData } = await supabase
-        .from("player_ratings")
-        .select("punctuality, sportsmanship, skill")
-        .eq("rated_id", id);
+    // Fetch MVP trophies
+    const { data: mvpTrophies } = await supabase
+        .from("match_participants")
+        .select("match_id, matches(id, date, location, team_a_score, team_b_score)")
+        .eq("user_id", id)
+        .eq("is_mvp", true);
 
-    let avgRatings: { punctuality: number; sportsmanship: number; skill: number; count: number } | null = null;
-    if (ratingsData && ratingsData.length > 0) {
-        const sum = ratingsData.reduce(
-            (acc, r) => ({
-                punctuality: acc.punctuality + r.punctuality,
-                sportsmanship: acc.sportsmanship + r.sportsmanship,
-                skill: acc.skill + r.skill,
-            }),
-            { punctuality: 0, sportsmanship: 0, skill: 0 }
-        );
-        const n = ratingsData.length;
-        avgRatings = {
-            punctuality: sum.punctuality / n,
-            sportsmanship: sum.sportsmanship / n,
-            skill: sum.skill / n,
-            count: n,
-        };
-    }
+    const trophies = (mvpTrophies || [])
+        .map((t) => {
+            const match = t.matches as unknown as {
+                id: string;
+                date: string;
+                location: string;
+                team_a_score: number | null;
+                team_b_score: number | null;
+            };
+            return match;
+        })
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
     const avatarUrl = getAvatarUrl(supabaseUrl, profile.avatar_url);
@@ -226,40 +221,47 @@ export default async function PlayerProfilePage({
                 );
             })()}
 
-            {/* Average Ratings */}
-            {avgRatings && (
-                <Card className="mb-8">
+            {/* Trofeos MVP */}
+            {trophies.length > 0 && (
+                <div className="mb-8">
                     <div className="flex items-center gap-2 mb-4">
-                        <Star size={18} className="fill-yellow-400 text-yellow-400" />
-                        <h3 className="text-sm font-semibold text-foreground">Valoraciones</h3>
-                        <span className="text-xs text-muted">({avgRatings.count} valoracion{avgRatings.count !== 1 ? "es" : ""})</span>
+                        <Medal size={18} className="text-yellow-400" />
+                        <h3 className="text-lg font-semibold text-foreground">🏆 Trofeos</h3>
+                        <span className="rounded-full bg-yellow-400/10 px-2 py-0.5 text-xs font-medium text-yellow-400">
+                            {trophies.length} MVP{trophies.length !== 1 ? "s" : ""}
+                        </span>
                     </div>
-                    <div className="space-y-3">
-                        {([
-                            { label: "⏰ Puntualidad", value: avgRatings.punctuality },
-                            { label: "🤝 Deportividad", value: avgRatings.sportsmanship },
-                            { label: "⚽ Nivel", value: avgRatings.skill },
-                        ] as const).map(({ label, value }) => (
-                            <div key={label} className="flex items-center justify-between">
-                                <span className="text-sm text-muted">{label}</span>
-                                <div className="flex items-center gap-2">
-                                    <div className="flex gap-0.5">
-                                        {[1, 2, 3, 4, 5].map((s) => (
-                                            <Star
-                                                key={s}
-                                                size={14}
-                                                className={s <= Math.round(value) ? "fill-yellow-400 text-yellow-400" : "text-zinc-600"}
-                                            />
-                                        ))}
+                    <div className="grid gap-3 sm:grid-cols-2">
+                        {trophies.map((trophy) => (
+                            <Link key={trophy.id} href={`/matches/${trophy.id}`}>
+                                <Card className="bg-gradient-to-br from-yellow-500/5 to-transparent border-yellow-500/20 transition-all hover:border-yellow-500/40 hover:scale-[1.02]">
+                                    <div className="flex items-start gap-3">
+                                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-yellow-400/10 text-lg">
+                                            🏅
+                                        </div>
+                                        <div className="min-w-0 flex-1">
+                                            <p className="text-sm font-semibold text-yellow-400">MVP</p>
+                                            <p className="mt-0.5 truncate text-sm text-foreground">
+                                                {trophy.location}
+                                            </p>
+                                            <div className="mt-1 flex items-center gap-3 text-xs text-muted">
+                                                <span className="flex items-center gap-1">
+                                                    <Calendar size={11} />
+                                                    {formatDate(trophy.date)}
+                                                </span>
+                                                {trophy.team_a_score !== null && trophy.team_b_score !== null && (
+                                                    <span className="font-medium text-foreground">
+                                                        {trophy.team_a_score} – {trophy.team_b_score}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
                                     </div>
-                                    <span className="text-xs font-medium text-foreground">
-                                        {value.toFixed(1)}
-                                    </span>
-                                </div>
-                            </div>
+                                </Card>
+                            </Link>
                         ))}
                     </div>
-                </Card>
+                </div>
             )}
 
             {/* Recent Matches */}

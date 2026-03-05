@@ -19,7 +19,7 @@ import { Dialog } from "@/components/ui/Dialog";
 import { SoccerPitch } from "@/components/SoccerPitch";
 import { MatchChat } from "@/components/MatchChat";
 import { MatchPhotos } from "@/components/MatchPhotos";
-import { PlayerRating } from "@/components/PlayerRating";
+import { MvpVoting } from "@/components/MvpVoting";
 import { formatDate, getAvatarUrl } from "@/lib/utils";
 import {
     Calendar,
@@ -36,7 +36,7 @@ import {
     Camera,
     Share2,
     ExternalLink,
-    Star,
+
     Ban,
     CalendarClock,
     XCircle,
@@ -78,7 +78,7 @@ export function MatchDetail({
 }: MatchDetailProps) {
     const { toast } = useToast();
     const [loading, setLoading] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<"chat" | "photos" | "rating">("chat");
+    const [activeTab, setActiveTab] = useState<"chat" | "photos" | "mvp">("chat");
     const [scoreDialogOpen, setScoreDialogOpen] = useState(false);
     const [teamAScore, setTeamAScore] = useState<number | "">(match.team_a_score ?? 0);
     const [teamBScore, setTeamBScore] = useState<number | "">(match.team_b_score ?? 0);
@@ -418,14 +418,14 @@ export function MatchDetail({
                     </button>
                     {match.status === "finished" && (
                         <button
-                            onClick={() => setActiveTab("rating")}
-                            className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-all ${activeTab === "rating"
+                            onClick={() => setActiveTab("mvp")}
+                            className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-all ${activeTab === "mvp"
                                 ? "border-yellow-400 bg-yellow-400/10 text-yellow-400"
                                 : "border-border bg-surface text-muted hover:border-border-hover hover:text-foreground"
                                 }`}
                         >
-                            <Star size={16} />
-                            Valorar
+                            <Trophy size={16} />
+                            MVP
                         </button>
                     )}
                 </div>
@@ -442,10 +442,11 @@ export function MatchDetail({
                         currentUserId={currentUserId}
                     />
                 ) : (
-                    <PlayerRating
+                    <MvpVoting
                         matchId={match.id}
                         currentUserId={currentUserId}
                         participants={participants}
+                        matchFinishedAt={match.finished_at}
                     />
                 )}
             </div>

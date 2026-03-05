@@ -19,6 +19,7 @@ export type Match = {
     team_a_score: number | null;
     team_b_score: number | null;
     created_by: string;
+    finished_at: string | null;
 };
 
 export type MatchParticipant = {
