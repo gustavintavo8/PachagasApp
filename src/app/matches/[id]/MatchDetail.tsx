@@ -214,15 +214,6 @@ export function MatchDetail({
                     <ExternalLink size={14} />
                     WhatsApp
                 </a>
-                <a
-                    href={`https://t.me/share/url?url=${encodeURIComponent(`${typeof window !== "undefined" ? window.location.origin : ""}/matches/${match.id}`)}&text=${encodeURIComponent(`¡Únete a la pachanga! 🏟️ ${match.location} — ${formatDate(match.date)}`)}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="flex items-center gap-1.5 rounded-xl border border-blue-500/30 bg-blue-500/10 px-3 py-2 text-xs font-medium text-blue-400 transition-all hover:bg-blue-500/20"
-                >
-                    <ExternalLink size={14} />
-                    Telegram
-                </a>
             </div>
 
             {/* Action Buttons */}
