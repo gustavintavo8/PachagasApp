@@ -51,6 +51,11 @@ export async function signup(formData: FormData): Promise<ActionResult> {
         const username = email.split("@")[0];
         const adminClient = createAdminClient();
 
+        // Auto-confirm user email
+        await adminClient.auth.admin.updateUserById(data.user.id, {
+            email_confirm: true,
+        });
+
         const { error: profileError } = await adminClient.from("profiles").upsert({
             id: data.user.id,
             username,
@@ -63,6 +68,12 @@ export async function signup(formData: FormData): Promise<ActionResult> {
 
         if (profileError) {
             console.error("Error creating profile:", profileError);
+        }
+
+        // Sign in the newly created user so they get a valid session
+        const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+        if (signInError) {
+            return { success: false, error: signInError.message };
         }
     }
 
