@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { LeaderboardTabs } from "./LeaderboardTabs";
+import { getAdminUserIds } from "@/lib/permissions";
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
@@ -16,16 +17,16 @@ export default async function LeaderboardPage() {
 
     if (!user) redirect("/login");
 
-    // Fetch all profiles with stats
-    const { data: profiles } = await supabase
-        .from("profiles")
-        .select("*")
-        .order("matches_played", { ascending: false });
-
-    // Fetch W/D/L data for all users
-    const { data: allParticipations } = await supabase
-        .from("match_participants")
-        .select("user_id, team, goals, is_mvp, matches(status, team_a_score, team_b_score)");
+    const [{ data: profiles }, { data: allParticipations }, adminUserIds] = await Promise.all([
+        supabase
+            .from("profiles")
+            .select("*")
+            .order("matches_played", { ascending: false }),
+        supabase
+            .from("match_participants")
+            .select("user_id, team, goals, is_mvp, matches(status, team_a_score, team_b_score)"),
+        getAdminUserIds(),
+    ]);
 
     // Build stats map
     const statsMap: Record<string, { wins: number; draws: number; losses: number; mvps: number }> = {};
@@ -74,7 +75,7 @@ export default async function LeaderboardPage() {
                 <h1 className="text-2xl font-bold text-foreground">🏆 Ranking</h1>
                 <p className="text-muted">Los mejores jugadores de la comunidad</p>
             </div>
-            <LeaderboardTabs data={leaderboardData} currentUserId={user.id} />
+            <LeaderboardTabs data={leaderboardData} currentUserId={user.id} adminUserIds={adminUserIds} />
         </div>
     );
 }

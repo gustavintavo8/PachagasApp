@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Avatar } from "@/components/ui/Avatar";
 import { Card } from "@/components/ui/Card";
 import { getAvatarUrl } from "@/lib/utils";
-import { Trophy, Target, TrendingUp, Medal } from "lucide-react";
+import { Trophy, Target, TrendingUp, Medal, Crown } from "lucide-react";
 
 interface PlayerData {
     id: string;
@@ -24,6 +24,7 @@ interface PlayerData {
 interface LeaderboardTabsProps {
     data: PlayerData[];
     currentUserId: string;
+    adminUserIds: string[];
 }
 
 const tabs = [
@@ -80,7 +81,7 @@ const podiumBadgeColors = [
     "bg-amber-700 text-white",
 ];
 
-export function LeaderboardTabs({ data, currentUserId }: LeaderboardTabsProps) {
+export function LeaderboardTabs({ data, currentUserId, adminUserIds }: LeaderboardTabsProps) {
     const [activeTab, setActiveTab] = useState<TabKey>("wins");
     const sorted = getSortedData(data, activeTab);
     const top3 = sorted.slice(0, 3);
@@ -99,8 +100,8 @@ export function LeaderboardTabs({ data, currentUserId }: LeaderboardTabsProps) {
                             key={tab.key}
                             onClick={() => setActiveTab(tab.key)}
                             className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium whitespace-nowrap transition-all ${active
-                                    ? "border-accent bg-accent/10 text-accent"
-                                    : "border-border bg-surface text-muted hover:border-border-hover hover:text-foreground"
+                                ? "border-accent bg-accent/10 text-accent"
+                                : "border-border bg-surface text-muted hover:border-border-hover hover:text-foreground"
                                 }`}
                         >
                             <Icon size={16} />
@@ -137,6 +138,12 @@ export function LeaderboardTabs({ data, currentUserId }: LeaderboardTabsProps) {
                                         {player.id === currentUserId && (
                                             <span className="rounded-full bg-accent/10 px-1.5 py-0.5 text-[10px] font-medium text-accent">
                                                 Tú
+                                            </span>
+                                        )}
+                                        {adminUserIds.includes(player.id) && (
+                                            <span className="shrink-0 flex items-center gap-0.5 rounded-full bg-red-500/10 px-1.5 py-0.5 text-[10px] font-medium text-red-400">
+                                                <Crown size={9} />
+                                                Admin
                                             </span>
                                         )}
                                     </div>
@@ -178,6 +185,12 @@ export function LeaderboardTabs({ data, currentUserId }: LeaderboardTabsProps) {
                                         {player.id === currentUserId && (
                                             <span className="rounded-full bg-accent/10 px-1.5 py-0.5 text-[10px] font-medium text-accent">
                                                 Tú
+                                            </span>
+                                        )}
+                                        {adminUserIds.includes(player.id) && (
+                                            <span className="shrink-0 flex items-center gap-0.5 rounded-full bg-red-500/10 px-1.5 py-0.5 text-[10px] font-medium text-red-400">
+                                                <Crown size={9} />
+                                                Admin
                                             </span>
                                         )}
                                     </div>
