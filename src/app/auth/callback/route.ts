@@ -41,7 +41,7 @@ export async function GET(request: Request) {
                     username: googleUsername,
                     avatar_url: googleAvatarUrl,
                     email: email,
-                    position: null,
+                    position: "MID",
                     skill_level: 5,
                     matches_played: 0,
                     goals_scored: 0,

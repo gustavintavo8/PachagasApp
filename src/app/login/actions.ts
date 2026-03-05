@@ -55,7 +55,7 @@ export async function signup(formData: FormData): Promise<ActionResult> {
             id: data.user.id,
             username,
             email,
-            position: null,
+            position: "MID",
             skill_level: 5,
             matches_played: 0,
             goals_scored: 0,
