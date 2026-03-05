@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Navbar } from "@/components/Navbar";
 import { ToastProvider } from "@/components/ui/Toast";
+import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
 
 const geistSans = Geist({
@@ -40,6 +41,7 @@ export default function RootLayout({
           <Navbar />
           <main className="min-h-[calc(100vh-4rem)]">{children}</main>
         </ToastProvider>
+        <SpeedInsights />
       </body>
     </html>
   );
