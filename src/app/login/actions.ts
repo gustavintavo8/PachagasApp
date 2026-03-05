@@ -40,24 +40,28 @@ export async function signup(formData: FormData): Promise<ActionResult> {
         return { success: false, error: "La contraseña debe tener al menos 6 caracteres" };
     }
 
-    const { data, error } = await supabase.auth.signUp({ email, password });
+    const adminClient = createAdminClient();
+    const username = email.split("@")[0];
 
-    if (error) {
-        return { success: false, error: error.message };
+    // Create user via admin API — no confirmation email, no rate limits
+    const { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
+        email,
+        password,
+        email_confirm: true,
+    });
+
+    if (createError) {
+        // Handle duplicate email
+        if (createError.message?.includes("already been registered") || createError.message?.includes("already exists")) {
+            return { success: false, error: "Este email ya está registrado. Inicia sesión." };
+        }
+        return { success: false, error: createError.message };
     }
 
-    // Create profile with email prefix as username
-    if (data.user) {
-        const username = email.split("@")[0];
-        const adminClient = createAdminClient();
-
-        // Auto-confirm user email
-        await adminClient.auth.admin.updateUserById(data.user.id, {
-            email_confirm: true,
-        });
-
+    // Create profile
+    if (newUser.user) {
         const { error: profileError } = await adminClient.from("profiles").upsert({
-            id: data.user.id,
+            id: newUser.user.id,
             username,
             email,
             position: "MID",
@@ -69,12 +73,12 @@ export async function signup(formData: FormData): Promise<ActionResult> {
         if (profileError) {
             console.error("Error creating profile:", profileError);
         }
+    }
 
-        // Sign in the newly created user so they get a valid session
-        const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-        if (signInError) {
-            return { success: false, error: signInError.message };
-        }
+    // Sign in to create a session
+    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
+    if (signInError) {
+        return { success: false, error: signInError.message };
     }
 
     redirect("/");
