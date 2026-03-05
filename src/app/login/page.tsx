@@ -7,12 +7,14 @@ import { login, signup, signInWithOAuth } from "./actions";
 export default function LoginPage() {
     const [isSignUp, setIsSignUp] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [oauthLoading, setOauthLoading] = useState<string | null>(null);
 
     async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
         setError(null);
+        setSuccessMessage(null);
         setLoading(true);
 
         const formData = new FormData(e.currentTarget);
@@ -22,6 +24,9 @@ export default function LoginPage() {
             const result = await action(formData);
             if (result && !result.success) {
                 setError(result.error ?? "Algo salió mal");
+            } else if (result?.message) {
+                setSuccessMessage(result.message);
+                setIsSignUp(false);
             }
         } catch {
             // redirect() throws NEXT_REDIRECT — expected for login success
@@ -33,6 +38,7 @@ export default function LoginPage() {
 
     async function handleOAuth(provider: "google" | "apple") {
         setError(null);
+        setSuccessMessage(null);
         setOauthLoading(provider);
         let result: { error?: string; url?: string };
         try {
@@ -90,6 +96,7 @@ export default function LoginPage() {
                         onClick={() => {
                             setIsSignUp(true);
                             setError(null);
+                            setSuccessMessage(null);
                         }}
                         className={`flex-1 rounded-lg py-2.5 text-sm font-semibold transition-all ${isSignUp
                             ? "bg-accent text-zinc-950 shadow-md shadow-accent/20"
@@ -102,6 +109,16 @@ export default function LoginPage() {
 
                 {/* Form Card */}
                 <div className="rounded-2xl border border-zinc-800 bg-zinc-900 p-6 shadow-xl shadow-black/20">
+                    {/* Success Message */}
+                    {successMessage && (
+                        <div className="mb-5 flex items-start gap-3 rounded-xl border border-green-500/30 bg-green-500/10 px-4 py-3 text-sm text-green-400">
+                            <svg className="mt-0.5 h-5 w-5 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            <span>{successMessage}</span>
+                        </div>
+                    )}
+
                     {/* OAuth Buttons */}
                     <div className="space-y-3 mb-6">
                         <button

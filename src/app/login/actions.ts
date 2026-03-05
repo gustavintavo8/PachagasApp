@@ -5,7 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 
-type ActionResult = { success: boolean; error?: string };
+type ActionResult = { success: boolean; error?: string; message?: string };
 
 export async function login(formData: FormData): Promise<ActionResult> {
     const supabase = await createClient();
@@ -20,6 +20,9 @@ export async function login(formData: FormData): Promise<ActionResult> {
     const { error } = await supabase.auth.signInWithPassword({ email, password });
 
     if (error) {
+        if (error.message === "Email not confirmed") {
+            return { success: false, error: "Debes confirmar tu email antes de iniciar sesión. Revisa tu bandeja de entrada." };
+        }
         return { success: false, error: error.message };
     }
 
@@ -28,6 +31,10 @@ export async function login(formData: FormData): Promise<ActionResult> {
 
 export async function signup(formData: FormData): Promise<ActionResult> {
     const supabase = await createClient();
+    const headersList = await headers();
+    const protocol = headersList.get("x-forwarded-proto") || "http";
+    const host = headersList.get("x-forwarded-host") || headersList.get("host") || "localhost:3000";
+    const origin = `${protocol}://${host}`;
 
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
@@ -40,80 +47,42 @@ export async function signup(formData: FormData): Promise<ActionResult> {
         return { success: false, error: "La contraseña debe tener al menos 6 caracteres" };
     }
 
+    // Clean up orphaned auth users (exist in auth but not in profiles — e.g. deleted during testing)
     const adminClient = createAdminClient();
-    const username = email.split("@")[0];
+    const { data: existingUsers } = await adminClient.auth.admin.listUsers();
+    const orphan = existingUsers?.users?.find((u) => u.email === email);
+    if (orphan) {
+        const { data: orphanProfile } = await adminClient
+            .from("profiles")
+            .select("id")
+            .eq("id", orphan.id)
+            .single();
 
-    // Create user via admin API — no confirmation email, no rate limits
-    let { data: newUser, error: createError } = await adminClient.auth.admin.createUser({
+        if (!orphanProfile) {
+            await adminClient.auth.admin.deleteUser(orphan.id);
+        }
+    }
+
+    // Sign up — sends confirmation email via configured SMTP
+    const { error } = await supabase.auth.signUp({
         email,
         password,
-        email_confirm: true,
+        options: {
+            emailRedirectTo: `${origin}/auth/callback`,
+        },
     });
 
-    if (createError) {
-        // Handle duplicate: user exists in auth.users but maybe not in profiles (deleted manually)
-        if (createError.message?.includes("already been registered") || createError.message?.includes("already exists")) {
-            // Check if they have a profile
-            const { data: users } = await adminClient.auth.admin.listUsers();
-            const existingUser = users?.users?.find((u) => u.email === email);
-
-            if (existingUser) {
-                const { data: existingProfile } = await adminClient
-                    .from("profiles")
-                    .select("id")
-                    .eq("id", existingUser.id)
-                    .single();
-
-                if (!existingProfile) {
-                    // Orphaned auth user — delete and retry
-                    await adminClient.auth.admin.deleteUser(existingUser.id);
-
-                    const { data: retryUser, error: retryError } = await adminClient.auth.admin.createUser({
-                        email,
-                        password,
-                        email_confirm: true,
-                    });
-
-                    if (retryError) {
-                        return { success: false, error: retryError.message };
-                    }
-
-                    newUser = retryUser;
-                } else {
-                    return { success: false, error: "Este email ya está registrado. Inicia sesión." };
-                }
-            } else {
-                return { success: false, error: "Este email ya está registrado. Inicia sesión." };
-            }
-        } else {
-            return { success: false, error: createError.message };
+    if (error) {
+        if (error.message?.includes("already been registered") || error.message?.includes("already exists")) {
+            return { success: false, error: "Este email ya está registrado. Inicia sesión." };
         }
+        return { success: false, error: error.message };
     }
 
-    // Create profile
-    if (newUser.user) {
-        const { error: profileError } = await adminClient.from("profiles").upsert({
-            id: newUser.user.id,
-            username,
-            email,
-            position: "MID",
-            skill_level: 5,
-            matches_played: 0,
-            goals_scored: 0,
-        }, { onConflict: "id" });
-
-        if (profileError) {
-            console.error("Error creating profile:", profileError);
-        }
-    }
-
-    // Sign in to create a session
-    const { error: signInError } = await supabase.auth.signInWithPassword({ email, password });
-    if (signInError) {
-        return { success: false, error: signInError.message };
-    }
-
-    redirect("/");
+    return {
+        success: true,
+        message: "¡Cuenta creada! Revisa tu email y haz click en el enlace de confirmación para activar tu cuenta.",
+    };
 }
 
 export async function signInWithOAuth(provider: "google" | "apple"): Promise<{ url?: string; error?: string }> {
