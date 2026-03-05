@@ -5,7 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 
-type ActionResult = { success: boolean; error?: string; message?: string };
+type ActionResult = { success: boolean; error?: string };
 
 export async function login(formData: FormData): Promise<ActionResult> {
     const supabase = await createClient();
@@ -66,16 +66,7 @@ export async function signup(formData: FormData): Promise<ActionResult> {
         }
     }
 
-    // If email confirmation is disabled, user is already logged in — redirect
-    if (data.session) {
-        redirect("/");
-    }
-
-    // Otherwise, tell the user to check their email
-    return {
-        success: true,
-        message: "¡Cuenta creada! Revisa tu email para confirmar tu cuenta antes de iniciar sesión.",
-    };
+    redirect("/");
 }
 
 export async function signInWithOAuth(provider: "google" | "apple"): Promise<{ url?: string; error?: string }> {
