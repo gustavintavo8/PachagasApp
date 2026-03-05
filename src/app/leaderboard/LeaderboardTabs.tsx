@@ -133,7 +133,7 @@ export function LeaderboardTabs({ data, currentUserId, adminUserIds }: Leaderboa
                                     />
                                     <div className="flex items-center gap-2">
                                         <p className="font-semibold text-foreground truncate max-w-[140px]">
-                                            {player.username || "Unknown"}
+                                            {player.username || "Desconocido"}
                                         </p>
                                         {player.id === currentUserId && (
                                             <span className="rounded-full bg-accent/10 px-1.5 py-0.5 text-[10px] font-medium text-accent">
@@ -152,9 +152,9 @@ export function LeaderboardTabs({ data, currentUserId, adminUserIds }: Leaderboa
                                     </p>
                                     <p className="text-xs text-muted">{getStatLabel(activeTab)}</p>
                                     <div className="mt-2 flex gap-3 text-xs text-muted">
-                                        <span className="text-green-400">{player.wins}W</span>
-                                        <span>{player.draws}D</span>
-                                        <span className="text-red-400">{player.losses}L</span>
+                                        <span className="text-green-400">{player.wins}V</span>
+                                        <span>{player.draws}E</span>
+                                        <span className="text-red-400">{player.losses}D</span>
                                     </div>
                                 </div>
                             </Card>
@@ -180,7 +180,7 @@ export function LeaderboardTabs({ data, currentUserId, adminUserIds }: Leaderboa
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2">
                                         <p className="truncate text-sm font-medium text-foreground">
-                                            {player.username || "Unknown"}
+                                            {player.username || "Desconocido"}
                                         </p>
                                         {player.id === currentUserId && (
                                             <span className="rounded-full bg-accent/10 px-1.5 py-0.5 text-[10px] font-medium text-accent">
@@ -195,9 +195,9 @@ export function LeaderboardTabs({ data, currentUserId, adminUserIds }: Leaderboa
                                         )}
                                     </div>
                                     <div className="flex gap-2 text-xs text-muted">
-                                        <span className="text-green-400">{player.wins}W</span>
-                                        <span>{player.draws}D</span>
-                                        <span className="text-red-400">{player.losses}L</span>
+                                        <span className="text-green-400">{player.wins}V</span>
+                                        <span>{player.draws}E</span>
+                                        <span className="text-red-400">{player.losses}D</span>
                                     </div>
                                 </div>
                                 <div className="text-right">

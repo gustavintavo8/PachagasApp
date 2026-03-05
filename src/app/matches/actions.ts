@@ -36,7 +36,7 @@ export async function createMatch(formData: FormData): Promise<ActionResult> {
         data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) return { success: false, error: "Not authenticated" };
+    if (!user) return { success: false, error: "No autenticado" };
 
     const { allowed } = rateLimit(`create-match:${user.id}`, 5, 60_000);
     if (!allowed) return { success: false, error: "Demasiadas acciones. Espera un momento." };
@@ -45,11 +45,11 @@ export async function createMatch(formData: FormData): Promise<ActionResult> {
     const location = formData.get("location") as string;
     const max_players = parseInt(formData.get("max_players") as string, 10);
 
-    if (!date) return { success: false, error: "Date is required" };
+    if (!date) return { success: false, error: "La fecha es obligatoria" };
     if (!location || location.trim().length < 2)
-        return { success: false, error: "Location is required" };
+        return { success: false, error: "La ubicación es obligatoria" };
     if (isNaN(max_players) || max_players < 4 || max_players > 30)
-        return { success: false, error: "Max players must be between 4 and 30" };
+        return { success: false, error: "El máximo de jugadores debe estar entre 4 y 30" };
 
     const { data, error } = await supabase
         .from("matches")
@@ -90,7 +90,7 @@ export async function joinMatch(matchId: string): Promise<ActionResult> {
         data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) return { success: false, error: "Not authenticated" };
+    if (!user) return { success: false, error: "No autenticado" };
 
     // Check if already joined
     const { data: existing } = await supabase
@@ -100,7 +100,7 @@ export async function joinMatch(matchId: string): Promise<ActionResult> {
         .eq("user_id", user.id)
         .single();
 
-    if (existing) return { success: false, error: "You already joined this match" };
+    if (existing) return { success: false, error: "Ya estás apuntado a este partido" };
 
     // Check player count and match status
     const { count } = await supabase
@@ -114,10 +114,10 @@ export async function joinMatch(matchId: string): Promise<ActionResult> {
         .eq("id", matchId)
         .single();
 
-    if (!match) return { success: false, error: "Match not found" };
-    if (match.status !== "open") return { success: false, error: "Match is not open for joining" };
+    if (!match) return { success: false, error: "Partido no encontrado" };
+    if (match.status !== "open") return { success: false, error: "El partido no está abierto" };
     if (count !== null && count >= match.max_players)
-        return { success: false, error: "Match is full" };
+        return { success: false, error: "El partido está completo" };
 
     const { error } = await supabase
         .from("match_participants")
@@ -159,7 +159,7 @@ export async function leaveMatch(matchId: string): Promise<ActionResult> {
         data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) return { success: false, error: "Not authenticated" };
+    if (!user) return { success: false, error: "No autenticado" };
 
     const { error } = await supabase
         .from("match_participants")
@@ -182,7 +182,7 @@ export async function closeMatch(matchId: string): Promise<ActionResult> {
         data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) return { success: false, error: "Not authenticated" };
+    if (!user) return { success: false, error: "No autenticado" };
 
     // Verify organizer or admin
     const { data: match } = await supabase
@@ -193,7 +193,7 @@ export async function closeMatch(matchId: string): Promise<ActionResult> {
 
     const admin = isAdmin(user.email);
     if (match?.created_by !== user.id && !admin)
-        return { success: false, error: "Only the organizer can close this match" };
+        return { success: false, error: "Solo el organizador puede cerrar este partido" };
 
     // Admin uses admin client to bypass RLS
     const client = admin ? createAdminClient() : supabase;
@@ -222,10 +222,10 @@ export async function setScore(
         data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) return { success: false, error: "Not authenticated" };
+    if (!user) return { success: false, error: "No autenticado" };
 
     if (teamAScore < 0 || teamBScore < 0)
-        return { success: false, error: "Scores cannot be negative" };
+        return { success: false, error: "Los marcadores no pueden ser negativos" };
 
     const { data: match } = await supabase
         .from("matches")
@@ -332,7 +332,7 @@ export async function generateTeams(matchId: string): Promise<ActionResult> {
         data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) return { success: false, error: "Not authenticated" };
+    if (!user) return { success: false, error: "No autenticado" };
 
     // Verify organizer or admin
     const { data: match } = await supabase
@@ -343,7 +343,7 @@ export async function generateTeams(matchId: string): Promise<ActionResult> {
 
     const admin = isAdmin(user.email);
     if (match?.created_by !== user.id && !admin)
-        return { success: false, error: "Only the organizer can generate teams" };
+        return { success: false, error: "Solo el organizador puede generar equipos" };
 
     // Fetch participants with positions
     const { data: participants } = await supabase
@@ -352,7 +352,7 @@ export async function generateTeams(matchId: string): Promise<ActionResult> {
         .eq("match_id", matchId);
 
     if (!participants || participants.length < 2)
-        return { success: false, error: "Need at least 2 players to generate teams" };
+        return { success: false, error: "Se necesitan al menos 2 jugadores" };
 
     type ValidPosition = "GK" | "DEF" | "MID" | "FWD";
     const validPositions: ValidPosition[] = ["GK", "DEF", "MID", "FWD"];
@@ -418,7 +418,7 @@ export async function cancelMatch(matchId: string): Promise<ActionResult> {
         data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) return { success: false, error: "Not authenticated" };
+    if (!user) return { success: false, error: "No autenticado" };
 
     const { data: match } = await supabase
         .from("matches")
@@ -426,7 +426,7 @@ export async function cancelMatch(matchId: string): Promise<ActionResult> {
         .eq("id", matchId)
         .single();
 
-    if (!match) return { success: false, error: "Match not found" };
+    if (!match) return { success: false, error: "Partido no encontrado" };
 
     const admin = isAdmin(user.email);
     if (match.created_by !== user.id && !admin)
@@ -473,8 +473,8 @@ export async function rescheduleMatch(
         data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) return { success: false, error: "Not authenticated" };
-    if (!newDate) return { success: false, error: "Date is required" };
+    if (!user) return { success: false, error: "No autenticado" };
+    if (!newDate) return { success: false, error: "La fecha es obligatoria" };
 
     const { data: match } = await supabase
         .from("matches")
@@ -482,7 +482,7 @@ export async function rescheduleMatch(
         .eq("id", matchId)
         .single();
 
-    if (!match) return { success: false, error: "Match not found" };
+    if (!match) return { success: false, error: "Partido no encontrado" };
     if (match.status === "finished" || match.status === "cancelled")
         return { success: false, error: "No se puede cambiar la fecha de un partido finalizado o cancelado" };
 
@@ -535,7 +535,7 @@ export async function kickPlayer(
         data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) return { success: false, error: "Not authenticated" };
+    if (!user) return { success: false, error: "No autenticado" };
 
     if (!isAdmin(user.email))
         return { success: false, error: "Solo el administrador puede expulsar jugadores" };

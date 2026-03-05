@@ -57,7 +57,7 @@ export async function updateAvatar(path: string): Promise<ActionResult> {
     } = await supabase.auth.getUser();
 
     if (!user) {
-        return { success: false, error: "Not authenticated" };
+        return { success: false, error: "No autenticado" };
     }
 
     const { error } = await supabase

@@ -335,7 +335,7 @@ export function MatchDetail({
                     <CardHeader>
                         <CardTitle>
                             <Users size={18} className="inline mr-2" />
-                            Players ({participants.length})
+                            Jugadores ({participants.length})
                         </CardTitle>
                     </CardHeader>
                     <div className="space-y-3">
@@ -358,7 +358,7 @@ export function MatchDetail({
                         ))}
                         {participants.length === 0 && (
                             <p className="py-4 text-center text-muted">
-                                No players yet. Be the first to join!
+                                No hay jugadores aún. ¡Sé el primero en unirte!
                             </p>
                         )}
                     </div>
@@ -369,7 +369,7 @@ export function MatchDetail({
             {teamsGenerated && unassigned.length > 0 && (
                 <Card className="mt-6">
                     <CardHeader>
-                        <CardTitle>Unassigned ({unassigned.length})</CardTitle>
+                        <CardTitle>Sin Equipo ({unassigned.length})</CardTitle>
                     </CardHeader>
                     <div className="space-y-3">
                         {unassigned.map((p) => (
@@ -454,7 +454,7 @@ export function MatchDetail({
             <Dialog
                 open={scoreDialogOpen}
                 onClose={() => setScoreDialogOpen(false)}
-                title="Set Final Score"
+                title="Poner Resultado"
                 className="max-w-lg"
             >
                 <div className="space-y-6">
@@ -535,7 +535,7 @@ export function MatchDetail({
                                                                 size="sm"
                                                             />
                                                             <span className="text-sm text-foreground truncate">
-                                                                {p.profiles?.username || "Unknown"}
+                                                                {p.profiles?.username || "Desconocido"}
                                                             </span>
                                                         </div>
                                                         <div className="flex items-center gap-1">
@@ -600,7 +600,7 @@ export function MatchDetail({
                                                                 size="sm"
                                                             />
                                                             <span className="text-sm text-foreground truncate">
-                                                                {p.profiles?.username || "Unknown"}
+                                                                {p.profiles?.username || "Desconocido"}
                                                             </span>
                                                         </div>
                                                         <div className="flex items-center gap-1">
@@ -648,7 +648,7 @@ export function MatchDetail({
                         size="lg"
                         className="w-full"
                     >
-                        Save Score & Finish Match
+                        Guardar Resultado y Finalizar
                     </Button>
                 </div>
             </Dialog>
@@ -805,7 +805,7 @@ function PlayerRow({ participant, adminUserIds, organizerId, onKick }: { partici
             <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
                     <p className="text-sm font-medium text-foreground truncate">
-                        {profile?.username || "Unknown"}
+                        {profile?.username || "Desconocido"}
                     </p>
                     {adminUserIds?.includes(participant.user_id) && (
                         <span className="shrink-0 flex items-center gap-0.5 rounded-full bg-red-500/10 px-1.5 py-0.5 text-[10px] font-medium text-red-400">

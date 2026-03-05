@@ -88,7 +88,7 @@ export function AvatarUpload({ uid, url, fallback, onUpload }: AvatarUploadProps
                 onChange={handleUpload}
                 className="hidden"
             />
-            <span className="text-xs text-muted">Click to change avatar</span>
+            <span className="text-xs text-muted">Pulsa para cambiar avatar</span>
         </div>
     );
 }

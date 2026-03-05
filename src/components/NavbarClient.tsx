@@ -17,7 +17,7 @@ interface NavbarClientProps {
 }
 
 const navLinks = [
-    { href: "/", label: "Dashboard", icon: Home },
+    { href: "/", label: "Inicio", icon: Home },
     { href: "/matches", label: "Partidos", icon: Trophy },
     { href: "/matches/new", label: "Nuevo", icon: PlusCircle },
     { href: "/leaderboard", label: "Ranking", icon: BarChart3 },

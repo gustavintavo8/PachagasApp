@@ -114,7 +114,7 @@ export function NotificationBell({ userId }: NotificationBellProps) {
                         className="fixed inset-0 z-40"
                         role="button"
                         tabIndex={0}
-                        aria-label="Close notifications"
+                        aria-label="Cerrar notificaciones"
                         onClick={() => setOpen(false)}
                         onKeyDown={(e) => {
                             if (e.key === "Escape" || e.key === "Enter") {

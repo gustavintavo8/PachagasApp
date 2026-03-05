@@ -201,7 +201,7 @@ export function MatchPhotos({ matchId, currentUserId }: MatchPhotosProps) {
                                     <div className="aspect-square relative">
                                         <Image
                                             src={photo.photo_url}
-                                            alt="Match photo"
+                                            alt="Foto del partido"
                                             fill
                                             className="object-cover transition-transform duration-300 group-hover:scale-105"
                                             sizes="(max-width: 640px) 50vw, 33vw"
@@ -254,7 +254,7 @@ export function MatchPhotos({ matchId, currentUserId }: MatchPhotosProps) {
                         </button>
                         <Image
                             src={lightboxUrl!}
-                            alt="Full size"
+                            alt="Tamaño completo"
                             width={1200}
                             height={900}
                             className="max-h-[90vh] max-w-full rounded-xl object-contain"

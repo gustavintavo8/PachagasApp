@@ -69,7 +69,7 @@ export default async function Dashboard() {
         <Link href="/matches/new">
           <Button size="lg">
             <PlusCircle size={18} />
-            New Match
+            Nuevo Partido
           </Button>
         </Link>
       </div>
@@ -189,7 +189,7 @@ export default async function Dashboard() {
                       </div>
                       {isFull ? (
                         <span className="text-xs font-medium text-red-400">
-                          Full
+                          Completo
                         </span>
                       ) : (
                         <span className="text-xs font-medium text-accent">

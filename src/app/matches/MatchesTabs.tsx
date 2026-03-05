@@ -87,8 +87,8 @@ export function MatchesTabs({ matches, userId }: MatchesTabsProps) {
                 <button
                     onClick={() => setTab("active")}
                     className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-all ${tab === "active"
-                            ? "border-accent bg-accent/10 text-accent"
-                            : "border-border bg-surface text-muted hover:border-border-hover hover:text-foreground"
+                        ? "border-accent bg-accent/10 text-accent"
+                        : "border-border bg-surface text-muted hover:border-border-hover hover:text-foreground"
                         }`}
                 >
                     <Trophy size={16} />
@@ -97,8 +97,8 @@ export function MatchesTabs({ matches, userId }: MatchesTabsProps) {
                 <button
                     onClick={() => setTab("history")}
                     className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-all ${tab === "history"
-                            ? "border-accent bg-accent/10 text-accent"
-                            : "border-border bg-surface text-muted hover:border-border-hover hover:text-foreground"
+                        ? "border-accent bg-accent/10 text-accent"
+                        : "border-border bg-surface text-muted hover:border-border-hover hover:text-foreground"
                         }`}
                 >
                     <Clock size={16} />
@@ -208,9 +208,9 @@ export function MatchesTabs({ matches, userId }: MatchesTabsProps) {
                                 }
 
                                 const resultConfig = {
-                                    win: { label: "WIN", bg: "bg-green-500/10", text: "text-green-400", border: "border-green-500/30" },
-                                    draw: { label: "DRAW", bg: "bg-zinc-500/10", text: "text-zinc-400", border: "border-zinc-500/30" },
-                                    loss: { label: "LOSS", bg: "bg-red-500/10", text: "text-red-400", border: "border-red-500/30" },
+                                    win: { label: "VICTORIA", bg: "bg-green-500/10", text: "text-green-400", border: "border-green-500/30" },
+                                    draw: { label: "EMPATE", bg: "bg-zinc-500/10", text: "text-zinc-400", border: "border-zinc-500/30" },
+                                    loss: { label: "DERROTA", bg: "bg-red-500/10", text: "text-red-400", border: "border-red-500/30" },
                                 };
 
                                 const config = result ? resultConfig[result] : null;

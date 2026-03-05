@@ -37,7 +37,7 @@ export default async function MatchPage({
             match={match}
             participants={participants || []}
             currentUserId={user.id}
-            organizerName={organizerProfile?.username || "Unknown"}
+            organizerName={organizerProfile?.username || "Desconocido"}
             currentUserProfile={{
                 username: currentProfile?.username ?? null,
                 avatar_url: currentProfile?.avatar_url ?? null,

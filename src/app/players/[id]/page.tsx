@@ -144,7 +144,7 @@ export default async function PlayerProfilePage({
                     <div className="flex-1 text-center sm:text-left">
                         <div className="flex flex-col items-center gap-2 sm:flex-row">
                             <h1 className="text-2xl font-bold text-foreground">
-                                {profile.username || "Unknown"}
+                                {profile.username || "Desconocido"}
                             </h1>
                             {isYou && (
                                 <span className="rounded-full bg-accent/10 px-2.5 py-0.5 text-xs font-medium text-accent">
@@ -166,7 +166,7 @@ export default async function PlayerProfilePage({
                             )}
                             {profile.skill_level && (
                                 <span className="rounded-full border border-border bg-surface px-3 py-1">
-                                    ⭐ Skill: {profile.skill_level}/10
+                                    ⭐ Nivel: {profile.skill_level}/10
                                 </span>
                             )}
                         </div>

@@ -25,7 +25,7 @@ export function getTimeUntil(dateString: string) {
     const target = new Date(dateString);
     const diff = target.getTime() - now.getTime();
 
-    if (diff <= 0) return "Started";
+    if (diff <= 0) return "Empezado";
 
     const days = Math.floor(diff / (1000 * 60 * 60 * 24));
     const hours = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));

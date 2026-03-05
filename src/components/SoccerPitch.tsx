@@ -532,7 +532,7 @@ function PlayerPopover({
     const posEmoji =
         POSITION_CONFIG[profile?.position ?? "MID"]?.emoji ?? "⚽";
     const posName =
-        positionFullNames[profile?.position ?? "MID"] ?? "Midfielder";
+        positionFullNames[profile?.position ?? "MID"] ?? "Mediocampista";
 
     const popoverRef = useRef<HTMLDivElement>(null);
     const [adjustedPos, setAdjustedPos] = useState({ x, y });
@@ -587,7 +587,7 @@ function PlayerPopover({
                 {/* Info */}
                 <div className="px-4 pb-4 pt-8 text-center">
                     <p className="text-sm font-bold text-foreground">
-                        {profile?.username || "Unknown"}
+                        {profile?.username || "Desconocido"}
                     </p>
                     <p className="mt-0.5 text-xs text-muted">
                         {posEmoji} {posName}
@@ -596,17 +596,17 @@ function PlayerPopover({
                     {/* Stats grid */}
                     <div className="mt-3 grid grid-cols-3 gap-1">
                         <StatBox
-                            label="Skill"
+                            label="Nivel"
                             value={`${profile?.skill_level ?? "?"}`}
                             icon="⭐"
                         />
                         <StatBox
-                            label="Matches"
+                            label="Partidos"
                             value={`${profile?.matches_played ?? 0}`}
                             icon="🏟️"
                         />
                         <StatBox
-                            label="Goals"
+                            label="Goles"
                             value={`${profile?.goals_scored ?? 0}`}
                             icon="⚽"
                         />

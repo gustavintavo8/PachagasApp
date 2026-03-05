@@ -112,7 +112,7 @@ export function PlayersList({ profiles, currentUserId, adminUserIds }: PlayersLi
                                         <div className="min-w-0 flex-1">
                                             <div className="flex items-center gap-2">
                                                 <p className="truncate font-semibold text-foreground">
-                                                    {profile.username || "Unknown"}
+                                                    {profile.username || "Desconocido"}
                                                 </p>
                                                 {isYou && (
                                                     <span className="shrink-0 rounded-full bg-accent/10 px-2 py-0.5 text-xs font-medium text-accent">
