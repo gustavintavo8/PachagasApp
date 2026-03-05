@@ -12,7 +12,6 @@ export function getAvatarUrl(supabaseUrl: string, path: string | null) {
 
 export function formatDate(dateString: string) {
     return new Date(dateString).toLocaleDateString("es-ES", {
-        timeZone: "UTC",
         weekday: "short",
         month: "short",
         day: "numeric",

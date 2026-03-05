@@ -409,7 +409,7 @@ function TeamHalf({
                         key={pos}
                         className="absolute left-0 right-0 flex items-center justify-center"
                         style={{
-                            top: `${config.zone}%`,
+                            top: `${half === "top" ? 100 - config.zone : config.zone}%`,
                             transform: "translateY(-50%)",
                         }}
                     >

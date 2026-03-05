@@ -80,8 +80,8 @@ export function MatchDetail({
     const [loading, setLoading] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<"chat" | "photos" | "rating">("chat");
     const [scoreDialogOpen, setScoreDialogOpen] = useState(false);
-    const [teamAScore, setTeamAScore] = useState(match.team_a_score ?? 0);
-    const [teamBScore, setTeamBScore] = useState(match.team_b_score ?? 0);
+    const [teamAScore, setTeamAScore] = useState<number | "">(match.team_a_score ?? 0);
+    const [teamBScore, setTeamBScore] = useState<number | "">(match.team_b_score ?? 0);
     const [goalScorers, setGoalScorers] = useState<Record<string, number>>({});
     const [showGoalScorers, setShowGoalScorers] = useState(false);
     const [rescheduleDialogOpen, setRescheduleDialogOpen] = useState(false);
@@ -133,13 +133,15 @@ export function MatchDetail({
 
     async function handleSetScore() {
         setLoading("score");
+        const finalA = teamAScore === "" ? 0 : teamAScore;
+        const finalB = teamBScore === "" ? 0 : teamBScore;
         const scorers = Object.entries(goalScorers)
             .filter(([, g]) => g > 0)
             .map(([userId, goals]) => ({ userId, goals }));
         const result = await setScore(
             match.id,
-            teamAScore,
-            teamBScore,
+            finalA,
+            finalB,
             scorers.length > 0 ? scorers : undefined
         );
         if (result?.error) {
@@ -463,7 +465,11 @@ export function MatchDetail({
                                 type="number"
                                 min="0"
                                 value={teamAScore}
-                                onChange={(e) => setTeamAScore(parseInt(e.target.value) || 0)}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    setTeamAScore(val === "" ? "" : parseInt(val) || 0);
+                                }}
+                                onFocus={(e) => e.target.select()}
                                 className="w-20 rounded-xl border border-border bg-zinc-800 px-3 py-3 text-center text-2xl font-bold text-foreground focus:border-accent focus:outline-none"
                             />
                         </div>
@@ -474,14 +480,18 @@ export function MatchDetail({
                                 type="number"
                                 min="0"
                                 value={teamBScore}
-                                onChange={(e) => setTeamBScore(parseInt(e.target.value) || 0)}
+                                onChange={(e) => {
+                                    const val = e.target.value;
+                                    setTeamBScore(val === "" ? "" : parseInt(val) || 0);
+                                }}
+                                onFocus={(e) => e.target.select()}
                                 className="w-20 rounded-xl border border-border bg-zinc-800 px-3 py-3 text-center text-2xl font-bold text-foreground focus:border-accent focus:outline-none"
                             />
                         </div>
                     </div>
 
                     {/* Optional goal scorers section */}
-                    {teamsGenerated && (teamAScore > 0 || teamBScore > 0) && (
+                    {teamsGenerated && ((teamAScore || 0) > 0 || (teamBScore || 0) > 0) && (
                         <div className="rounded-xl border border-border bg-zinc-900/50">
                             <button
                                 type="button"
