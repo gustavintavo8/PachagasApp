@@ -186,7 +186,7 @@ export default async function PlayerProfilePage({
                                                     src="/mvp-trophy.png"
                                                     alt="MVP Trophy"
                                                     fill
-                                                    className="object-contain scale-[1.6] group-hover:scale-[1.7] transition-transform duration-300"
+                                                    className="object-contain transition-transform duration-300 hover:scale-110"
                                                 />
                                             </div>
                                             <div className="text-center mt-1">
