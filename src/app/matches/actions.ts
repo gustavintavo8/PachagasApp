@@ -668,6 +668,38 @@ export async function forceResolveMvp(matchId: string): Promise<ActionResult> {
     return { success: true };
 }
 
+export async function checkAndResolveExpiredMvp(matchId: string): Promise<ActionResult> {
+    const supabase = await createClient();
+
+    const { data: match } = await supabase
+        .from("matches")
+        .select("status, finished_at, date")
+        .eq("id", matchId)
+        .single();
+
+    if (!match || match.status !== "finished") return { success: false, error: "No válido" };
+
+    const referenceTime = match.finished_at || match.date;
+    if (!referenceTime) return { success: false, error: "Falta referencia de tiempo" };
+
+    const finishedAt = new Date(referenceTime).getTime();
+    if (Date.now() - finishedAt > MVP_VOTING_WINDOW_MS) {
+        // Passed 24h. Check if already resolved.
+        const { data: participants } = await supabase
+            .from("match_participants")
+            .select("is_mvp")
+            .eq("match_id", matchId);
+
+        const isResolved = participants?.some((p) => p.is_mvp);
+        if (!isResolved) {
+            await resolveMvp(matchId);
+            revalidatePath(`/matches/${matchId}`);
+            return { success: true };
+        }
+    }
+    return { success: false, error: "No expirado o ya resuelto" };
+}
+
 export async function voteForMvp(
     matchId: string,
     votedForUserId: string

@@ -156,6 +156,17 @@ export function MvpVoting({
         };
     }, [matchId]);
 
+    const [autoResolving, setAutoResolving] = useState(false);
+    // Auto-resolve if expired and not resolved
+    useEffect(() => {
+        if (votingClosed && !isAlreadyResolved && !autoResolving && votes.length > 0) {
+            setAutoResolving(true);
+            import("@/app/matches/actions").then((mod) => {
+                mod.checkAndResolveExpiredMvp(matchId).catch(console.error);
+            });
+        }
+    }, [votingClosed, isAlreadyResolved, autoResolving, matchId, votes.length]);
+
     async function handleVote(votedForUserId: string) {
         if (voting || myVote || votingClosed) return;
         setVoting(true);
