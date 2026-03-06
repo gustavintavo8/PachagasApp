@@ -179,9 +179,9 @@ export default async function PlayerProfilePage({
                                         <Link
                                             key={trophy.id}
                                             href={`/matches/${trophy.id}`}
-                                            className="group relative flex flex-col items-center gap-2 rounded-2xl bg-surface p-3 transition-transform hover:-translate-y-1 hover:bg-surface-hover"
+                                            className="group relative flex flex-col items-center gap-2 rounded-2xl bg-surface p-4 transition-transform hover:-translate-y-1 hover:bg-surface-hover"
                                         >
-                                            <div className="relative h-20 w-20 overflow-hidden drop-shadow-[0_0_15px_rgba(250,204,21,0.3)] group-hover:drop-shadow-[0_0_25px_rgba(250,204,21,0.5)] transition-all">
+                                            <div className="relative h-28 w-28 drop-shadow-[0_0_15px_rgba(250,204,21,0.3)] group-hover:drop-shadow-[0_0_30px_rgba(250,204,21,0.6)] transition-all">
                                                 <Image
                                                     src="/mvp-trophy.png"
                                                     alt="MVP Trophy"
@@ -189,10 +189,10 @@ export default async function PlayerProfilePage({
                                                     className="object-contain"
                                                 />
                                             </div>
-                                            <div className="text-center">
-                                                <p className="text-[10px] uppercase font-bold text-yellow-500/80">MVP</p>
-                                                <p className="text-xs font-medium text-foreground max-w-[80px] truncate">
-                                                    {formatDate(trophy.date).split(' ')[0]}
+                                            <div className="text-center mt-1">
+                                                <p className="text-[11px] tracking-wider uppercase font-bold text-yellow-500/90">MVP</p>
+                                                <p className="text-xs font-medium text-foreground capitalize">
+                                                    {new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(trophy.date))}
                                                 </p>
                                             </div>
                                         </Link>
