@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect, notFound } from "next/navigation";
 import Link from "next/link";
+import Image from "next/image";
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Avatar } from "@/components/ui/Avatar";
 import { PlayerCharts } from "@/components/PlayerCharts";
@@ -165,6 +166,40 @@ export default async function PlayerProfilePage({
                                 </span>
                             )}
                         </div>
+
+                        {/* MVP Trophies Section - Under Name */}
+                        {trophies.length > 0 && (
+                            <div className="mt-5 border-t border-border/50 pt-4">
+                                <h3 className="mb-3 text-sm font-semibold text-yellow-400/90 flex items-center justify-center sm:justify-start gap-1.5">
+                                    <Crown size={14} className="text-yellow-400" />
+                                    Trofeos MVP ({trophies.length})
+                                </h3>
+                                <div className="flex flex-wrap gap-4 justify-center sm:justify-start">
+                                    {trophies.map((trophy) => (
+                                        <Link
+                                            key={trophy.id}
+                                            href={`/matches/${trophy.id}`}
+                                            className="group relative flex flex-col items-center gap-2 rounded-2xl bg-surface p-3 transition-transform hover:-translate-y-1 hover:bg-surface-hover"
+                                        >
+                                            <div className="relative h-20 w-20 overflow-hidden drop-shadow-[0_0_15px_rgba(250,204,21,0.3)] group-hover:drop-shadow-[0_0_25px_rgba(250,204,21,0.5)] transition-all">
+                                                <Image
+                                                    src="/mvp-trophy.png"
+                                                    alt="MVP Trophy"
+                                                    fill
+                                                    className="object-contain"
+                                                />
+                                            </div>
+                                            <div className="text-center">
+                                                <p className="text-[10px] uppercase font-bold text-yellow-500/80">MVP</p>
+                                                <p className="text-xs font-medium text-foreground max-w-[80px] truncate">
+                                                    {formatDate(trophy.date).split(' ')[0]}
+                                                </p>
+                                            </div>
+                                        </Link>
+                                    ))}
+                                </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             </Card>
@@ -221,48 +256,7 @@ export default async function PlayerProfilePage({
                 );
             })()}
 
-            {/* Trofeos MVP */}
-            {trophies.length > 0 && (
-                <div className="mb-8">
-                    <div className="flex items-center gap-2 mb-4">
-                        <Medal size={18} className="text-yellow-400" />
-                        <h3 className="text-lg font-semibold text-foreground">🏆 Trofeos</h3>
-                        <span className="rounded-full bg-yellow-400/10 px-2 py-0.5 text-xs font-medium text-yellow-400">
-                            {trophies.length} MVP{trophies.length !== 1 ? "s" : ""}
-                        </span>
-                    </div>
-                    <div className="grid gap-3 sm:grid-cols-2">
-                        {trophies.map((trophy) => (
-                            <Link key={trophy.id} href={`/matches/${trophy.id}`}>
-                                <Card className="bg-gradient-to-br from-yellow-500/5 to-transparent border-yellow-500/20 transition-all hover:border-yellow-500/40 hover:scale-[1.02]">
-                                    <div className="flex items-start gap-3">
-                                        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-yellow-400/10 text-lg">
-                                            🏅
-                                        </div>
-                                        <div className="min-w-0 flex-1">
-                                            <p className="text-sm font-semibold text-yellow-400">MVP</p>
-                                            <p className="mt-0.5 truncate text-sm text-foreground">
-                                                {trophy.location}
-                                            </p>
-                                            <div className="mt-1 flex items-center gap-3 text-xs text-muted">
-                                                <span className="flex items-center gap-1">
-                                                    <Calendar size={11} />
-                                                    {formatDate(trophy.date)}
-                                                </span>
-                                                {trophy.team_a_score !== null && trophy.team_b_score !== null && (
-                                                    <span className="font-medium text-foreground">
-                                                        {trophy.team_a_score} – {trophy.team_b_score}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-                                </Card>
-                            </Link>
-                        ))}
-                    </div>
-                </div>
-            )}
+
 
             {/* Recent Matches */}
             <h2 className="mb-4 text-lg font-semibold text-foreground">
