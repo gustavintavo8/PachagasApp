@@ -642,6 +642,32 @@ async function resolveMvp(matchId: string) {
     );
 }
 
+export async function forceResolveMvp(matchId: string): Promise<ActionResult> {
+    const supabase = await createClient();
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return { success: false, error: "No autenticado" };
+
+    const { data: match } = await supabase
+        .from("matches")
+        .select("created_by")
+        .eq("id", matchId)
+        .single();
+
+    if (!match) return { success: false, error: "Partido no encontrado" };
+
+    const { isAdmin } = await import("@/lib/permissions");
+    if (match.created_by !== user.id && !isAdmin(user.email)) {
+        return { success: false, error: "No tienes permiso para finalizar la votación" };
+    }
+
+    await resolveMvp(matchId);
+    revalidatePath(`/matches/${matchId}`);
+    return { success: true };
+}
+
 export async function voteForMvp(
     matchId: string,
     votedForUserId: string

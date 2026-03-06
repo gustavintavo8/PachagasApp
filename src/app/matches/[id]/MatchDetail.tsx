@@ -448,6 +448,7 @@ export function MatchDetail({
                         participants={participants}
                         matchFinishedAt={match.finished_at}
                         matchDate={match.date}
+                        canManage={canManage}
                     />
                 )}
             </div>

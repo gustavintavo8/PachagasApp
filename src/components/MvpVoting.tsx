@@ -10,6 +10,7 @@ import { Trophy, Check, Clock, Crown } from "lucide-react";
 
 interface Participant {
     user_id: string;
+    is_mvp?: boolean;
     profiles: {
         username: string | null;
         avatar_url: string | null;
@@ -27,6 +28,7 @@ interface MvpVotingProps {
     participants: Participant[];
     matchFinishedAt: string | null;
     matchDate: string;
+    canManage?: boolean;
 }
 
 const MVP_VOTING_WINDOW_MS = 24 * 60 * 60 * 1000;
@@ -56,6 +58,7 @@ export function MvpVoting({
     participants,
     matchFinishedAt,
     matchDate,
+    canManage,
 }: MvpVotingProps) {
     // If finished_at is null (pre-migration match), use the match date as fallback
     const effectiveFinishedAt = matchFinishedAt || matchDate;
@@ -70,7 +73,8 @@ export function MvpVoting({
     const { toast } = useToast();
 
     const myVote = votes.find((v) => v.voter_id === currentUserId);
-    const votingClosed = timeLeft.expired;
+    const isAlreadyResolved = participants.some((p) => p.is_mvp);
+    const votingClosed = timeLeft.expired || isAlreadyResolved;
 
     // Count votes per candidate
     const voteCounts: Record<string, number> = {};
@@ -80,7 +84,11 @@ export function MvpVoting({
 
     // Find the MVP winner (most votes, no tie)
     let mvpWinnerId: string | null = null;
-    if (votingClosed && votes.length > 0) {
+    const resolvedWinner = participants.find((p) => p.is_mvp);
+
+    if (resolvedWinner) {
+        mvpWinnerId = resolvedWinner.user_id;
+    } else if (votingClosed && votes.length > 0) {
         let maxVotes = 0;
         let isTie = false;
         for (const [userId, count] of Object.entries(voteCounts)) {
@@ -167,6 +175,19 @@ export function MvpVoting({
         setVoting(false);
     }
 
+    async function handleForceResolve() {
+        if (!confirm("¿Forzar el cierre de la votación y elegir al MVP ahora mismo?")) return;
+        setVoting(true);
+        const { forceResolveMvp } = await import("@/app/matches/actions");
+        const result = await forceResolveMvp(matchId);
+        if (!result.success) {
+            toast(result.error || "Error al finalizar", "error");
+        } else {
+            toast("Votación finalizada", "success");
+        }
+        setVoting(false);
+    }
+
     const otherPlayers = participants.filter((p) => p.user_id !== currentUserId);
 
     // Sort by vote count when voting is closed
@@ -202,18 +223,36 @@ export function MvpVoting({
 
             {/* Status banner */}
             {!votingClosed && !myVote && (
-                <div className="border-b border-border bg-accent/5 px-4 py-2.5">
+                <div className="border-b border-border bg-accent/5 px-4 py-2.5 flex items-center justify-between">
                     <p className="text-xs text-accent">
                         ⚡ Elige al jugador que mejor lo hizo. Tienes 24h para votar.
                     </p>
+                    {canManage && (
+                        <button
+                            onClick={handleForceResolve}
+                            disabled={voting || votes.length === 0}
+                            className="text-xs font-semibold text-accent/80 hover:text-accent disabled:opacity-50"
+                        >
+                            Finalizar ya
+                        </button>
+                    )}
                 </div>
             )}
             {myVote && !votingClosed && (
-                <div className="border-b border-border bg-green-500/5 px-4 py-2.5">
+                <div className="border-b border-border bg-green-500/5 px-4 py-2.5 flex items-center justify-between">
                     <p className="flex items-center gap-1.5 text-xs text-green-400">
                         <Check size={14} />
-                        ¡Ya has votado! Los resultados se mostrarán cuando se cierre la votación.
+                        ¡Ya has votado! Los resultados se mostrarán al cerrar.
                     </p>
+                    {canManage && (
+                        <button
+                            onClick={handleForceResolve}
+                            disabled={voting || votes.length === 0}
+                            className="text-xs font-semibold text-green-500/80 hover:text-green-400 disabled:opacity-50"
+                        >
+                            Finalizar ya
+                        </button>
+                    )}
                 </div>
             )}
 
