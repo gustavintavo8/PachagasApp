@@ -118,6 +118,46 @@ export default async function PlayerProfilePage({
         FWD: "⚡ Delantero",
     };
 
+    // Head-to-Head (H2H) Logic
+    let h2h = { playedTogether: 0, playedAgainst: 0, viewerWins: 0, profileWins: 0 };
+    if (!isYou) {
+        // Fetch matches where BOTH users participated
+        const { data: commonMatches } = await supabase
+            .rpc("get_common_matches", { user_a: user.id, user_b: id });
+
+        // Since we might not have a clean RPC, let's do it application side for simplicity if RPC fails, 
+        // or just query all finished matches of the viewer and intersect.
+        const { data: viewerParticipations } = await supabase
+            .from("match_participants")
+            .select("match_id, team")
+            .eq("user_id", user.id);
+
+        if (viewerParticipations && participations) {
+            const viewerMatchMap = new Map(viewerParticipations.map(p => [p.match_id, p.team]));
+
+            for (const p of finishedMatches) {
+                const viewerTeam = viewerMatchMap.get(p.id);
+                if (viewerTeam && p.userTeam && p.team_a_score !== null && p.team_b_score !== null) {
+                    if (viewerTeam === p.userTeam) {
+                        h2h.playedTogether++;
+                    } else {
+                        h2h.playedAgainst++;
+                        // Determine who won
+                        const profileWon =
+                            (p.userTeam === "A" && p.team_a_score > p.team_b_score) ||
+                            (p.userTeam === "B" && p.team_b_score > p.team_a_score);
+                        const viewerWon =
+                            (viewerTeam === "A" && p.team_a_score > p.team_b_score) ||
+                            (viewerTeam === "B" && p.team_b_score > p.team_a_score);
+
+                        if (viewerWon) h2h.viewerWins++;
+                        else if (profileWon) h2h.profileWins++;
+                    }
+                }
+            }
+        }
+    }
+
     return (
         <div className="mx-auto max-w-3xl px-4 py-8">
             {/* Back Link */}
@@ -225,6 +265,32 @@ export default async function PlayerProfilePage({
                     <p className="mt-1 text-2xl font-bold text-red-400">{losses}</p>
                 </Card>
             </div>
+
+            {/* H2H Stats (Only if viewing someone else) */}
+            {!isYou && (h2h.playedTogether > 0 || h2h.playedAgainst > 0) && (
+                <Card className="mb-8 overflow-hidden bg-gradient-to-br from-surface to-surface-hover/50">
+                    <CardHeader className="bg-accent/5 pb-4">
+                        <CardTitle className="flex items-center gap-2 text-lg text-accent">
+                            <span className="text-xl">⚔️</span>
+                            Historial vs Ti
+                        </CardTitle>
+                    </CardHeader>
+                    <div className="grid grid-cols-3 divide-x divide-border/50 p-4">
+                        <div className="text-center px-2">
+                            <p className="truncate text-xs text-muted mb-1">Victoria Tuya</p>
+                            <p className="text-2xl font-bold text-green-400">{h2h.viewerWins}</p>
+                        </div>
+                        <div className="text-center px-2">
+                            <p className="truncate text-xs text-muted mb-1">Victoria Suya</p>
+                            <p className="text-2xl font-bold text-red-400">{h2h.profileWins}</p>
+                        </div>
+                        <div className="text-center px-2">
+                            <p className="truncate text-xs text-muted mb-1">Juntos</p>
+                            <p className="text-2xl font-bold text-blue-400">{h2h.playedTogether}</p>
+                        </div>
+                    </div>
+                </Card>
+            )}
 
             {/* Charts */}
             {(() => {

@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useRef, useEffect, useLayoutEffect } from "react";
+import html2canvas from "html2canvas";
 import { Avatar } from "@/components/ui/Avatar";
+import { Share2 } from "lucide-react";
 import { getAvatarUrl } from "@/lib/utils";
 import type { Profile } from "@/lib/types";
 
@@ -101,6 +103,64 @@ export function SoccerPitch({ teamA, teamB }: SoccerPitchProps) {
             });
         }
         setActivePlayer(p);
+    }
+
+    async function exportToImage() {
+        if (!pitchRef.current) return;
+        try {
+            // Hide the active player popover temporarily to keep the screenshot clean
+            const wasActive = activePlayer;
+            setActivePlayer(null);
+
+            // Allow a tiny delay for React state (popover removal) to flush
+            await new Promise(r => setTimeout(r, 50));
+
+            const canvas = await html2canvas(pitchRef.current, {
+                scale: 2, // higher resolution
+                backgroundColor: "#064e3b", // match emerald-900 roughly
+                useCORS: true, // for external avatars
+            });
+
+            // Restore popover
+            if (wasActive) setActivePlayer(wasActive);
+
+            canvas.toBlob(async (blob) => {
+                if (!blob) return;
+
+                const file = new File([blob], "alineacion.png", { type: "image/png" });
+
+                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                    // Try native share (iOS, Android, macOS)
+                    try {
+                        await navigator.share({
+                            files: [file],
+                            title: "Pachanga Manager",
+                            text: "Mira las alineaciones para el próximo partido ⚽",
+                        });
+                    } catch (err: any) {
+                        // User might have canceled the share sheet
+                        if (err.name !== "AbortError") {
+                            console.error("Error sharing:", err);
+                            fallbackDownload(blob);
+                        }
+                    }
+                } else {
+                    // Fallback to direct download
+                    fallbackDownload(blob);
+                }
+            }, "image/png");
+        } catch (error) {
+            console.error("Failed to export pitch:", error);
+        }
+    }
+
+    function fallbackDownload(blob: Blob) {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "alineaciones.png";
+        a.click();
+        URL.revokeObjectURL(url);
     }
 
     return (
@@ -363,6 +423,19 @@ export function SoccerPitch({ teamA, teamB }: SoccerPitchProps) {
                     {teamB.length} jugadores
                 </span>
             </div>
+
+            {/* Share pitch button */}
+            {teamA.length > 0 || teamB.length > 0 ? (
+                <div className="flex justify-center pt-2">
+                    <button
+                        onClick={exportToImage}
+                        className="flex items-center gap-2 rounded-xl border border-border bg-surface px-4 py-2.5 text-sm font-medium text-foreground transition-all hover:border-accent hover:text-accent"
+                    >
+                        <Share2 size={16} />
+                        Compartir Alineaciones
+                    </button>
+                </div>
+            ) : null}
         </div>
     );
 }

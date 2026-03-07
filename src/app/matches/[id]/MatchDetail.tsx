@@ -18,6 +18,7 @@ import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Avatar } from "@/components/ui/Avatar";
 import { Dialog } from "@/components/ui/Dialog";
 import { SoccerPitch } from "@/components/SoccerPitch";
+import { WeatherWidget } from "@/components/WeatherWidget";
 import { formatDate, getAvatarUrl } from "@/lib/utils";
 
 const MatchChat = dynamic(() => import("@/components/MatchChat").then((mod) => ({ default: mod.MatchChat })), {
@@ -191,6 +192,7 @@ export function MatchDetail({
                     <h1 className="text-2xl font-bold">{match.location}</h1>
                 </div>
 
+
                 <div className="mt-2 flex flex-wrap gap-4 text-sm text-muted">
                     <span className="flex items-center gap-1.5">
                         <Calendar size={14} />
@@ -200,6 +202,7 @@ export function MatchDetail({
                         <Users size={14} />
                         {participants.length}/{match.max_players} jugadores
                     </span>
+                    <WeatherWidget location={match.location} date={match.date} />
                     <span>por {organizerName}</span>
                 </div>
             </div>
