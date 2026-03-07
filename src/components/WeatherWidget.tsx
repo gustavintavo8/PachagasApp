@@ -90,7 +90,10 @@ export function WeatherWidget({ location, date }: WeatherWidgetProps) {
     if (!weather) return null;
 
     return (
-        <span className="flex items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-xs font-medium text-muted transition-colors hover:border-accent/50 hover:text-foreground">
+        <span
+            className="flex items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-xs font-medium text-muted transition-colors hover:border-accent/50 hover:text-foreground cursor-help"
+            title={`Previsión meteorológica aproximada para: ${location}\nObtenida de Open-Meteo API`}
+        >
             <span className="text-sm">{weather.emoji}</span>
             <span>{weather.max}º / {weather.min}º</span>
         </span>
