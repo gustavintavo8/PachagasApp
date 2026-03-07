@@ -70,7 +70,7 @@ function NewMatchForm() {
                             name="date"
                             type="datetime-local"
                             required
-                            className="w-full rounded-xl border border-border bg-zinc-800 px-4 py-3 text-foreground transition-colors focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent [color-scheme:dark]"
+                            className="block w-full max-w-full rounded-xl border border-border bg-zinc-800 px-4 py-3 text-foreground transition-colors focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent [color-scheme:dark]"
                         />
                     </div>
 
