@@ -677,7 +677,7 @@ export function MatchDetail({
                         type="datetime-local"
                         value={newDate}
                         onChange={(e) => setNewDate(e.target.value)}
-                        className="w-full rounded-xl border border-border bg-zinc-800 px-4 py-3 text-foreground transition-colors focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent [color-scheme:dark]"
+                        className="block w-full min-w-0 appearance-none rounded-xl border border-border bg-zinc-800 px-2 py-3 sm:px-4 text-base text-foreground transition-colors focus:border-accent focus:outline-none focus:ring-1 focus:ring-accent [color-scheme:dark]"
                     />
                     <Button
                         onClick={async () => {
