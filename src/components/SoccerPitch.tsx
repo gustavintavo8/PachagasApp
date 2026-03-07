@@ -119,14 +119,63 @@ export function SoccerPitch({ teamA, teamB }: SoccerPitchProps) {
             // Allow a tiny delay for React state
             await new Promise(r => setTimeout(r, 100));
 
-            // html-to-image natively supports capturing SVGs and handles nested layouts perfectly.
-            const blob = await toBlob(pitchRef.current, {
+            // CRITICAL FIX: To prevent canvas tainting from Supabase avatars causing a SecurityError on toBlob,
+            // we must clone the DOM, fetch all avatar images as blobs, and convert their src to base64 data URIs.
+            const clone = pitchRef.current.cloneNode(true) as HTMLElement;
+            clone.style.position = "absolute";
+            clone.style.top = "-9999px";
+            clone.style.left = "-9999px";
+            document.body.appendChild(clone);
+
+            // Find all images in the clone
+            const images = clone.querySelectorAll("img");
+            for (let i = 0; i < images.length; i++) {
+                const img = images[i];
+                if (img.src && img.src.startsWith("http")) {
+                    try {
+                        const res = await fetch(img.src);
+                        if (!res.ok) throw new Error("Fetch failed");
+                        const blob = await res.blob();
+
+                        // Convert Blob to Base64
+                        const base64data = await new Promise<string>((resolve) => {
+                            const reader = new FileReader();
+                            reader.readAsDataURL(blob);
+                            reader.onloadend = () => resolve(reader.result as string);
+                        });
+                        img.src = base64data;
+                        img.srcset = ""; // clear next/image srcset
+                    } catch (e) {
+                        console.warn("Failed to fetch image for canvas:", img.src);
+                        // Fallback: remove image so it doesn't taint canvas
+                        img.style.display = "none";
+                    }
+                }
+            }
+
+            // Remove SVG filters and box-shadows.
+            const filters = clone.querySelectorAll("filter");
+            filters.forEach(f => f.remove());
+
+            const allElements = clone.querySelectorAll("*");
+            for (let i = 0; i < allElements.length; i++) {
+                const el = allElements[i] as HTMLElement;
+                if (el.style) {
+                    el.style.boxShadow = "none";
+                    el.style.filter = "none";
+                }
+            }
+
+            // Small delay for data URIs to parse in the clone
+            await new Promise(r => setTimeout(r, 50));
+
+            const blob = await toBlob(clone, {
                 pixelRatio: 2,
                 backgroundColor: "#064e3b",
-                cacheBust: true,
-                // If an avatar fails to load due to CORS, replace it with a transparent pixel instead of crashing the whole export
-                imagePlaceholder: "data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=",
             });
+
+            // Cleanup clone
+            document.body.removeChild(clone);
 
             // Restore popover
             if (wasActive) setActivePlayer(wasActive);
