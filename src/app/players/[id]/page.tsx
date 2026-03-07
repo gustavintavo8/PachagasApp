@@ -136,6 +136,7 @@ export default async function PlayerProfilePage({
                         src={avatarUrl}
                         fallback={profile.username || "P"}
                         size="lg"
+                        priority={true}
                     />
                     <div className="flex-1 text-center sm:text-left">
                         <div className="flex flex-col items-center gap-2 sm:flex-row">
@@ -167,12 +168,12 @@ export default async function PlayerProfilePage({
                             )}
                         </div>
 
-                        {/* MVP Trophies Section - Under Name */}
+                        {/* Trophies Section - Under Name */}
                         {trophies.length > 0 && (
                             <div className="mt-5 border-t border-border/50 pt-4">
                                 <h3 className="mb-3 text-sm font-semibold text-yellow-400/90 flex items-center justify-center sm:justify-start gap-1.5">
                                     <Crown size={14} className="text-yellow-400" />
-                                    Trofeos MVP ({trophies.length})
+                                    Trofeos ({trophies.length})
                                 </h3>
                                 <div className="flex flex-wrap gap-4 justify-center sm:justify-start">
                                     {trophies.map((trophy) => (
@@ -186,6 +187,7 @@ export default async function PlayerProfilePage({
                                                     src="/mvp-trophy.png"
                                                     alt="MVP Trophy"
                                                     fill
+                                                    priority={true}
                                                     className="object-contain transition-transform duration-300 hover:scale-110"
                                                 />
                                             </div>

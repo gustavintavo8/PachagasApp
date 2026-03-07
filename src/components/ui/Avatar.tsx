@@ -6,6 +6,7 @@ interface AvatarProps {
     fallback: string;
     size?: "sm" | "md" | "lg" | "xl";
     className?: string;
+    priority?: boolean;
 }
 
 const sizeMap = {
@@ -20,6 +21,7 @@ export function Avatar({
     fallback,
     size = "md",
     className,
+    priority = false,
 }: AvatarProps) {
     const initials = fallback
         .split(" ")
@@ -43,6 +45,7 @@ export function Avatar({
                     fill
                     className="object-cover"
                     sizes="80px"
+                    priority={priority}
                 />
             ) : (
                 <span>{initials}</span>

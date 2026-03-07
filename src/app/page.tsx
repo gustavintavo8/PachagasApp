@@ -58,6 +58,7 @@ export default async function Dashboard() {
             src={avatarUrl}
             fallback={profile?.username || user.email || "P"}
             size="lg"
+            priority={true}
           />
           <div>
             <h1 className="text-2xl font-bold text-foreground">
