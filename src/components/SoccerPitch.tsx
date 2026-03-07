@@ -1,10 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useLayoutEffect } from "react";
-import { toBlob } from "html-to-image";
 import { Avatar } from "@/components/ui/Avatar";
-import { useToast } from "@/components/ui/Toast";
-import { Share2, Loader2 } from "lucide-react";
 import { getAvatarUrl } from "@/lib/utils";
 import type { Profile } from "@/lib/types";
 
@@ -68,8 +65,6 @@ export function SoccerPitch({ teamA, teamB }: SoccerPitchProps) {
     const groupA = groupByPosition(teamA);
     const groupB = groupByPosition(teamB);
     const [activePlayer, setActivePlayer] = useState<Participant | null>(null);
-    const [isExporting, setIsExporting] = useState(false);
-    const { toast } = useToast();
     const [popoverPos, setPopoverPos] = useState<{
         x: number;
         y: number;
@@ -106,125 +101,6 @@ export function SoccerPitch({ teamA, teamB }: SoccerPitchProps) {
             });
         }
         setActivePlayer(p);
-    }
-
-    async function exportToImage() {
-        if (!pitchRef.current) return;
-        setIsExporting(true);
-        try {
-            // Hide the active player popover temporarily to keep the screenshot clean
-            const wasActive = activePlayer;
-            setActivePlayer(null);
-
-            // Allow a tiny delay for React state
-            await new Promise(r => setTimeout(r, 100));
-
-            // CRITICAL FIX: To prevent canvas tainting from Supabase avatars causing a SecurityError on toBlob,
-            // we must clone the DOM, fetch all avatar images as blobs, and convert their src to base64 data URIs.
-            const clone = pitchRef.current.cloneNode(true) as HTMLElement;
-            clone.style.position = "absolute";
-            clone.style.top = "-9999px";
-            clone.style.left = "-9999px";
-            document.body.appendChild(clone);
-
-            // Find all images in the clone
-            const images = clone.querySelectorAll("img");
-            for (let i = 0; i < images.length; i++) {
-                const img = images[i];
-                if (img.src && img.src.startsWith("http")) {
-                    try {
-                        const res = await fetch(img.src);
-                        if (!res.ok) throw new Error("Fetch failed");
-                        const blob = await res.blob();
-
-                        // Convert Blob to Base64
-                        const base64data = await new Promise<string>((resolve) => {
-                            const reader = new FileReader();
-                            reader.readAsDataURL(blob);
-                            reader.onloadend = () => resolve(reader.result as string);
-                        });
-                        img.src = base64data;
-                        img.srcset = ""; // clear next/image srcset
-                    } catch (e) {
-                        console.warn("Failed to fetch image for canvas:", img.src);
-                        // Fallback: remove image so it doesn't taint canvas
-                        img.style.display = "none";
-                    }
-                }
-            }
-
-            // Remove SVG filters and box-shadows.
-            const filters = clone.querySelectorAll("filter");
-            filters.forEach(f => f.remove());
-
-            const allElements = clone.querySelectorAll("*");
-            for (let i = 0; i < allElements.length; i++) {
-                const el = allElements[i] as HTMLElement;
-                if (el.style) {
-                    el.style.boxShadow = "none";
-                    el.style.filter = "none";
-                }
-            }
-
-            // Small delay for data URIs to parse in the clone
-            await new Promise(r => setTimeout(r, 50));
-
-            const blob = await toBlob(clone, {
-                pixelRatio: 2,
-                backgroundColor: "#064e3b",
-            });
-
-            // Cleanup clone
-            document.body.removeChild(clone);
-
-            // Restore popover
-            if (wasActive) setActivePlayer(wasActive);
-
-            if (!blob) {
-                toast("Error al capturar el campo (Blob vacío).", "error");
-                setIsExporting(false);
-                return;
-            }
-
-            const file = new File([blob], "alineacion.png", { type: "image/png" });
-
-            const sharePayload = { files: [file] } as any;
-            if (navigator.canShare && navigator.canShare(sharePayload)) {
-                // Try native share (iOS, Android, macOS)
-                try {
-                    await navigator.share({
-                        files: [file],
-                        title: "Pachanga Manager",
-                        text: "Mira las alineaciones para el próximo partido ⚽",
-                    } as any);
-                    toast("¡Alineación compartida!", "success");
-                } catch (err: any) {
-                    // User might have canceled the share sheet
-                    if (err.name !== "AbortError") {
-                        console.error("Error sharing:", err);
-                        fallbackDownload(blob);
-                    }
-                }
-            } else {
-                // Fallback to direct download
-                fallbackDownload(blob);
-            }
-            setIsExporting(false);
-        } catch (error: any) {
-            console.error("Failed to export pitch:", error);
-            const msg = error?.message || "Error desconocido";
-            toast(`No se pudo generar la foto: ${msg}`, "error");
-            setIsExporting(false);
-        }
-    }
-
-    function fallbackDownload(blob: Blob) {
-        const url = URL.createObjectURL(blob);
-        const a = document.createElement("a");
-        a.href = url;
-        a.download = "alineaciones.png";
-        a.click();
-        URL.revokeObjectURL(url);
     }
 
     return (
@@ -487,20 +363,6 @@ export function SoccerPitch({ teamA, teamB }: SoccerPitchProps) {
                     {teamB.length} jugadores
                 </span>
             </div>
-
-            {/* Share pitch button */}
-            {teamA.length > 0 || teamB.length > 0 ? (
-                <div className="flex justify-center pt-2">
-                    <button
-                        onClick={exportToImage}
-                        disabled={isExporting}
-                        className="flex items-center gap-2 rounded-xl border border-border bg-surface px-4 py-2.5 text-sm font-medium text-foreground transition-all hover:border-accent hover:text-accent disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                        {isExporting ? <Loader2 size={16} className="animate-spin" /> : <Share2 size={16} />}
-                        {isExporting ? "Generando..." : "Compartir Alineaciones"}
-                    </button>
-                </div>
-            ) : null}
         </div>
     );
 }
