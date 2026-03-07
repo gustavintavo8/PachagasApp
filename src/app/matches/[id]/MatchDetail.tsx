@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useTransition } from "react";
+import dynamic from "next/dynamic";
 import { useToast } from "@/components/ui/Toast";
 import {
     joinMatch,
@@ -17,10 +18,17 @@ import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Avatar } from "@/components/ui/Avatar";
 import { Dialog } from "@/components/ui/Dialog";
 import { SoccerPitch } from "@/components/SoccerPitch";
-import { MatchChat } from "@/components/MatchChat";
-import { MatchPhotos } from "@/components/MatchPhotos";
-import { MvpVoting } from "@/components/MvpVoting";
 import { formatDate, getAvatarUrl } from "@/lib/utils";
+
+const MatchChat = dynamic(() => import("@/components/MatchChat").then((mod) => ({ default: mod.MatchChat })), {
+    loading: () => <div className="py-12 text-center text-sm text-muted">Cargando...</div>,
+});
+const MatchPhotos = dynamic(() => import("@/components/MatchPhotos").then((mod) => ({ default: mod.MatchPhotos })), {
+    loading: () => <div className="py-12 text-center text-sm text-muted">Cargando...</div>,
+});
+const MvpVoting = dynamic(() => import("@/components/MvpVoting").then((mod) => ({ default: mod.MvpVoting })), {
+    loading: () => <div className="py-12 text-center text-sm text-muted">Cargando...</div>,
+});
 import {
     Calendar,
     MapPin,
@@ -79,6 +87,7 @@ export function MatchDetail({
     const { toast } = useToast();
     const [loading, setLoading] = useState<string | null>(null);
     const [activeTab, setActiveTab] = useState<"chat" | "photos" | "mvp">("chat");
+    const [isPending, startTransition] = useTransition();
     const [scoreDialogOpen, setScoreDialogOpen] = useState(false);
     const [teamAScore, setTeamAScore] = useState<number | "">(match.team_a_score ?? 0);
     const [teamBScore, setTeamBScore] = useState<number | "">(match.team_b_score ?? 0);
@@ -397,7 +406,7 @@ export function MatchDetail({
             <div className="mt-8">
                 <div className="mb-4 flex gap-2">
                     <button
-                        onClick={() => setActiveTab("chat")}
+                        onClick={() => startTransition(() => setActiveTab("chat"))}
                         className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-all ${activeTab === "chat"
                             ? "border-accent bg-accent/10 text-accent"
                             : "border-border bg-surface text-muted hover:border-border-hover hover:text-foreground"
@@ -407,7 +416,7 @@ export function MatchDetail({
                         Chat
                     </button>
                     <button
-                        onClick={() => setActiveTab("photos")}
+                        onClick={() => startTransition(() => setActiveTab("photos"))}
                         className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-all ${activeTab === "photos"
                             ? "border-accent bg-accent/10 text-accent"
                             : "border-border bg-surface text-muted hover:border-border-hover hover:text-foreground"
@@ -418,7 +427,7 @@ export function MatchDetail({
                     </button>
                     {match.status === "finished" && (
                         <button
-                            onClick={() => setActiveTab("mvp")}
+                            onClick={() => startTransition(() => setActiveTab("mvp"))}
                             className={`flex items-center gap-2 rounded-xl border px-4 py-2.5 text-sm font-medium transition-all ${activeTab === "mvp"
                                 ? "border-yellow-400 bg-yellow-400/10 text-yellow-400"
                                 : "border-border bg-surface text-muted hover:border-border-hover hover:text-foreground"
