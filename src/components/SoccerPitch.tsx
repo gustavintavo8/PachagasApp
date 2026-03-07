@@ -123,13 +123,16 @@ export function SoccerPitch({ teamA, teamB }: SoccerPitchProps) {
             const blob = await toBlob(pitchRef.current, {
                 pixelRatio: 2,
                 backgroundColor: "#064e3b",
+                cacheBust: true,
+                // If an avatar fails to load due to CORS, replace it with a transparent pixel instead of crashing the whole export
+                imagePlaceholder: "data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs=",
             });
 
             // Restore popover
             if (wasActive) setActivePlayer(wasActive);
 
             if (!blob) {
-                toast("Error al capturar el campo.", "error");
+                toast("Error al capturar el campo (Blob vacío).", "error");
                 setIsExporting(false);
                 return;
             }
@@ -158,9 +161,10 @@ export function SoccerPitch({ teamA, teamB }: SoccerPitchProps) {
                 fallbackDownload(blob);
             }
             setIsExporting(false);
-        } catch (error) {
+        } catch (error: any) {
             console.error("Failed to export pitch:", error);
-            toast("Error al generar la imagen. Prueba desde un PC.", "error");
+            const msg = error?.message || "Error desconocido";
+            toast(`No se pudo generar la foto: ${msg}`, "error");
             setIsExporting(false);
         }
     }
