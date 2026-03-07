@@ -192,7 +192,7 @@ export function MatchDetail({
                         <MapPin size={18} className="text-accent" />
                         <h1 className="text-2xl font-bold">{match.location}</h1>
                     </div>
-                    <WeatherWidget location={match.location} date={match.date} />
+                    <WeatherWidget date={match.date} />
                 </div>
 
                 <div className="mt-2 flex flex-wrap gap-4 text-sm text-muted">

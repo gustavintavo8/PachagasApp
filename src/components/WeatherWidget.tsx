@@ -31,29 +31,20 @@ const WEATHER_CODES: Record<number, string> = {
     99: "⛈️", // Thunderstorm with slight and heavy hail
 };
 
-export function WeatherWidget({ location, date }: WeatherWidgetProps) {
-    const [weather, setWeather] = useState<{ emoji: string; max: number; min: number } | null>(null);
+export function WeatherWidget({ date }: { date: string }) {
+    const [weather, setWeather] = useState<{ emoji: string; text: string } | null>(null);
     const [loading, setLoading] = useState(true);
 
     useEffect(() => {
         async function fetchWeather() {
             try {
-                // 1. Geocode location
-                const geocodeRes = await fetch(
-                    `https://geocoding-api.open-meteo.com/v1/search?name=${encodeURIComponent(location)}&count=1`
-                );
-                const geocodeData = await geocodeRes.json();
-
-                if (!geocodeData.results || geocodeData.results.length === 0) {
-                    setLoading(false);
-                    return;
-                }
-
-                const { latitude, longitude } = geocodeData.results[0];
+                // Mieres, Asturias
+                const latitude = 43.25;
+                const longitude = -5.7667;
 
                 // 2. Fetch forecast
                 const weatherRes = await fetch(
-                    `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&daily=temperature_2m_max,temperature_2m_min,weathercode&timezone=auto`
+                    `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&daily=temperature_2m_max,precipitation_probability_max,weathercode&timezone=auto`
                 );
                 const weatherData = await weatherRes.json();
 
@@ -67,10 +58,12 @@ export function WeatherWidget({ location, date }: WeatherWidgetProps) {
                 const dateIndex = weatherData.daily.time.indexOf(matchDateStr);
 
                 if (dateIndex !== -1) {
+                    const temp = Math.round(weatherData.daily.temperature_2m_max[dateIndex]);
+                    const prob = weatherData.daily.precipitation_probability_max[dateIndex];
+
                     setWeather({
                         emoji: WEATHER_CODES[weatherData.daily.weathercode[dateIndex]] || "🌤️",
-                        max: Math.round(weatherData.daily.temperature_2m_max[dateIndex]),
-                        min: Math.round(weatherData.daily.temperature_2m_min[dateIndex])
+                        text: `${temp}º · 💧${prob}%`
                     });
                 }
             } catch (error) {
@@ -90,12 +83,9 @@ export function WeatherWidget({ location, date }: WeatherWidgetProps) {
     if (!weather) return null;
 
     return (
-        <span
-            className="flex items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-xs font-medium text-muted transition-colors hover:border-accent/50 hover:text-foreground cursor-help"
-            title={`Previsión meteorológica aproximada para: ${location}\nObtenida de Open-Meteo API`}
-        >
+        <span className="flex items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-xs font-medium text-muted transition-colors hover:border-accent/50 hover:text-foreground">
             <span className="text-sm">{weather.emoji}</span>
-            <span>{weather.max}º / {weather.min}º</span>
+            <span>{weather.text}</span>
         </span>
     );
 }

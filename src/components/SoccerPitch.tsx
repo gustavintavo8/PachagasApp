@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useLayoutEffect } from "react";
-import html2canvas from "html2canvas";
+import { toBlob } from "html-to-image";
 import { Avatar } from "@/components/ui/Avatar";
 import { useToast } from "@/components/ui/Toast";
 import { Share2, Loader2 } from "lucide-react";
@@ -119,88 +119,45 @@ export function SoccerPitch({ teamA, teamB }: SoccerPitchProps) {
             // Allow a tiny delay for React state
             await new Promise(r => setTimeout(r, 100));
 
-            // CRITICAL FIX: To prevent canvas tainting from Supabase avatars causing a SecurityError on toBlob,
-            // we must clone the DOM, fetch all avatar images as blobs, and convert their src to base64 data URIs.
-            const clone = pitchRef.current.cloneNode(true) as HTMLElement;
-            clone.style.position = "absolute";
-            clone.style.top = "-9999px";
-            clone.style.left = "-9999px";
-            document.body.appendChild(clone);
-
-            // Find all images in the clone
-            const images = clone.querySelectorAll("img");
-            for (let i = 0; i < images.length; i++) {
-                const img = images[i];
-                if (img.src && img.src.startsWith("http")) {
-                    try {
-                        const res = await fetch(img.src);
-                        if (!res.ok) throw new Error("Fetch failed");
-                        const blob = await res.blob();
-
-                        // Convert Blob to Base64
-                        const base64data = await new Promise<string>((resolve) => {
-                            const reader = new FileReader();
-                            reader.readAsDataURL(blob);
-                            reader.onloadend = () => resolve(reader.result as string);
-                        });
-                        img.src = base64data;
-                        img.srcset = ""; // clear next/image srcset
-                    } catch (e) {
-                        console.warn("Failed to fetch image for canvas:", img.src);
-                        // Fallback: remove image so it doesn't taint canvas
-                        img.style.display = "none";
-                    }
-                }
-            }
-
-            // Small delay for data URIs to parse in the clone
-            await new Promise(r => setTimeout(r, 50));
-
-            const canvas = await html2canvas(clone, {
-                scale: 2, // higher resolution
-                backgroundColor: "#064e3b", // match emerald-900 roughly
-                useCORS: true,
-                logging: false,
+            // html-to-image natively supports capturing SVGs and handles nested layouts perfectly.
+            const blob = await toBlob(pitchRef.current, {
+                pixelRatio: 2,
+                backgroundColor: "#064e3b",
             });
-
-            // Cleanup clone
-            document.body.removeChild(clone);
 
             // Restore popover
             if (wasActive) setActivePlayer(wasActive);
 
-            canvas.toBlob(async (blob) => {
-                if (!blob) {
-                    toast("Error al capturar el campo (posible error de imagen).", "error");
-                    setIsExporting(false);
-                    return;
-                }
-
-                const file = new File([blob], "alineacion.png", { type: "image/png" });
-
-                const sharePayload = { files: [file] } as any;
-                if (navigator.canShare && navigator.canShare(sharePayload)) {
-                    // Try native share (iOS, Android, macOS)
-                    try {
-                        await navigator.share({
-                            files: [file],
-                            title: "Pachanga Manager",
-                            text: "Mira las alineaciones para el próximo partido ⚽",
-                        } as any);
-                        toast("¡Alineación compartida!", "success");
-                    } catch (err: any) {
-                        // User might have canceled the share sheet
-                        if (err.name !== "AbortError") {
-                            console.error("Error sharing:", err);
-                            fallbackDownload(blob);
-                        }
-                    }
-                } else {
-                    // Fallback to direct download
-                    fallbackDownload(blob);
-                }
+            if (!blob) {
+                toast("Error al capturar el campo.", "error");
                 setIsExporting(false);
-            }, "image/png");
+                return;
+            }
+
+            const file = new File([blob], "alineacion.png", { type: "image/png" });
+
+            const sharePayload = { files: [file] } as any;
+            if (navigator.canShare && navigator.canShare(sharePayload)) {
+                // Try native share (iOS, Android, macOS)
+                try {
+                    await navigator.share({
+                        files: [file],
+                        title: "Pachanga Manager",
+                        text: "Mira las alineaciones para el próximo partido ⚽",
+                    } as any);
+                    toast("¡Alineación compartida!", "success");
+                } catch (err: any) {
+                    // User might have canceled the share sheet
+                    if (err.name !== "AbortError") {
+                        console.error("Error sharing:", err);
+                        fallbackDownload(blob);
+                    }
+                }
+            } else {
+                // Fallback to direct download
+                fallbackDownload(blob);
+            }
+            setIsExporting(false);
         } catch (error) {
             console.error("Failed to export pitch:", error);
             toast("Error al generar la imagen. Prueba desde un PC.", "error");
