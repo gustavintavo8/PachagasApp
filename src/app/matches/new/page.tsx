@@ -40,6 +40,13 @@ function NewMatchForm() {
         setError(null);
 
         const formData = new FormData(e.currentTarget);
+
+        // Convert the local datetime string into a proper UTC ISO string
+        const localDate = formData.get("date") as string;
+        if (localDate) {
+            formData.set("date", new Date(localDate).toISOString());
+        }
+
         const result = await createMatch(formData);
 
         if (result?.error) {

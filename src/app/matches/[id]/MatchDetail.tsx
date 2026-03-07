@@ -683,7 +683,8 @@ export function MatchDetail({
                         onClick={async () => {
                             if (!newDate) { toast("Selecciona una fecha", "error"); return; }
                             setLoading("reschedule");
-                            const result = await rescheduleMatch(match.id, newDate);
+                            const isoString = new Date(newDate).toISOString();
+                            const result = await rescheduleMatch(match.id, isoString);
                             if (result?.error) toast(result.error, "error");
                             else toast("¡Fecha actualizada!", "success");
                             setRescheduleDialogOpen(false);
