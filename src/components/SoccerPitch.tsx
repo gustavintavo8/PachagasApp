@@ -3,7 +3,8 @@
 import { useState, useRef, useEffect, useLayoutEffect } from "react";
 import html2canvas from "html2canvas";
 import { Avatar } from "@/components/ui/Avatar";
-import { Share2 } from "lucide-react";
+import { useToast } from "@/components/ui/Toast";
+import { Share2, Loader2 } from "lucide-react";
 import { getAvatarUrl } from "@/lib/utils";
 import type { Profile } from "@/lib/types";
 
@@ -67,6 +68,8 @@ export function SoccerPitch({ teamA, teamB }: SoccerPitchProps) {
     const groupA = groupByPosition(teamA);
     const groupB = groupByPosition(teamB);
     const [activePlayer, setActivePlayer] = useState<Participant | null>(null);
+    const [isExporting, setIsExporting] = useState(false);
+    const { toast } = useToast();
     const [popoverPos, setPopoverPos] = useState<{
         x: number;
         y: number;
@@ -107,36 +110,44 @@ export function SoccerPitch({ teamA, teamB }: SoccerPitchProps) {
 
     async function exportToImage() {
         if (!pitchRef.current) return;
+        setIsExporting(true);
         try {
             // Hide the active player popover temporarily to keep the screenshot clean
             const wasActive = activePlayer;
             setActivePlayer(null);
 
             // Allow a tiny delay for React state (popover removal) to flush
-            await new Promise(r => setTimeout(r, 50));
+            await new Promise(r => setTimeout(r, 100));
 
             const canvas = await html2canvas(pitchRef.current, {
                 scale: 2, // higher resolution
                 backgroundColor: "#064e3b", // match emerald-900 roughly
                 useCORS: true, // for external avatars
+                logging: false, // mute canvas logs
             });
 
             // Restore popover
             if (wasActive) setActivePlayer(wasActive);
 
             canvas.toBlob(async (blob) => {
-                if (!blob) return;
+                if (!blob) {
+                    toast("Error al capturar el campo (posible error de imagen).", "error");
+                    setIsExporting(false);
+                    return;
+                }
 
                 const file = new File([blob], "alineacion.png", { type: "image/png" });
 
-                if (navigator.canShare && navigator.canShare({ files: [file] })) {
+                const sharePayload = { files: [file] } as any;
+                if (navigator.canShare && navigator.canShare(sharePayload)) {
                     // Try native share (iOS, Android, macOS)
                     try {
                         await navigator.share({
                             files: [file],
                             title: "Pachanga Manager",
                             text: "Mira las alineaciones para el próximo partido ⚽",
-                        });
+                        } as any);
+                        toast("¡Alineación compartida!", "success");
                     } catch (err: any) {
                         // User might have canceled the share sheet
                         if (err.name !== "AbortError") {
@@ -148,9 +159,12 @@ export function SoccerPitch({ teamA, teamB }: SoccerPitchProps) {
                     // Fallback to direct download
                     fallbackDownload(blob);
                 }
+                setIsExporting(false);
             }, "image/png");
         } catch (error) {
             console.error("Failed to export pitch:", error);
+            toast("Error al generar la imagen. Prueba desde un PC.", "error");
+            setIsExporting(false);
         }
     }
 
@@ -429,10 +443,11 @@ export function SoccerPitch({ teamA, teamB }: SoccerPitchProps) {
                 <div className="flex justify-center pt-2">
                     <button
                         onClick={exportToImage}
-                        className="flex items-center gap-2 rounded-xl border border-border bg-surface px-4 py-2.5 text-sm font-medium text-foreground transition-all hover:border-accent hover:text-accent"
+                        disabled={isExporting}
+                        className="flex items-center gap-2 rounded-xl border border-border bg-surface px-4 py-2.5 text-sm font-medium text-foreground transition-all hover:border-accent hover:text-accent disabled:opacity-50 disabled:cursor-not-allowed"
                     >
-                        <Share2 size={16} />
-                        Compartir Alineaciones
+                        {isExporting ? <Loader2 size={16} className="animate-spin" /> : <Share2 size={16} />}
+                        {isExporting ? "Generando..." : "Compartir Alineaciones"}
                     </button>
                 </div>
             ) : null}

@@ -268,9 +268,9 @@ export default async function PlayerProfilePage({
 
             {/* H2H Stats (Only if viewing someone else) */}
             {!isYou && (h2h.playedTogether > 0 || h2h.playedAgainst > 0) && (
-                <Card className="mb-8 overflow-hidden bg-gradient-to-br from-surface to-surface-hover/50">
-                    <CardHeader className="bg-accent/5 pb-4">
-                        <CardTitle className="flex items-center gap-2 text-lg text-accent">
+                <Card className="mb-8 overflow-hidden">
+                    <CardHeader className="border-b border-border/50 pb-4">
+                        <CardTitle className="flex items-center gap-2 text-lg text-foreground">
                             <span className="text-xl">⚔️</span>
                             Historial vs Ti
                         </CardTitle>

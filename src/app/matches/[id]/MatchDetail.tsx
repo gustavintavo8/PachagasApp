@@ -187,11 +187,13 @@ export function MatchDetail({
                     )}
                 </div>
 
-                <div className="flex items-center gap-2 text-lg text-foreground">
-                    <MapPin size={18} className="text-accent" />
-                    <h1 className="text-2xl font-bold">{match.location}</h1>
+                <div className="flex flex-wrap items-center gap-4 text-lg text-foreground">
+                    <div className="flex items-center gap-2">
+                        <MapPin size={18} className="text-accent" />
+                        <h1 className="text-2xl font-bold">{match.location}</h1>
+                    </div>
+                    <WeatherWidget location={match.location} date={match.date} />
                 </div>
-
 
                 <div className="mt-2 flex flex-wrap gap-4 text-sm text-muted">
                     <span className="flex items-center gap-1.5">
@@ -202,7 +204,6 @@ export function MatchDetail({
                         <Users size={14} />
                         {participants.length}/{match.max_players} jugadores
                     </span>
-                    <WeatherWidget location={match.location} date={match.date} />
                     <span>por {organizerName}</span>
                 </div>
             </div>
