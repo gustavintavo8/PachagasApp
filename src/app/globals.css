@@ -55,6 +55,8 @@ input,
 select,
 textarea {
   transition: all 0.15s ease;
+  touch-action: manipulation;
+  /* Elimina retraso de 300ms al tocar en iOS/Safari */
 }
 
 /* Focus ring utility */
@@ -70,17 +72,20 @@ input[type="range"] {
 
 /* Skeleton shimmer animation */
 @keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
 }
 
 .skeleton {
-  background: linear-gradient(
-    90deg,
-    #27272a 0%,
-    #3f3f46 40%,
-    #27272a 80%
-  );
+  background: linear-gradient(90deg,
+      #27272a 0%,
+      #3f3f46 40%,
+      #27272a 80%);
   background-size: 200% 100%;
   animation: shimmer 1.5s ease-in-out infinite;
   border-radius: 0.75rem;
@@ -92,6 +97,7 @@ input[type="range"] {
     opacity: 0;
     transform: translateX(100%) scale(0.95);
   }
+
   to {
     opacity: 1;
     transform: translateX(0) scale(1);
