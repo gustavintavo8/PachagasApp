@@ -17,7 +17,11 @@ import { Button } from "@/components/ui/Button";
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Avatar } from "@/components/ui/Avatar";
 import { Dialog } from "@/components/ui/Dialog";
-import { SoccerPitch } from "@/components/SoccerPitch";
+// Match components code-split for mobile performance
+const SoccerPitch = dynamic(() => import("@/components/SoccerPitch").then((mod) => ({ default: mod.SoccerPitch })), {
+    ssr: false,
+    loading: () => <div className="mx-auto w-full max-w-xl h-[600px] animate-pulse rounded-2xl bg-surface/50 border border-border"></div>
+});
 import { WeatherWidget } from "@/components/WeatherWidget";
 import { formatDate, getAvatarUrl } from "@/lib/utils";
 
