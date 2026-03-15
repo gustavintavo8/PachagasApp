@@ -5,6 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { updateAvatar } from "@/app/profile/actions";
 import { Avatar } from "@/components/ui/Avatar";
 import { Camera } from "lucide-react";
+import imageCompression from "browser-image-compression";
 
 interface AvatarUploadProps {
     uid: string;
@@ -25,14 +26,17 @@ export function AvatarUpload({ uid, url, fallback, onUpload }: AvatarUploadProps
 
         setUploading(true);
 
+        const options = { maxSizeMB: 0.1, maxWidthOrHeight: 400, useWebWorker: true };
+        const compressedFile = await imageCompression(file, options);
+
         const supabase = createClient();
-        const fileExt = file.name.split(".").pop();
+        const fileExt = compressedFile.name.split(".").pop();
         const filePath = `${uid}/${Date.now()}.${fileExt}`;
 
         // Upload to storage
         const { error: uploadError } = await supabase.storage
             .from("avatars")
-            .upload(filePath, file, { upsert: true });
+            .upload(filePath, compressedFile, { upsert: true });
 
         if (uploadError) {
             console.error("Upload error:", uploadError);

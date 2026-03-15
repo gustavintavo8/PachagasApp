@@ -8,6 +8,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { getAvatarUrl } from "@/lib/utils";
 import { Camera, Plus, X, ImageIcon, Loader2 } from "lucide-react";
 import Image from "next/image";
+import imageCompression from "browser-image-compression";
 
 interface Photo {
     id: string;
@@ -43,7 +44,8 @@ export function MatchPhotos({ matchId, currentUserId }: MatchPhotosProps) {
                 .from("match_photos")
                 .select("*, profiles(username, avatar_url)")
                 .eq("match_id", matchId)
-                .order("created_at", { ascending: false });
+                .order("created_at", { ascending: false })
+                .limit(12);
             setPhotos((data as unknown as Photo[]) || []);
             setLoading(false);
         }
@@ -66,7 +68,10 @@ export function MatchPhotos({ matchId, currentUserId }: MatchPhotosProps) {
 
         setUploading(true);
 
-        const ext = file.name.split(".").pop() || "jpg";
+        const options = { maxSizeMB: 0.5, maxWidthOrHeight: 1280, useWebWorker: true };
+        const compressedFile = await imageCompression(file, options);
+
+        const ext = compressedFile.name.split(".").pop() || "jpg";
         const fileName = `${matchId}/${currentUserId}-${Date.now()}.${ext}`;
 
         let publicUrl: string;
@@ -74,7 +79,7 @@ export function MatchPhotos({ matchId, currentUserId }: MatchPhotosProps) {
         try {
             const { error: uploadError } = await supabase.storage
                 .from("match_photos")
-                .upload(fileName, file, { upsert: false });
+                .upload(fileName, compressedFile, { upsert: false });
 
             if (uploadError) throw uploadError;
 
