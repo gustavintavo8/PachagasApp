@@ -203,9 +203,34 @@ function MatchesListSkeleton() {
   );
 }
 
+function DashboardSkeleton() {
+  return (
+    <div className="mx-auto max-w-5xl px-4 py-8">
+      <div className="mb-8 flex items-center justify-between">
+        <div className="flex items-center gap-4">
+          <div className="h-16 w-16 rounded-full bg-surface/50 animate-pulse" />
+          <div className="space-y-2">
+            <div className="h-6 w-48 rounded bg-surface/50 animate-pulse" />
+            <div className="h-4 w-32 rounded bg-surface/50 animate-pulse" />
+          </div>
+        </div>
+        <div className="h-10 w-36 rounded-xl bg-surface/50 animate-pulse" />
+      </div>
+      <div className="grid gap-6 md:grid-cols-3">
+        <StatsSkeleton />
+        <NextMatchSkeleton />
+      </div>
+      <div className="mt-8">
+        <div className="mb-4 h-6 w-48 rounded bg-surface/50 animate-pulse" />
+        <MatchesListSkeleton />
+      </div>
+    </div>
+  );
+}
+
 
 // --- Main Page Shell ---
-export default async function Dashboard() {
+async function DashboardContent() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
 
@@ -221,7 +246,7 @@ export default async function Dashboard() {
 
   return (
     <div className="mx-auto max-w-5xl px-4 py-8">
-      {/* Welcome Header (Renders instantly) */}
+      {/* Welcome Header */}
       <div className="mb-8 flex items-center justify-between">
         <div className="flex items-center gap-4">
           <Avatar
@@ -266,5 +291,13 @@ export default async function Dashboard() {
         </Suspense>
       </div>
     </div>
+  );
+}
+
+export default function Dashboard() {
+  return (
+    <Suspense fallback={<DashboardSkeleton />}>
+      <DashboardContent />
+    </Suspense>
   );
 }

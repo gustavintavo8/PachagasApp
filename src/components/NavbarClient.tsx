@@ -11,8 +11,8 @@ import { Menu, X, Home, PlusCircle, LogOut, Trophy, BarChart3, CalendarDays, Use
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 
 interface NavbarClientProps {
-    user: SupabaseUser | null;
-    profile: { username: string; avatar_url: string } | null;
+    desktopUserMenu?: React.ReactNode;
+    mobileUserMenu?: React.ReactNode;
     children?: React.ReactNode;
 }
 
@@ -25,16 +25,9 @@ const navLinks = [
     { href: "/players", label: "Jugadores", icon: UsersRound },
 ];
 
-export function NavbarClient({ user, profile, children }: NavbarClientProps) {
+export function NavbarClient({ desktopUserMenu, mobileUserMenu, children }: NavbarClientProps) {
     const pathname = usePathname();
     const [mobileOpen, setMobileOpen] = useState(false);
-
-    if (!user) return null;
-
-    const avatarUrl = getAvatarUrl(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
-        profile?.avatar_url ?? null
-    );
 
     return (
         <nav className="sticky top-0 z-50 border-b border-border bg-surface/80 backdrop-blur-xl">
@@ -77,21 +70,7 @@ export function NavbarClient({ user, profile, children }: NavbarClientProps) {
                 {/* User Section (Desktop) */}
                 <div className="hidden items-center gap-3 md:flex">
                     {children}
-                    <Link href="/profile" className="transition-transform hover:scale-105">
-                        <Avatar
-                            src={avatarUrl}
-                            fallback={profile?.username || user.email || "U"}
-                            size="sm"
-                        />
-                    </Link>
-                    <form action={signOut}>
-                        <button
-                            type="submit"
-                            className="rounded-lg p-2 text-muted transition-colors hover:bg-surface-hover hover:text-foreground"
-                        >
-                            <LogOut size={16} />
-                        </button>
-                    </form>
+                    {desktopUserMenu}
                 </div>
 
                 {/* Mobile Toggle */}
@@ -130,27 +109,7 @@ export function NavbarClient({ user, profile, children }: NavbarClientProps) {
                     </div>
                     {/* Mobile: Profile + Sign Out */}
                     <div className="mt-3 flex items-center justify-between border-t border-border pt-3">
-                        <Link
-                            href="/profile"
-                            onClick={() => setMobileOpen(false)}
-                            className="flex items-center gap-3 rounded-xl px-4 py-3 text-base font-medium text-muted transition-colors hover:bg-surface-hover hover:text-foreground"
-                        >
-                            <Avatar
-                                src={avatarUrl}
-                                fallback={profile?.username || user.email || "U"}
-                                size="sm"
-                            />
-                            Mi Perfil
-                        </Link>
-                        <form action={signOut}>
-                            <button
-                                type="submit"
-                                className="flex items-center gap-3 rounded-xl px-4 py-3 text-base font-medium text-muted transition-colors hover:bg-surface-hover hover:text-foreground"
-                            >
-                                <LogOut size={20} />
-                                Salir
-                            </button>
-                        </form>
+                        {mobileUserMenu}
                     </div>
                 </div>
             )}
