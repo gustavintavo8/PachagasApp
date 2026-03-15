@@ -145,6 +145,8 @@ export function SoccerPitch({ teamA, teamB }: SoccerPitchProps) {
                         viewBox="0 0 600 840"
                         className="absolute inset-0 h-full w-full"
                         preserveAspectRatio="xMidYMid meet"
+                        role="img"
+                        aria-label="Representación visual del campo de fútbol"
                     >
                         <defs>
                             <filter id="line-glow">
@@ -472,6 +474,7 @@ function PlayerMarker({
         <div
             data-player-marker
             role="button"
+            aria-label={`Ver perfil de ${profile?.username || "jugador"}`}
             tabIndex={0}
             className="flex cursor-pointer flex-col items-center gap-0.5"
             onClick={(e) => {

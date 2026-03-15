@@ -38,7 +38,13 @@ export default async function HistoryPage() {
     // Fetch finished matches where the user participated
     const { data: participations } = await supabase
         .from("match_participants")
-        .select("match_id, team, goals, is_mvp, matches(*, match_participants(user_id, team, goals, is_mvp, profiles(username, avatar_url, position)))")
+        .select(`
+            match_id, 
+            team, 
+            goals, 
+            is_mvp, 
+            matches(id, date, location, status, team_a_score, team_b_score)
+        `)
         .eq("user_id", user.id);
 
     // Filter to only finished matches and sort by date desc
@@ -48,18 +54,9 @@ export default async function HistoryPage() {
                 id: string;
                 date: string;
                 location: string;
-                max_players: number;
                 status: string;
                 team_a_score: number | null;
                 team_b_score: number | null;
-                created_by: string;
-                match_participants: {
-                    user_id: string;
-                    team: "A" | "B" | null;
-                    goals: number;
-                    is_mvp: boolean;
-                    profiles: { username: string | null; avatar_url: string | null; position: string | null };
-                }[];
             };
             return {
                 ...match,

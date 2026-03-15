@@ -161,6 +161,15 @@ export async function leaveMatch(matchId: string): Promise<ActionResult> {
 
     if (!user) return { success: false, error: "No autenticado" };
 
+    const { data: match } = await supabase
+        .from("matches")
+        .select("status")
+        .eq("id", matchId)
+        .single();
+
+    if (!match) return { success: false, error: "Partido no encontrado" };
+    if (match.status === "finished") return { success: false, error: "No puedes abandonar un partido que ya ha finalizado" };
+
     const { error } = await supabase
         .from("match_participants")
         .delete()
@@ -522,6 +531,16 @@ export async function kickPlayer(
 
     if (targetUserId === user.id)
         return { success: false, error: "No puedes expulsarte a ti mismo" };
+
+    const { data: matchData } = await supabase
+        .from("matches")
+        .select("status, location")
+        .eq("id", matchId)
+        .single();
+
+    if (!matchData) return { success: false, error: "Partido no encontrado" };
+    if (matchData.status === "finished")
+        return { success: false, error: "No se puede expulsar jugadores de un partido finalizado" };
 
     const adminClient = createAdminClient();
     const { error } = await adminClient

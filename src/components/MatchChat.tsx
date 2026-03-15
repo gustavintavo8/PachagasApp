@@ -231,6 +231,7 @@ export function MatchChat({
                 />
                 <button
                     type="submit"
+                    aria-label="Enviar mensaje"
                     disabled={!message.trim() || sending}
                     className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent text-zinc-950 transition-all hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
                 >
