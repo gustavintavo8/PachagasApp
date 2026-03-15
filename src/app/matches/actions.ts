@@ -7,6 +7,7 @@ import { redirect } from "next/navigation";
 import { balanceTeams } from "@/lib/team-balancer";
 import { rateLimit } from "@/lib/rate-limit";
 import { isAdmin } from "@/lib/permissions";
+import { z } from "zod";
 
 type ActionResult = { success: boolean; error?: string; data?: unknown };
 
@@ -43,19 +44,26 @@ export async function createMatch(formData: FormData): Promise<ActionResult> {
 
     const date = formData.get("date") as string;
     const location = formData.get("location") as string;
-    const max_players = parseInt(formData.get("max_players") as string, 10);
+    const max_players_raw = formData.get("max_players");
 
-    if (!date) return { success: false, error: "La fecha es obligatoria" };
-    if (!location || location.trim().length < 2)
-        return { success: false, error: "La ubicación es obligatoria" };
-    if (isNaN(max_players) || max_players < 4 || max_players > 30)
-        return { success: false, error: "El máximo de jugadores debe estar entre 4 y 30" };
+    const CreateMatchSchema = z.object({
+        date: z.string().min(1, "La fecha es obligatoria"),
+        location: z.string().min(2, "La ubicación debe tener al menos 2 caracteres"),
+        max_players: z.coerce.number().int().min(4, "Mínimo 4 jugadores").max(30, "Máximo 30 jugadores"),
+    });
+
+    const parsed = CreateMatchSchema.safeParse({ date, location, max_players: max_players_raw });
+    if (!parsed.success) {
+        return { success: false, error: parsed.error.issues[0].message };
+    }
+
+    const { date: validDate, location: validLocation, max_players } = parsed.data;
 
     const { data, error } = await supabase
         .from("matches")
         .insert({
-            date,
-            location: location.trim(),
+            date: validDate,
+            location: validLocation.trim(),
             max_players,
             status: "open",
             created_by: user.id,
@@ -91,6 +99,9 @@ export async function joinMatch(matchId: string): Promise<ActionResult> {
     } = await supabase.auth.getUser();
 
     if (!user) return { success: false, error: "No autenticado" };
+
+    const { allowed } = await rateLimit(`join-match:${user.id}`, 10, 60_000);
+    if (!allowed) return { success: false, error: "Demasiadas peticiones. Espera un momento." };
 
     // Check if already joined
     const { data: existing } = await supabase
@@ -160,6 +171,9 @@ export async function leaveMatch(matchId: string): Promise<ActionResult> {
     } = await supabase.auth.getUser();
 
     if (!user) return { success: false, error: "No autenticado" };
+
+    const { allowed } = await rateLimit(`leave-match:${user.id}`, 10, 60_000);
+    if (!allowed) return { success: false, error: "Demasiadas peticiones. Espera un momento." };
 
     const { data: match } = await supabase
         .from("matches")
@@ -233,13 +247,30 @@ export async function setScore(
 
     if (!user) return { success: false, error: "No autenticado" };
 
-    if (teamAScore < 0 || teamBScore < 0)
-        return { success: false, error: "Los marcadores no pueden ser negativos" };
+    const { allowed } = await rateLimit(`set-score:${user.id}`, 5, 60_000);
+    if (!allowed) return { success: false, error: "Demasiadas peticiones. Espera un momento." };
+
+    const ScoreSchema = z.object({
+        matchId: z.string().uuid("ID de partido inválido"),
+        teamAScore: z.number().int("Debe ser un número entero").min(0, "Los marcadores no pueden ser negativos").max(200, "Marcador inválido"),
+        teamBScore: z.number().int("Debe ser un número entero").min(0, "Los marcadores no pueden ser negativos").max(200, "Marcador inválido"),
+        goalScorers: z.array(z.object({
+            userId: z.string().uuid("ID de usuario inválido"),
+            goals: z.number().int().min(0).max(100)
+        })).optional()
+    });
+
+    const parsed = ScoreSchema.safeParse({ matchId, teamAScore, teamBScore, goalScorers });
+    if (!parsed.success) {
+        return { success: false, error: parsed.error.issues[0].message };
+    }
+
+    const validData = parsed.data;
 
     const { data: match } = await supabase
         .from("matches")
         .select("status, created_by")
-        .eq("id", matchId)
+        .eq("id", validData.matchId)
         .single();
 
     if (!match) return { success: false, error: "Partido no encontrado" };
@@ -255,13 +286,13 @@ export async function setScore(
     const adminSupabase = createAdminClient();
 
     // Update individual goal scorers FIRST so the trigger reads the correct score
-    if (goalScorers && goalScorers.length > 0) {
-        for (const scorer of goalScorers) {
+    if (validData.goalScorers && validData.goalScorers.length > 0) {
+        for (const scorer of validData.goalScorers) {
             if (scorer.goals > 0) {
                 const { error: scorerError } = await adminSupabase
                     .from("match_participants")
                     .update({ goals: scorer.goals })
-                    .eq("match_id", matchId)
+                    .eq("match_id", validData.matchId)
                     .eq("user_id", scorer.userId);
                 if (scorerError) console.error("Error updating scorer:", scorer.userId, scorerError.message);
             }
@@ -274,12 +305,12 @@ export async function setScore(
     const { error } = await client
         .from("matches")
         .update({
-            team_a_score: teamAScore,
-            team_b_score: teamBScore,
+            team_a_score: validData.teamAScore,
+            team_b_score: validData.teamBScore,
             status: "finished",
             finished_at: new Date().toISOString(),
         })
-        .eq("id", matchId);
+        .eq("id", validData.matchId);
 
     if (error) return { success: false, error: error.message };
 
@@ -288,7 +319,7 @@ export async function setScore(
     const { data: allParticipants } = await adminSupabase
         .from("match_participants")
         .select("user_id")
-        .eq("match_id", matchId);
+        .eq("match_id", validData.matchId);
 
     if (allParticipants) {
         const participantIds = allParticipants
@@ -297,18 +328,18 @@ export async function setScore(
         const { data: matchForNotif } = await supabase
             .from("matches")
             .select("location")
-            .eq("id", matchId)
+            .eq("id", validData.matchId)
             .single();
         sendNotification(
             participantIds,
             "score",
             "¡Resultado registrado!",
-            `${matchForNotif?.location || "Partido"}: ${teamAScore} - ${teamBScore}`,
-            matchId
+            `${matchForNotif?.location || "Partido"}: ${validData.teamAScore} - ${validData.teamBScore}`,
+            validData.matchId
         );
     }
 
-    revalidatePath(`/matches/${matchId}`);
+    revalidatePath(`/matches/${validData.matchId}`);
     revalidatePath("/");
     revalidatePath("/matches");
     revalidatePath("/calendar");
@@ -708,6 +739,9 @@ export async function voteForMvp(
     } = await supabase.auth.getUser();
 
     if (!user) return { success: false, error: "No autenticado" };
+
+    const { allowed } = await rateLimit(`vote-mvp:${user.id}`, 5, 60_000);
+    if (!allowed) return { success: false, error: "Demasiadas peticiones. Espera un momento." };
 
     // Can't vote for yourself
     if (user.id === votedForUserId)
