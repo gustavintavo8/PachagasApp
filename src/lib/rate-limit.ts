@@ -1,53 +1,27 @@
-/**
- * Simple in-memory rate limiter using token bucket algorithm.
- * Note: This resets on server restart and is per-instance only.
- * For production, use Redis or a distributed rate limiter.
- */
+import { createAdminClient } from "@/lib/supabase/admin";
 
-interface BucketEntry {
-    tokens: number;
-    lastRefill: number;
-}
-
-const buckets = new Map<string, BucketEntry>();
-
-export function rateLimit(
+export async function rateLimit(
     key: string,
     maxTokens: number = 10,
     refillIntervalMs: number = 60_000
-): { allowed: boolean; remaining: number } {
-    const now = Date.now();
-    let entry = buckets.get(key);
+): Promise<{ allowed: boolean; remaining: number }> {
+    try {
+        const admin = createAdminClient();
+        const { data, error } = await admin.rpc("consume_rate_limit", {
+            p_key: key,
+            p_max_tokens: maxTokens,
+            p_refill_interval_ms: refillIntervalMs
+        });
 
-    if (!entry) {
-        entry = { tokens: maxTokens - 1, lastRefill: now };
-        buckets.set(key, entry);
-        return { allowed: true, remaining: entry.tokens };
-    }
-
-    // Refill tokens based on elapsed time
-    const elapsed = now - entry.lastRefill;
-    const refillCount = Math.floor(elapsed / refillIntervalMs) * maxTokens;
-    if (refillCount > 0) {
-        entry.tokens = Math.min(maxTokens, entry.tokens + refillCount);
-        entry.lastRefill = now;
-    }
-
-    if (entry.tokens <= 0) {
-        return { allowed: false, remaining: 0 };
-    }
-
-    entry.tokens--;
-    return { allowed: true, remaining: entry.tokens };
-}
-
-// Periodic cleanup of old entries (every 5 minutes)
-setInterval(() => {
-    const now = Date.now();
-    const STALE_MS = 10 * 60 * 1000; // 10 minutes
-    for (const [key, entry] of buckets.entries()) {
-        if (now - entry.lastRefill > STALE_MS) {
-            buckets.delete(key);
+        if (error) {
+            console.error("Rate limit DB error:", error);
+            // Fallback to true if DB function is not created yet
+            return { allowed: true, remaining: 0 };
         }
+
+        return { allowed: data === true, remaining: 0 };
+    } catch (e) {
+        console.error("Rate limit check completely failed:", e);
+        return { allowed: true, remaining: 0 };
     }
-}, 5 * 60 * 1000);
+}

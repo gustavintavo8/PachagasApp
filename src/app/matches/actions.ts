@@ -38,7 +38,7 @@ export async function createMatch(formData: FormData): Promise<ActionResult> {
 
     if (!user) return { success: false, error: "No autenticado" };
 
-    const { allowed } = rateLimit(`create-match:${user.id}`, 5, 60_000);
+    const { allowed } = await rateLimit(`create-match:${user.id}`, 5, 60_000);
     if (!allowed) return { success: false, error: "Demasiadas acciones. Espera un momento." };
 
     const date = formData.get("date") as string;
@@ -229,33 +229,23 @@ export async function setScore(
 
     const { data: match } = await supabase
         .from("matches")
-        .select("status")
+        .select("status, created_by")
         .eq("id", matchId)
         .single();
 
-    const isAlreadyFinished = match?.status === "finished";
+    if (!match) return { success: false, error: "Partido no encontrado" };
 
-    // Admin can set score on any match
     const admin = isAdmin(user.email);
-    const client = admin ? createAdminClient() : supabase;
-    let query = client
-        .from("matches")
-        .update({
-            team_a_score: teamAScore,
-            team_b_score: teamBScore,
-            status: "finished",
-            finished_at: new Date().toISOString(),
-        })
-        .eq("id", matchId);
-    if (!admin) query = query.eq("created_by", user.id);
-    const { error } = await query;
+    if (match.created_by !== user.id && !admin) {
+        return { success: false, error: "No tienes permiso para establecer el resultado" };
+    }
 
-    if (error) return { success: false, error: error.message };
+    const isAlreadyFinished = match.status === "finished";
 
     // Use admin client for all participant-level updates (bypasses RLS)
     const adminSupabase = createAdminClient();
 
-    // Update individual goal scorers if provided
+    // Update individual goal scorers FIRST so the trigger reads the correct score
     if (goalScorers && goalScorers.length > 0) {
         for (const scorer of goalScorers) {
             if (scorer.goals > 0) {
@@ -269,39 +259,28 @@ export async function setScore(
         }
     }
 
-    // Update profile stats (matches_played & goals_scored) for all participants ONLY if not already finished
-    const { data: allParticipants, error: fetchError } = await adminSupabase
-        .from("match_participants")
-        .select("user_id, goals")
-        .eq("match_id", matchId);
+    // Now update match status. This will fire the match_finished_stats_trigger
+    // to update user profiles seamlessly.
+    const client = admin ? createAdminClient() : supabase;
+    const { error } = await client
+        .from("matches")
+        .update({
+            team_a_score: teamAScore,
+            team_b_score: teamBScore,
+            status: "finished",
+            finished_at: new Date().toISOString(),
+        })
+        .eq("id", matchId);
 
-    if (fetchError) console.error("Error fetching participants:", fetchError.message);
+    if (error) return { success: false, error: error.message };
 
-    // Update profile stats (matches_played & goals_scored) for all participants ONLY if not already finished
-    if (!isAlreadyFinished) {
-        if (allParticipants) {
-            for (const participant of allParticipants) {
-                const { data: profile } = await adminSupabase
-                    .from("profiles")
-                    .select("matches_played, goals_scored")
-                    .eq("id", participant.user_id)
-                    .single();
-
-                if (profile) {
-                    const { error: updateError } = await adminSupabase
-                        .from("profiles")
-                        .update({
-                            matches_played: (profile.matches_played ?? 0) + 1,
-                            goals_scored: (profile.goals_scored ?? 0) + (participant.goals ?? 0),
-                        })
-                        .eq("id", participant.user_id);
-                    if (updateError) console.error("Error updating profile:", participant.user_id, updateError.message);
-                }
-            }
-        }
-    }
 
     // Notify all participants about the score
+    const { data: allParticipants } = await adminSupabase
+        .from("match_participants")
+        .select("user_id")
+        .eq("match_id", matchId);
+
     if (allParticipants) {
         const participantIds = allParticipants
             .map((p) => p.user_id)
