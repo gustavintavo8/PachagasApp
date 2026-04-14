@@ -3,7 +3,7 @@
 import { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { Avatar } from "@/components/ui/Avatar";
 import { getAvatarUrl } from "@/lib/utils";
-import { POSITION_SHORT, POSITION_FULL } from "@/lib/positions";
+import { POSITION_SHORT, POSITION_FULL, POSITION_COLORS, POSITION_ICONS } from "@/lib/positions";
 import type { Profile } from "@/lib/types";
 
 /* ─── Types ─── */
@@ -452,19 +452,21 @@ function PlayerMarker({
         profile?.avatar_url ?? null
     );
 
-    const posEmoji =
-        POSITION_CONFIG[profile?.position ?? "MID"]?.label ?? "MED";
+    const posKey = (profile?.position ?? "MID") as keyof typeof POSITION_COLORS;
+    const posLabel = POSITION_SHORT[posKey] ?? "MED";
+    const posIcon = POSITION_ICONS[posKey] ?? "";
+    const posColorClass = POSITION_COLORS[posKey] ?? "bg-accent/10 border-accent/30 text-accent";
 
     const ringClass =
         accentColor === "accent"
-            ? "ring-accent shadow-[0_0_8px_rgba(204,255,0,0.4)]"
-            : "ring-blue-400 shadow-[0_0_8px_rgba(96,165,250,0.4)]";
+            ? "ring-accent shadow-[0_0_12px_rgba(204,255,0,0.5)]"
+            : "ring-blue-400 shadow-[0_0_12px_rgba(96,165,250,0.5)]";
 
     const activeRing = isActive
         ? accentColor === "accent"
-            ? "ring-4 shadow-[0_0_16px_rgba(204,255,0,0.6)]"
-            : "ring-4 shadow-[0_0_16px_rgba(96,165,250,0.6)]"
-        : "ring-2";
+            ? "ring-4 shadow-[0_0_20px_rgba(204,255,0,0.8)] scale-110"
+            : "ring-4 shadow-[0_0_20px_rgba(96,165,250,0.8)] scale-110"
+        : "ring-[3px]";
 
     return (
         <div
@@ -472,7 +474,7 @@ function PlayerMarker({
             role="button"
             aria-label={`Ver perfil de ${profile?.username || "jugador"}`}
             tabIndex={0}
-            className="flex cursor-pointer flex-col items-center gap-0.5"
+            className="flex cursor-pointer flex-col items-center gap-1 group"
             onClick={(e) => {
                 const el = e.currentTarget as HTMLElement;
                 onPlayerClick(participant, el);
@@ -487,7 +489,7 @@ function PlayerMarker({
         >
             {/* Avatar circle */}
             <div
-                className={`relative rounded-full ${ringClass} ${activeRing} transition-all duration-200 hover:scale-110`}
+                className={`relative rounded-full ${ringClass} ${activeRing} outline outline-1 outline-black/50 transition-all duration-300 group-hover:scale-110 group-hover:shadow-[0_0_15px_rgba(255,255,255,0.3)]`}
             >
                 <Avatar
                     src={avatarUrl}
@@ -495,8 +497,9 @@ function PlayerMarker({
                     size="sm"
                 />
                 {/* Position badge */}
-                <span className="absolute -bottom-1 -right-1 text-[10px] leading-none">
-                    {posEmoji}
+                <span className={`absolute -bottom-2.5 left-1/2 -translate-x-1/2 flex items-center justify-center rounded-full border px-1.5 py-[1px] text-[8.5px] font-bold tracking-wider ${posColorClass} shadow-md whitespace-nowrap z-10 transition-transform group-hover:scale-105`}>
+                    <span className="opacity-90 mr-[0.5px] text-[9px]">{posIcon}</span>
+                    {posLabel}
                 </span>
             </div>
             {/* Name */}
@@ -528,10 +531,10 @@ function PlayerPopover({
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
         profile?.avatar_url ?? null
     );
-    const posEmoji =
-        POSITION_CONFIG[profile?.position ?? "MID"]?.label ?? "MED";
-    const posName =
-        positionFullNames[profile?.position ?? "MID"] ?? "Mediocampista";
+    const posKey = (profile?.position ?? "MID") as keyof typeof POSITION_COLORS;
+    const posName = positionFullNames[posKey] ?? "Mediocampista";
+    const posIcon = POSITION_ICONS[posKey] ?? "";
+    const posColorClass = POSITION_COLORS[posKey] ?? "bg-accent/10 border-accent/30 text-accent";
 
     const popoverRef = useRef<HTMLDivElement>(null);
     const [adjustedPos, setAdjustedPos] = useState({ x, y });
@@ -569,11 +572,11 @@ function PlayerPopover({
                 top: `${adjustedPos.y}px`,
             }}
         >
-            <div className="overflow-hidden rounded-xl border border-border bg-surface shadow-2xl shadow-black/50 backdrop-blur-sm">
+            <div className="overflow-hidden rounded-xl border border-border/80 bg-gradient-to-br from-surface to-surface-hover/90 shadow-[0_12px_40px_rgba(0,0,0,0.6)] backdrop-blur-md">
                 {/* Header band */}
-                <div className="relative h-12 bg-gradient-to-r from-accent/20 via-emerald-800/30 to-blue-400/20">
-                    <div className="absolute -bottom-5 left-1/2 -translate-x-1/2">
-                        <div className="rounded-full ring-2 ring-surface">
+                <div className="relative h-14 bg-gradient-to-r from-accent/20 via-black/40 to-blue-400/20">
+                    <div className="absolute -bottom-6 left-1/2 -translate-x-1/2">
+                        <div className="rounded-full ring-4 ring-surface shadow-[0_0_15px_rgba(0,0,0,0.8)]">
                             <Avatar
                                 src={avatarUrl}
                                 fallback={profile?.username || "P"}
@@ -584,13 +587,16 @@ function PlayerPopover({
                 </div>
 
                 {/* Info */}
-                <div className="px-4 pb-4 pt-8 text-center">
-                    <p className="text-sm font-bold text-foreground">
+                <div className="px-4 pb-4 pt-8 text-center bg-black/20">
+                    <p className="text-base font-bold text-foreground drop-shadow-sm">
                         {profile?.username || "Desconocido"}
                     </p>
-                    <p className="mt-0.5 text-xs text-muted">
-                        {posEmoji} {posName}
-                    </p>
+                    <div className="mt-1.5 mb-2 flex justify-center">
+                        <span className={`flex items-center gap-1 rounded-full border px-2 py-0.5 text-[9px] font-bold uppercase tracking-wider ${posColorClass}`}>
+                            <span>{posIcon}</span>
+                            {posName}
+                        </span>
+                    </div>
 
                     {/* Stats grid */}
                     <div className="mt-3 grid grid-cols-3 gap-1">

@@ -172,47 +172,50 @@ export function MatchDetail({
     return (
         <div className="mx-auto max-w-3xl px-4 py-8">
             {/* Match Header */}
-            <div className="mb-6">
-                <div className="mb-3 flex items-center gap-3">
-                    <span
-                        className={`rounded-full border px-3 py-1 text-xs font-medium ${statusColors[match.status] || statusColors.open}`}
-                    >
-                        {match.status === "cancelled" ? "CANCELADO" : match.status.toUpperCase()}
-                    </span>
-                    {isOrganizer && (
-                        <span className="flex items-center gap-1 rounded-full bg-purple-500/10 px-3 py-1 text-xs font-medium text-purple-400 border border-purple-500/30">
-                            <Shield size={12} />
-                            Organizador
+            <Card className="mb-6 overflow-hidden relative border border-border/80 bg-gradient-to-br from-surface to-surface-hover/50 shadow-xl p-6">
+                <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-accent/5 to-transparent pointer-events-none" />
+                <div className="relative z-10 space-y-4">
+                    <div className="flex flex-wrap items-center gap-3">
+                        <span
+                            className={`rounded-full border px-3 py-1 text-xs font-bold uppercase tracking-wider ${statusColors[match.status] || statusColors.open}`}
+                        >
+                            {match.status === "cancelled" ? "CANCELADO" : match.status}
                         </span>
-                    )}
-                    {isAdmin && (
-                        <span className="flex items-center gap-1 rounded-full bg-red-500/10 px-3 py-1 text-xs font-medium text-red-400 border border-red-500/30">
-                            <Crown size={12} />
-                            Admin
-                        </span>
-                    )}
-                </div>
-
-                <div className="flex flex-wrap items-center gap-4 text-lg text-foreground">
-                    <div className="flex items-center gap-2">
-                        <MapPin size={18} className="text-accent" />
-                        <h1 className="text-2xl font-bold">{match.location}</h1>
+                        {isOrganizer && (
+                            <span className="flex items-center gap-1.5 rounded-full bg-purple-500/10 px-3 py-1 text-[11px] font-bold text-purple-400 border border-purple-500/30 uppercase tracking-wider">
+                                <Shield size={12} />
+                                Organizador
+                            </span>
+                        )}
+                        {isAdmin && (
+                            <span className="flex items-center gap-1.5 rounded-full bg-red-500/10 px-3 py-1 text-[11px] font-bold text-red-500 border border-red-500/30 uppercase tracking-wider drop-shadow-[0_0_8px_rgba(239,68,68,0.3)]">
+                                <Crown size={12} />
+                                Admin
+                            </span>
+                        )}
                     </div>
-                    <WeatherWidget date={match.date} />
-                </div>
 
-                <div className="mt-2 flex flex-wrap gap-4 text-sm text-muted">
-                    <span className="flex items-center gap-1.5">
-                        <Calendar size={14} />
-                        {formatDate(match.date)}
-                    </span>
-                    <span className="flex items-center gap-1.5">
-                        <Users size={14} />
-                        {participants.length}/{match.max_players} jugadores
-                    </span>
-                    <span>por {organizerName}</span>
+                    <div className="flex flex-wrap items-center gap-4 text-lg text-foreground mt-2">
+                        <div className="flex items-center gap-2">
+                            <MapPin size={22} className="text-accent drop-shadow-[0_0_8px_rgba(204,255,0,0.5)]" />
+                            <h1 className="text-3xl font-bold tracking-tight">{match.location}</h1>
+                        </div>
+                        <WeatherWidget date={match.date} />
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-5 text-sm text-muted/90 font-medium">
+                        <span className="flex items-center gap-2 bg-black/20 rounded-lg px-3 py-1.5 border border-border/50">
+                            <Calendar size={16} className="text-accent" />
+                            {formatDate(match.date)}
+                        </span>
+                        <span className="flex items-center gap-2 bg-black/20 rounded-lg px-3 py-1.5 border border-border/50">
+                            <Users size={16} className="text-accent" />
+                            {participants.length}/{match.max_players} jugadores
+                        </span>
+                        <span className="px-1 text-muted/70">por <span className="text-foreground">{organizerName}</span></span>
+                    </div>
                 </div>
-            </div>
+            </Card>
             {/* Share Buttons */}
             <div className="mb-6 flex flex-wrap items-center gap-2">
                 <button

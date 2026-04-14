@@ -18,7 +18,7 @@ import {
     Medal,
     Swords,
 } from "lucide-react";
-import { POSITION_FULL, POSITION_ICONS } from "@/lib/positions";
+import { POSITION_FULL, POSITION_ICONS, POSITION_COLORS } from "@/lib/positions";
 
 import type { Metadata } from "next";
 
@@ -167,15 +167,19 @@ export default async function PlayerProfilePage({
             </Link>
 
             {/* Profile Header */}
-            <Card className="mb-6 overflow-hidden relative border-accent/20">
+            <Card className="mb-6 overflow-hidden relative border border-border/80 bg-gradient-to-br from-surface to-surface-hover/30 shadow-md">
                 <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-accent/10 to-transparent pointer-events-none" />
-                <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
-                    <Avatar
-                        src={avatarUrl}
-                        fallback={profile.username || "P"}
-                        size="lg"
-                        priority={true}
-                    />
+                <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start relative z-10">
+                    <div className="relative group">
+                        <div className="absolute -inset-0.5 rounded-full bg-gradient-to-br from-accent to-accent/20 opacity-0 blur transition duration-500 group-hover:opacity-100 animate-pulse-slow"></div>
+                        <Avatar
+                            src={avatarUrl}
+                            fallback={profile.username || "P"}
+                            size="lg"
+                            priority={true}
+                            className="relative border-2 border-surface shadow-[0_0_20px_rgba(0,0,0,0.5)] transition-transform duration-300 group-hover:scale-105"
+                        />
+                    </div>
                     <div className="flex-1 text-center sm:text-left">
                         <div className="flex flex-col items-center gap-2 sm:flex-row">
                             <h1 className="text-2xl font-bold text-foreground">
@@ -195,9 +199,9 @@ export default async function PlayerProfilePage({
                         </div>
                         <div className="mt-2 flex flex-wrap items-center justify-center gap-3 text-sm text-muted sm:justify-start">
                             {profile.position && (
-                                <span className="flex items-center gap-1.5 rounded-full border border-accent/20 bg-accent/5 px-3 py-1 font-medium text-foreground">
-                                    <span className="text-accent">{POSITION_ICONS[profile.position]}</span>
-                                    {positionLabels[profile.position] || profile.position}
+                                <span className={`flex items-center gap-1.5 rounded-full border px-3 py-1 font-semibold text-[11px] uppercase tracking-wider ${POSITION_COLORS[profile.position as keyof typeof POSITION_COLORS] || "bg-accent/10 border-accent/30 text-accent"}`}>
+                                    <span>{POSITION_ICONS[profile.position as keyof typeof POSITION_ICONS]}</span>
+                                    {positionLabels[profile.position as keyof typeof positionLabels] || profile.position}
                                 </span>
                             )}
                             <span className="flex items-center gap-1.5 rounded-full border border-accent/40 bg-accent/10 px-3 py-1 font-bold text-accent shadow-[0_0_10px_rgba(204,255,0,0.1)]">
@@ -250,45 +254,47 @@ export default async function PlayerProfilePage({
 
             {/* Stats Grid */}
             <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
-                <Card className="text-center">
+                <Card className="relative overflow-hidden text-center border-border/80 bg-gradient-to-br from-surface to-surface-hover/30 hover:border-accent/40 transition-colors">
                     <p className="text-sm text-muted">Partidos</p>
-                    <p className="mt-1 text-2xl font-bold text-foreground">{profile.matches_played}</p>
+                    <p className="mt-1 text-3xl font-bold text-foreground drop-shadow-md">{profile.matches_played}</p>
                 </Card>
-                <Card className="text-center">
+                <Card className="relative overflow-hidden text-center border-border/80 bg-gradient-to-br from-surface to-surface-hover/30 hover:border-accent/40 transition-colors">
                     <p className="text-sm text-muted">Goles</p>
-                    <p className="mt-1 text-2xl font-bold text-foreground">{profile.goals_scored}</p>
+                    <p className="mt-1 text-3xl font-bold text-foreground drop-shadow-md">{profile.goals_scored}</p>
                 </Card>
-                <Card className="text-center">
+                <Card className="relative overflow-hidden text-center border-border/80 bg-gradient-to-br from-surface to-surface-hover/30 hover:border-green-500/40 transition-colors">
+                    <div className="absolute top-0 right-1/2 translate-x-1/2 w-4/5 h-px bg-gradient-to-r from-transparent via-green-500/30 to-transparent"></div>
                     <p className="text-sm text-muted">Victorias</p>
-                    <p className="mt-1 text-2xl font-bold text-green-400">{wins}</p>
+                    <p className="mt-1 text-3xl font-bold text-green-400 drop-shadow-[0_0_8px_rgba(74,222,128,0.4)]">{wins}</p>
                 </Card>
-                <Card className="text-center">
+                <Card className="relative overflow-hidden text-center border-border/80 bg-gradient-to-br from-surface to-surface-hover/30 hover:border-red-500/40 transition-colors">
+                    <div className="absolute top-0 right-1/2 translate-x-1/2 w-4/5 h-px bg-gradient-to-r from-transparent via-red-500/30 to-transparent"></div>
                     <p className="text-sm text-muted">Derrotas</p>
-                    <p className="mt-1 text-2xl font-bold text-red-400">{losses}</p>
+                    <p className="mt-1 text-3xl font-bold text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.4)]">{losses}</p>
                 </Card>
             </div>
 
             {/* H2H Stats (Only if viewing someone else) */}
             {!isYou && (h2h.playedTogether > 0 || h2h.playedAgainst > 0) && (
-                <Card className="mb-8 overflow-hidden">
-                    <CardHeader className="border-b border-border/50 pb-4">
+                <Card className="mb-8 overflow-hidden border border-border/80 bg-gradient-to-br from-surface to-surface-hover/30 hover:border-accent/40 hover:shadow-[0_8px_30px_rgba(204,255,0,0.06)] transition-all">
+                    <CardHeader className="border-b border-border/50 pb-4 bg-black/20">
                         <CardTitle className="flex items-center gap-2 text-lg text-foreground">
                             <Swords size={20} className="text-accent" />
                             Historial vs Ti
                         </CardTitle>
                     </CardHeader>
-                    <div className="grid grid-cols-3 divide-x divide-border/50 p-4">
-                        <div className="text-center px-2">
-                            <p className="truncate text-xs text-muted mb-1">Victoria Tuya</p>
-                            <p className="text-2xl font-bold text-green-400">{h2h.viewerWins}</p>
+                    <div className="grid grid-cols-3 divide-x divide-border/50 p-4 bg-black/10">
+                        <div className="text-center px-2 group">
+                            <p className="truncate text-[10px] uppercase tracking-wider text-muted mb-1 group-hover:text-green-400 transition-colors">Victoria Tuya</p>
+                            <p className="text-3xl font-bold text-green-400 drop-shadow-[0_0_8px_rgba(74,222,128,0.4)]">{h2h.viewerWins}</p>
                         </div>
-                        <div className="text-center px-2">
-                            <p className="truncate text-xs text-muted mb-1">Victoria Suya</p>
-                            <p className="text-2xl font-bold text-red-400">{h2h.profileWins}</p>
+                        <div className="text-center px-2 group">
+                            <p className="truncate text-[10px] uppercase tracking-wider text-muted mb-1 group-hover:text-red-500 transition-colors">Victoria Suya</p>
+                            <p className="text-3xl font-bold text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.4)]">{h2h.profileWins}</p>
                         </div>
-                        <div className="text-center px-2">
-                            <p className="truncate text-xs text-muted mb-1">Juntos</p>
-                            <p className="text-2xl font-bold text-blue-400">{h2h.playedTogether}</p>
+                        <div className="text-center px-2 group">
+                            <p className="truncate text-[10px] uppercase tracking-wider text-muted mb-1 group-hover:text-blue-400 transition-colors">Juntos</p>
+                            <p className="text-3xl font-bold text-blue-400 drop-shadow-[0_0_8px_rgba(96,165,250,0.4)]">{h2h.playedTogether}</p>
                         </div>
                     </div>
                 </Card>
@@ -344,45 +350,74 @@ export default async function PlayerProfilePage({
                             else result = "loss";
                         }
 
-                        const resultColors = {
-                            win: "border-l-green-500",
-                            draw: "border-l-zinc-500",
-                            loss: "border-l-red-500",
+                        const resultConfig = {
+                            win: { label: "VICTORIA", bg: "bg-green-500/10", text: "text-green-400", border: "border-green-500/30" },
+                            draw: { label: "EMPATE", bg: "bg-zinc-500/10", text: "text-zinc-400", border: "border-zinc-500/30" },
+                            loss: { label: "DERROTA", bg: "bg-red-500/10", text: "text-red-400", border: "border-red-500/30" },
                         };
 
+                        const config = result ? resultConfig[result] : null;
+
                         return (
-                            <Link key={match.id} href={`/matches/${match.id}`}>
-                                <Card
-                                    className={`border-l-4 transition-all hover:bg-surface-hover ${result ? resultColors[result] : "border-l-border"
-                                        }`}
-                                >
+                            <Link key={match.id} href={`/matches/${match.id}`} className="group block">
+                                <Card className="transition-all border border-border/80 bg-gradient-to-br from-surface to-surface-hover/30 hover:border-accent/40 hover:-translate-y-0.5 hover:shadow-[0_8px_30px_rgba(204,255,0,0.08)]">
                                     <div className="flex items-center justify-between">
-                                        <div className="space-y-1">
-                                            <div className="flex items-center gap-2 text-foreground">
-                                                <MapPin size={14} className="text-accent" />
-                                                <span className="font-medium">{match.location}</span>
-                                            </div>
-                                            <div className="flex items-center gap-3 text-sm text-muted">
-                                                <span className="flex items-center gap-1">
-                                                    <Calendar size={12} />
-                                                    {formatDate(match.date)}
-                                                </span>
-                                                {match.userGoals > 0 && (
-                                                    <span className="text-accent">
-                                                        {match.userGoals} gol{match.userGoals !== 1 ? "es" : ""}
+                                        <div className="min-w-0 flex-1 space-y-2">
+                                            <div className="flex items-center gap-2">
+                                                {config && (
+                                                    <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${config.bg} ${config.text} ${config.border}`}>
+                                                        {config.label}
                                                     </span>
                                                 )}
                                                 {match.userMvp && (
-                                                    <span className="text-yellow-400">MVP</span>
+                                                    <span className="rounded-full bg-yellow-500/10 px-2 py-0.5 text-[10px] font-bold text-yellow-500/90 border border-yellow-500/30 shadow-[0_0_8px_rgba(234,179,8,0.2)]">
+                                                        MVP
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center gap-2 text-foreground">
+                                                <MapPin size={14} className="shrink-0 text-accent" />
+                                                <span className="truncate font-medium">{match.location}</span>
+                                            </div>
+                                            <div className="flex items-center gap-4 text-sm text-muted">
+                                                <span className="flex items-center gap-1.5">
+                                                    <Calendar size={14} />
+                                                    {formatDate(match.date)}
+                                                </span>
+                                                {match.userGoals > 0 && (
+                                                    <span className="flex items-center gap-1 text-accent font-semibold">
+                                                        <Target size={14} />
+                                                        {match.userGoals} gol{match.userGoals !== 1 ? "es" : ""}
+                                                    </span>
                                                 )}
                                             </div>
                                         </div>
-                                        {match.team_a_score !== null && match.team_b_score !== null && (
-                                            <span className="text-lg font-bold text-foreground">
-                                                {match.team_a_score} – {match.team_b_score}
-                                            </span>
-                                        )}
                                     </div>
+
+                                    {match.team_a_score !== null && match.team_b_score !== null && (
+                                        <div className="mt-4 flex items-center justify-between border-t border-border/50 bg-black/10 px-6 py-3 -mx-6 -mb-6 rounded-b-2xl">
+                                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted group-hover:text-foreground transition-colors relative z-10 pointer-events-none">Ver Detalles →</span>
+                                            <div className="flex items-center justify-end gap-3 text-center shrink-0 min-w-[70px]">
+                                                <div>
+                                                    <p className={`text-[9px] uppercase tracking-wider font-bold mb-0.5 text-red-400 flex items-center`}>
+                                                        Rojo {match.userTeam === "A" && <span className="text-accent ml-1">(P)</span>}
+                                                    </p>
+                                                    <p className={`text-xl font-bold leading-none ${match.userTeam === "A" && result === "win" ? "text-accent drop-shadow-[0_0_8px_rgba(204,255,0,0.5)] scale-110" : "text-foreground"}`}>
+                                                        {match.team_a_score}
+                                                    </p>
+                                                </div>
+                                                <span className="text-sm font-bold text-muted/50">-</span>
+                                                <div className="flex flex-col items-end">
+                                                    <p className={`text-[9px] uppercase tracking-wider font-bold mb-0.5 text-blue-400 flex items-center`}>
+                                                        {match.userTeam === "B" && <span className="text-accent mr-1">(P)</span>} Azul
+                                                    </p>
+                                                    <p className={`text-xl font-bold leading-none ${match.userTeam === "B" && result === "win" ? "text-accent drop-shadow-[0_0_8px_rgba(204,255,0,0.5)] scale-110" : "text-foreground"}`}>
+                                                        {match.team_b_score}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
                                 </Card>
                             </Link>
                         );
