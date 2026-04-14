@@ -18,6 +18,7 @@ import {
     Medal,
     Swords,
 } from "lucide-react";
+import { POSITION_FULL } from "@/lib/positions";
 
 import type { Metadata } from "next";
 
@@ -112,12 +113,7 @@ export default async function PlayerProfilePage({
     const adminUserIds = await getAdminUserIds();
     const isProfileAdmin = adminUserIds.includes(id);
 
-    const positionLabels: Record<string, string> = {
-        GK: "Portero",
-        DEF: "Defensa",
-        MID: "Mediocampista",
-        FWD: "Delantero",
-    };
+    const positionLabels = POSITION_FULL;
 
     // Head-to-Head (H2H) Logic
     let h2h = { playedTogether: 0, playedAgainst: 0, viewerWins: 0, profileWins: 0 };

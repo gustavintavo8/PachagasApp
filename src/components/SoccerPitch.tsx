@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect, useLayoutEffect } from "react";
 import { Avatar } from "@/components/ui/Avatar";
 import { getAvatarUrl } from "@/lib/utils";
+import { POSITION_SHORT, POSITION_FULL } from "@/lib/positions";
 import type { Profile } from "@/lib/types";
 
 /* ─── Types ─── */
@@ -24,20 +25,15 @@ interface SoccerPitchProps {
 /* ─── Position zones (% from top of team half) ─── */
 const POSITION_CONFIG: Record<
     string,
-    { zone: number; label: string; emoji: string }
+    { zone: number; label: string }
 > = {
-    GK: { zone: 85, label: "POR", emoji: "POR" },
-    DEF: { zone: 65, label: "DEF", emoji: "DEF" },
-    MID: { zone: 40, label: "MED", emoji: "MED" },
-    FWD: { zone: 15, label: "DEL", emoji: "DEL" },
+    GK: { zone: 85, label: "POR" },
+    DEF: { zone: 65, label: "DEF" },
+    MID: { zone: 40, label: "MED" },
+    FWD: { zone: 15, label: "DEL" },
 };
 
-const positionFullNames: Record<string, string> = {
-    GK: "Portero",
-    DEF: "Defensa",
-    MID: "Mediocampista",
-    FWD: "Delantero",
-};
+const positionFullNames = POSITION_FULL;
 
 function groupByPosition(players: Participant[]) {
     const groups: Record<string, Participant[]> = {
@@ -457,7 +453,7 @@ function PlayerMarker({
     );
 
     const posEmoji =
-        POSITION_CONFIG[profile?.position ?? "MID"]?.emoji ?? "MID";
+        POSITION_CONFIG[profile?.position ?? "MID"]?.label ?? "MED";
 
     const ringClass =
         accentColor === "accent"
@@ -533,7 +529,7 @@ function PlayerPopover({
         profile?.avatar_url ?? null
     );
     const posEmoji =
-        POSITION_CONFIG[profile?.position ?? "MID"]?.emoji ?? "MID";
+        POSITION_CONFIG[profile?.position ?? "MID"]?.label ?? "MED";
     const posName =
         positionFullNames[profile?.position ?? "MID"] ?? "Mediocampista";
 

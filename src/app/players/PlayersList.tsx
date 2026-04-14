@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/Card";
 import { Avatar } from "@/components/ui/Avatar";
 import { getAvatarUrl } from "@/lib/utils";
 import { Search, Trophy, Target, Users, Crown } from "lucide-react";
+import { POSITION_ICONS, POSITION_SHORT } from "@/lib/positions";
 import type { Profile } from "@/lib/types";
 
 const positions = ["ALL", "GK", "DEF", "MID", "FWD"] as const;
@@ -86,19 +87,6 @@ export function PlayersList({ profiles, currentUserId, adminUserIds }: PlayersLi
                         const isYou = profile.id === currentUserId;
                         const avatarUrl = getAvatarUrl(supabaseUrl, profile.avatar_url);
 
-                        const positionBadge: Record<string, string> = {
-                            GK: "POR",
-                            DEF: "DEF",
-                            MID: "MED",
-                            FWD: "DEL",
-                        };
-                        const positionShort: Record<string, string> = {
-                            GK: "POR",
-                            DEF: "DEF",
-                            MID: "MED",
-                            FWD: "DEL",
-                        };
-
                         return (
                             <Link key={profile.id} href={`/players/${profile.id}`}>
                                 <Card className="h-full transition-all hover:border-border-hover hover:bg-surface-hover">
@@ -126,11 +114,11 @@ export function PlayersList({ profiles, currentUserId, adminUserIds }: PlayersLi
                                                     </span>
                                                 )}
                                             </div>
-                                            <div className="flex items-center gap-2 text-sm text-muted">
+                                            <div className="flex items-center gap-1.5 text-sm text-muted">
                                                 {profile.position && (
-                                                    <span>
-                                                        {positionBadge[profile.position]}{" "}
-                                                        {positionShort[profile.position] || profile.position}
+                                                    <span className="flex items-center gap-1">
+                                                        {POSITION_ICONS[profile.position]}
+                                                        {POSITION_SHORT[profile.position] || profile.position}
                                                     </span>
                                                 )}
 

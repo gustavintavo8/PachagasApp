@@ -56,6 +56,7 @@ import {
     X,
     Crown,
 } from "lucide-react";
+import { POSITION_ICONS, POSITION_SHORT } from "@/lib/positions";
 import type { Match, Profile } from "@/lib/types";
 
 interface Participant {
@@ -790,19 +791,6 @@ function PlayerRow({ participant, adminUserIds, organizerId, onKick }: { partici
         profile?.avatar_url ?? null
     );
 
-    const positionBadge: Record<string, string> = {
-        GK: "POR",
-        DEF: "DEF",
-        MID: "MED",
-        FWD: "DEL",
-    };
-    const positionShort: Record<string, string> = {
-        GK: "POR",
-        DEF: "DEF",
-        MID: "MED",
-        FWD: "DEL",
-    };
-
     return (
         <div className="flex items-center gap-3 rounded-xl bg-zinc-800/50 px-3 py-2">
             <Avatar
@@ -828,9 +816,12 @@ function PlayerRow({ participant, adminUserIds, organizerId, onKick }: { partici
                         </span>
                     )}
                 </div>
-                <div className="flex items-center gap-2 text-xs text-muted">
+                <div className="flex items-center gap-1.5 text-xs text-muted">
                     {profile?.position && (
-                        <span>{positionBadge[profile.position]} {positionShort[profile.position] || profile.position}</span>
+                        <span className="flex items-center gap-1">
+                            {POSITION_ICONS[profile.position]}
+                            {POSITION_SHORT[profile.position] || profile.position}
+                        </span>
                     )}
                 </div>
             </div>
