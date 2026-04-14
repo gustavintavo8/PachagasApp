@@ -74,6 +74,7 @@ interface MatchDetailProps {
     participants: Participant[];
     currentUserId: string;
     organizerName: string;
+    organizerAvatarUrl: string | null;
     currentUserProfile: {
         username: string | null;
         avatar_url: string | null;
@@ -87,6 +88,7 @@ export function MatchDetail({
     participants,
     currentUserId,
     organizerName,
+    organizerAvatarUrl,
     currentUserProfile,
     isAdmin,
     adminUserIds,
@@ -212,7 +214,20 @@ export function MatchDetail({
                             <Users size={16} className="text-accent" />
                             {participants.length}/{match.max_players} jugadores
                         </span>
-                        <span className="px-1 text-muted/70">por <span className="text-foreground">{organizerName}</span></span>
+                        
+                        {/* Organizer Badge */}
+                        <Link href={`/players/${match.created_by}`} className="flex items-center gap-2 bg-surface hover:bg-surface-hover/80 transition-colors rounded-full pl-1.5 pr-4 py-1 border border-border/50 group">
+                            <Avatar
+                                src={getAvatarUrl(process.env.NEXT_PUBLIC_SUPABASE_URL!, organizerAvatarUrl)}
+                                fallback={organizerName}
+                                size="sm"
+                                className="h-6 w-6 ring-2 ring-purple-500/30 group-hover:ring-purple-500/60 transition-all"
+                            />
+                            <div className="flex flex-col">
+                                <span className="text-[9px] uppercase tracking-wider text-muted group-hover:text-purple-400 transition-colors leading-[10px]">Organiza</span>
+                                <span className="text-xs font-bold text-foreground leading-[14px]">{organizerName}</span>
+                            </div>
+                        </Link>
                     </div>
                 </div>
             </Card>
