@@ -249,7 +249,7 @@ async function DashboardContent() {
     <div className="mx-auto max-w-5xl px-4 py-8">
       {/* Welcome Header */}
       <div className="mb-8 flex items-center justify-between">
-        <div className="flex items-center gap-4 rounded-3xl bg-gradient-to-br from-surface to-surface-hover p-6 border border-border/50 shadow-[0_0_30px_rgba(204,255,0,0.05)]">
+        <div className="flex items-center gap-4">
           <Avatar
             src={avatarUrl}
             fallback={profile?.username || user.email || "P"}
