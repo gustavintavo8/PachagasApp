@@ -16,6 +16,7 @@ import {
   Clock,
   Zap,
 } from "lucide-react";
+import { PlayerCharts } from "@/components/PlayerCharts";
 
 // --- Async Data Components ---
 
@@ -232,72 +233,174 @@ function DashboardSkeleton() {
 
 function DetailedStatsSkeleton() {
   return (
-    <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
-      {[1, 2, 3, 4].map(i => (
-        <div key={i} className="h-24 rounded-xl bg-surface/50 animate-pulse" />
-      ))}
+    <div className="space-y-8">
+      <div className="mb-8 grid gap-4 sm:grid-cols-2">
+        <div className="h-64 rounded-xl bg-surface/50 animate-pulse" />
+        <div className="h-64 rounded-xl bg-surface/50 animate-pulse" />
+      </div>
+      <div>
+        <div className="h-24 rounded-xl bg-surface/50 animate-pulse mb-3" />
+        <div className="h-24 rounded-xl bg-surface/50 animate-pulse mb-3" />
+        <div className="h-24 rounded-xl bg-surface/50 animate-pulse" />
+      </div>
     </div>
   );
 }
 
 async function DetailedDashboardStats({ userId }: { userId: string }) {
   const supabase = await createClient();
-  const { data: profile } = await supabase.from("profiles").select("matches_played, goals_scored").eq("id", userId).single();
 
   const { data: participations } = await supabase
     .from("match_participants")
-    .select(`
-        team,
-        matches!inner (
-            id,
-            status,
-            team_a_score,
-            team_b_score
-        )
-    `)
+    .select("match_id, team, goals, is_mvp, matches(id, date, location, status, team_a_score, team_b_score)")
     .eq("user_id", userId);
 
-  let wins = 0;
-  let losses = 0;
+  const finishedMatches = participations
+    ?.map((p) => {
+        const match = p.matches as unknown as {
+            id: string;
+            date: string;
+            location: string;
+            status: string;
+            team_a_score: number | null;
+            team_b_score: number | null;
+        };
+        return {
+            ...match,
+            userTeam: p.team,
+            userGoals: p.goals,
+            userMvp: p.is_mvp,
+        };
+    })
+    .filter((m) => m.status === "finished")
+    .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
+    ?? [];
 
-  const finishedMatches = (participations || [])
-    .filter((p) => {
-        const m = p.matches as any;
-        return m && m.status === "finished";
-    });
+  // Charts Logic
+  const monthMap: Record<string, number> = {};
+  const chronological = [...finishedMatches].sort(
+      (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
+  );
+  for (const m of chronological) {
+      const d = new Date(m.date);
+      const key = `${d.toLocaleString("es-ES", { month: "short" })} ${String(d.getFullYear()).slice(2)}`;
+      monthMap[key] = (monthMap[key] || 0) + (m.userGoals || 0);
+  }
+  const goalsPerMonth = Object.entries(monthMap).map(([month, goals]) => ({ month, goals }));
 
-  finishedMatches.forEach((p) => {
-    const match = p.matches as any;
-    const isA = p.team === "A";
-    const teamScore = isA ? match.team_a_score : match.team_b_score;
-    const oppScore = isA ? match.team_b_score : match.team_a_score;
-
-    if (teamScore !== null && oppScore !== null) {
-        if (teamScore > oppScore) wins++;
-        else if (teamScore < oppScore) losses++;
-    }
-  });
+  let w = 0;
+  const winRateOverTime = chronological
+      .filter((m) => m.team_a_score !== null && m.team_b_score !== null && m.userTeam)
+      .map((m, i) => {
+          const my = m.userTeam === "A" ? m.team_a_score! : m.team_b_score!;
+          const opp = m.userTeam === "A" ? m.team_b_score! : m.team_a_score!;
+          if (my > opp) w++;
+          return { match: i + 1, rate: Math.round((w / (i + 1)) * 100) };
+      });
 
   return (
-    <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
-        <Card className="relative overflow-hidden text-center border-border/80 bg-gradient-to-br from-surface to-surface-hover/30 hover:border-accent/40 transition-colors">
-            <p className="text-sm text-muted">Partidos</p>
-            <p className="mt-1 text-3xl font-bold text-foreground">{profile?.matches_played || 0}</p>
-        </Card>
-        <Card className="relative overflow-hidden text-center border-border/80 bg-gradient-to-br from-surface to-surface-hover/30 hover:border-accent/40 transition-colors">
-            <p className="text-sm text-muted">Goles</p>
-            <p className="mt-1 text-3xl font-bold text-foreground">{profile?.goals_scored || 0}</p>
-        </Card>
-        <Card className="relative overflow-hidden text-center border-border/80 bg-gradient-to-br from-surface to-surface-hover/30 hover:border-green-500/40 transition-colors">
-            <div className="absolute top-0 right-1/2 translate-x-1/2 w-4/5 h-px bg-gradient-to-r from-transparent via-green-500/30 to-transparent"></div>
-            <p className="text-sm text-muted">Victorias</p>
-            <p className="mt-1 text-3xl font-bold text-green-400">{wins}</p>
-        </Card>
-        <Card className="relative overflow-hidden text-center border-border/80 bg-gradient-to-br from-surface to-surface-hover/30 hover:border-red-500/40 transition-colors">
-            <div className="absolute top-0 right-1/2 translate-x-1/2 w-4/5 h-px bg-gradient-to-r from-transparent via-red-500/30 to-transparent"></div>
-            <p className="text-sm text-muted">Derrotas</p>
-            <p className="mt-1 text-3xl font-bold text-red-500">{losses}</p>
-        </Card>
+    <div className="space-y-12">
+        {/* Charts */}
+        <div>
+            <PlayerCharts goalsPerMonth={goalsPerMonth} winRateOverTime={winRateOverTime} />
+        </div>
+
+        {/* Recent Matches */}
+        <div>
+            <h2 className="mb-4 text-lg font-semibold text-foreground">
+                Partidos Recientes
+            </h2>
+            {finishedMatches.length > 0 ? (
+                <div className="space-y-3">
+                    {finishedMatches.slice(0, 5).map((match) => {
+                        const myScore = match.userTeam === "A" ? match.team_a_score : match.team_b_score;
+                        const oppScore = match.userTeam === "A" ? match.team_b_score : match.team_a_score;
+                        let result: "win" | "draw" | "loss" | null = null;
+                        if (myScore !== null && oppScore !== null && match.userTeam) {
+                            if (myScore > oppScore) result = "win";
+                            else if (myScore === oppScore) result = "draw";
+                            else result = "loss";
+                        }
+
+                        const resultConfig = {
+                            win: { label: "VICTORIA", bg: "bg-green-500/10", text: "text-green-400", border: "border-green-500/30" },
+                            draw: { label: "EMPATE", bg: "bg-zinc-500/10", text: "text-zinc-400", border: "border-zinc-500/30" },
+                            loss: { label: "DERROTA", bg: "bg-red-500/10", text: "text-red-400", border: "border-red-500/30" },
+                        };
+
+                        const config = result ? resultConfig[result] : null;
+
+                        return (
+                            <Link key={match.id} href={`/matches/${match.id}`} className="group block">
+                                <Card className="transition-all border border-border/80 bg-gradient-to-br from-surface to-surface-hover/30 hover:border-accent/40 hover:-translate-y-0.5 hover:shadow-[0_8px_30px_rgba(204,255,0,0.08)]">
+                                    <div className="flex items-center justify-between">
+                                        <div className="min-w-0 flex-1 space-y-2">
+                                            <div className="flex items-center gap-2">
+                                                {config && (
+                                                    <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${config.bg} ${config.text} ${config.border}`}>
+                                                        {config.label}
+                                                    </span>
+                                                )}
+                                                {match.userMvp && (
+                                                    <span className="rounded-full bg-yellow-500/10 px-2 py-0.5 text-[10px] font-bold text-yellow-500/90 border border-yellow-500/30 shadow-[0_0_8px_rgba(234,179,8,0.2)]">
+                                                        MVP
+                                                    </span>
+                                                )}
+                                            </div>
+                                            <div className="flex items-center gap-2 text-foreground">
+                                                <MapPin size={14} className="shrink-0 text-accent" />
+                                                <span className="truncate font-medium">{match.location}</span>
+                                            </div>
+                                            <div className="flex items-center gap-4 text-sm text-muted">
+                                                <span className="flex items-center gap-1.5">
+                                                    <Calendar size={14} />
+                                                    {formatDate(match.date)}
+                                                </span>
+                                                {match.userGoals > 0 && (
+                                                    <span className="flex items-center gap-1 text-accent font-semibold">
+                                                        <Target size={14} />
+                                                        {match.userGoals} gol{match.userGoals !== 1 ? "es" : ""}
+                                                    </span>
+                                                )}
+                                            </div>
+                                        </div>
+                                    </div>
+
+                                    {match.team_a_score !== null && match.team_b_score !== null && (
+                                        <div className="mt-4 flex items-center justify-between border-t border-border/50 bg-black/10 px-6 py-3 -mx-6 -mb-6 rounded-b-2xl">
+                                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted group-hover:text-foreground transition-colors relative z-10 pointer-events-none">Ver Detalles →</span>
+                                            <div className="flex items-center justify-end gap-3 text-center shrink-0 min-w-[70px]">
+                                                <div>
+                                                    <p className={`text-[9px] uppercase tracking-wider font-bold mb-0.5 text-red-400 flex items-center`}>
+                                                        Rojo {match.userTeam === "A" && <span className="text-accent ml-1">(P)</span>}
+                                                    </p>
+                                                    <p className={`text-xl font-bold leading-none ${match.userTeam === "A" && result === "win" ? "text-accent drop-shadow-[0_0_8px_rgba(204,255,0,0.5)] scale-110" : "text-foreground"}`}>
+                                                        {match.team_a_score}
+                                                    </p>
+                                                </div>
+                                                <span className="text-sm font-bold text-muted/50">-</span>
+                                                <div className="flex flex-col items-end">
+                                                    <p className={`text-[9px] uppercase tracking-wider font-bold mb-0.5 text-blue-400 flex items-center`}>
+                                                        {match.userTeam === "B" && <span className="text-accent mr-1">(P)</span>} Azul
+                                                    </p>
+                                                    <p className={`text-xl font-bold leading-none ${match.userTeam === "B" && result === "win" ? "text-accent drop-shadow-[0_0_8px_rgba(204,255,0,0.5)] scale-110" : "text-foreground"}`}>
+                                                        {match.team_b_score}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </div>
+                                    )}
+                                </Card>
+                            </Link>
+                        );
+                    })}
+                </div>
+            ) : (
+                <Card className="text-center">
+                    <p className="py-4 text-muted">Aún sin partidos finalizados</p>
+                </Card>
+            )}
+        </div>
     </div>
   );
 }
@@ -366,9 +469,6 @@ async function DashboardContent() {
 
       {/* Detailed Season Stats */}
       <div className="mt-8 mb-12">
-        <h2 className="mb-4 text-lg font-semibold text-foreground">
-          <Target size={20} className="inline text-accent mr-1" /> Tu Rendimiento Global
-        </h2>
         <Suspense fallback={<DetailedStatsSkeleton />}>
           <DetailedDashboardStats userId={user.id} />
         </Suspense>
