@@ -256,21 +256,21 @@ export default async function PlayerProfilePage({
             <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
                 <Card className="relative overflow-hidden text-center border-border/80 bg-gradient-to-br from-surface to-surface-hover/30 hover:border-accent/40 transition-colors">
                     <p className="text-sm text-muted">Partidos</p>
-                    <p className="mt-1 text-3xl font-bold text-foreground drop-shadow-md">{profile.matches_played}</p>
+                    <p className="mt-1 text-3xl font-bold text-foreground">{profile.matches_played}</p>
                 </Card>
                 <Card className="relative overflow-hidden text-center border-border/80 bg-gradient-to-br from-surface to-surface-hover/30 hover:border-accent/40 transition-colors">
                     <p className="text-sm text-muted">Goles</p>
-                    <p className="mt-1 text-3xl font-bold text-foreground drop-shadow-md">{profile.goals_scored}</p>
+                    <p className="mt-1 text-3xl font-bold text-foreground">{profile.goals_scored}</p>
                 </Card>
                 <Card className="relative overflow-hidden text-center border-border/80 bg-gradient-to-br from-surface to-surface-hover/30 hover:border-green-500/40 transition-colors">
                     <div className="absolute top-0 right-1/2 translate-x-1/2 w-4/5 h-px bg-gradient-to-r from-transparent via-green-500/30 to-transparent"></div>
                     <p className="text-sm text-muted">Victorias</p>
-                    <p className="mt-1 text-3xl font-bold text-green-400 drop-shadow-[0_0_8px_rgba(74,222,128,0.4)]">{wins}</p>
+                    <p className="mt-1 text-3xl font-bold text-green-400">{wins}</p>
                 </Card>
                 <Card className="relative overflow-hidden text-center border-border/80 bg-gradient-to-br from-surface to-surface-hover/30 hover:border-red-500/40 transition-colors">
                     <div className="absolute top-0 right-1/2 translate-x-1/2 w-4/5 h-px bg-gradient-to-r from-transparent via-red-500/30 to-transparent"></div>
                     <p className="text-sm text-muted">Derrotas</p>
-                    <p className="mt-1 text-3xl font-bold text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.4)]">{losses}</p>
+                    <p className="mt-1 text-3xl font-bold text-red-500">{losses}</p>
                 </Card>
             </div>
 
