@@ -183,20 +183,20 @@ export default async function HistoryPage() {
                                             <span className="text-[10px] font-bold uppercase tracking-wider text-muted group-hover:text-foreground transition-colors relative z-10 pointer-events-none">Ver Detalles →</span>
                                             <div className="flex items-center justify-end gap-3 text-center shrink-0 min-w-[70px]">
                                                 <div>
-                                                    <p className={`text-[9px] uppercase tracking-wider font-bold mb-0.5 ${match.userTeam === "A" ? "text-accent" : "text-muted"}`}>
-                                                        {match.userTeam === "A" ? "Tú" : "Riv"}
+                                                    <p className="text-[9px] uppercase tracking-wider font-bold mb-0.5 text-accent">
+                                                        Tú
                                                     </p>
-                                                    <p className={`text-xl font-bold leading-none ${match.userTeam === "A" && result === "win" ? "text-accent drop-shadow-[0_0_8px_rgba(204,255,0,0.5)]" : "text-foreground"}`}>
-                                                        {match.userTeam === "A" ? match.team_a_score : match.team_b_score}
+                                                    <p className={`text-xl font-bold leading-none ${result === "win" ? "text-accent drop-shadow-[0_0_8px_rgba(204,255,0,0.5)] scale-110" : "text-foreground"}`}>
+                                                        {myScore}
                                                     </p>
                                                 </div>
                                                 <span className="text-sm font-bold text-muted/50">-</span>
                                                 <div>
-                                                    <p className={`text-[9px] uppercase tracking-wider font-bold mb-0.5 ${match.userTeam === "B" ? "text-accent" : "text-muted"}`}>
-                                                        {match.userTeam === "B" ? "Tú" : "Riv"}
+                                                    <p className="text-[9px] uppercase tracking-wider font-bold mb-0.5 text-muted">
+                                                        Riv
                                                     </p>
-                                                    <p className={`text-xl font-bold leading-none ${match.userTeam === "B" && result === "win" ? "text-accent drop-shadow-[0_0_8px_rgba(204,255,0,0.5)]" : "text-foreground"}`}>
-                                                        {match.userTeam === "B" ? match.team_a_score : match.team_b_score}
+                                                    <p className={`text-xl font-bold leading-none ${result === "loss" ? "text-foreground" : "text-muted"}`}>
+                                                        {oppScore}
                                                     </p>
                                                 </div>
                                             </div>
