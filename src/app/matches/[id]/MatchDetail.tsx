@@ -225,7 +225,7 @@ export function MatchDetail({
                     Copiar enlace
                 </button>
                 <a
-                    href={`https://wa.me/?text=${encodeURIComponent(`¡Únete a la pachanga! 🏟️\n📍 ${match.location}\n📅 ${formatDate(match.date)}\n👉 ${typeof window !== "undefined" ? window.location.origin : ""}/matches/${match.id}`)}`}
+                    href={`https://wa.me/?text=${encodeURIComponent(`¡Únete a la pachanga!\n${match.location}\n${formatDate(match.date)}\n→ ${typeof window !== "undefined" ? window.location.origin : ""}/matches/${match.id}`)}`}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="flex items-center gap-1.5 rounded-xl border border-green-500/30 bg-green-500/10 px-3 py-2 text-xs font-medium text-green-400 transition-all hover:bg-green-500/20"
@@ -518,7 +518,7 @@ export function MatchDetail({
                                 onClick={() => setShowGoalScorers(!showGoalScorers)}
                                 className="flex w-full items-center justify-between px-4 py-3 text-sm font-medium text-muted transition-colors hover:text-foreground"
                             >
-                                <span>⚽ Asignar goleadores (opcional)</span>
+                                <span>Asignar goleadores (opcional)</span>
                                 <ChevronDown
                                     size={16}
                                     className={`transition-transform duration-200 ${showGoalScorers ? "rotate-180" : ""
@@ -791,10 +791,10 @@ function PlayerRow({ participant, adminUserIds, organizerId, onKick }: { partici
     );
 
     const positionBadge: Record<string, string> = {
-        GK: "🧤",
-        DEF: "🛡️",
-        MID: "🎯",
-        FWD: "⚡",
+        GK: "POR",
+        DEF: "DEF",
+        MID: "MED",
+        FWD: "DEL",
     };
     const positionShort: Record<string, string> = {
         GK: "POR",
@@ -836,11 +836,11 @@ function PlayerRow({ participant, adminUserIds, organizerId, onKick }: { partici
             </div>
             {participant.goals > 0 && (
                 <span className="flex items-center gap-0.5 rounded-full bg-accent/10 px-2 py-0.5 text-xs font-medium text-accent">
-                    ⚽ ×{participant.goals}
+                    ×{participant.goals}
                 </span>
             )}
             {participant.is_mvp && (
-                <span className="text-yellow-400 text-xs">🏅 MVP</span>
+                <span className="text-yellow-400 text-xs">MVP</span>
             )}
             {onKick && (
                 <button

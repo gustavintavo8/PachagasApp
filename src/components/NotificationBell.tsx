@@ -86,11 +86,11 @@ export function NotificationBell({ userId }: NotificationBellProps) {
     }
 
     const typeIcons: Record<string, string> = {
-        join: "👋",
-        teams: "🔀",
-        score: "🏆",
-        chat: "💬",
-        default: "🔔",
+        join: "→",
+        teams: "⇄",
+        score: "★",
+        chat: "•",
+        default: "•",
     };
 
     return (

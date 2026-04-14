@@ -26,10 +26,10 @@ const POSITION_CONFIG: Record<
     string,
     { zone: number; label: string; emoji: string }
 > = {
-    GK: { zone: 85, label: "POR", emoji: "🧤" },
-    DEF: { zone: 65, label: "DEF", emoji: "🛡️" },
-    MID: { zone: 40, label: "MED", emoji: "🎯" },
-    FWD: { zone: 15, label: "DEL", emoji: "⚡" },
+    GK: { zone: 85, label: "POR", emoji: "POR" },
+    DEF: { zone: 65, label: "DEF", emoji: "DEF" },
+    MID: { zone: 40, label: "MED", emoji: "MED" },
+    FWD: { zone: 15, label: "DEL", emoji: "DEL" },
 };
 
 const positionFullNames: Record<string, string> = {
@@ -457,7 +457,7 @@ function PlayerMarker({
     );
 
     const posEmoji =
-        POSITION_CONFIG[profile?.position ?? "MID"]?.emoji ?? "⚽";
+        POSITION_CONFIG[profile?.position ?? "MID"]?.emoji ?? "MID";
 
     const ringClass =
         accentColor === "accent"
@@ -508,7 +508,7 @@ function PlayerMarker({
                 {profile?.username || "???"}
             </span>
             {participant.is_mvp && (
-                <span className="text-[9px] text-yellow-400">🏅 MVP</span>
+                <span className="text-[9px] text-yellow-400">MVP</span>
             )}
         </div>
     );
@@ -533,7 +533,7 @@ function PlayerPopover({
         profile?.avatar_url ?? null
     );
     const posEmoji =
-        POSITION_CONFIG[profile?.position ?? "MID"]?.emoji ?? "⚽";
+        POSITION_CONFIG[profile?.position ?? "MID"]?.emoji ?? "MID";
     const posName =
         positionFullNames[profile?.position ?? "MID"] ?? "Mediocampista";
 
@@ -601,23 +601,23 @@ function PlayerPopover({
                         <StatBox
                             label="Rating"
                             value={`${profile?.elo_rating ?? 1000}`}
-                            icon="⭐"
+                            icon="RP"
                         />
                         <StatBox
                             label="Partidos"
                             value={`${profile?.matches_played ?? 0}`}
-                            icon="🏟️"
+                            icon="PJ"
                         />
                         <StatBox
                             label="Goles"
                             value={`${profile?.goals_scored ?? 0}`}
-                            icon="⚽"
+                            icon="GL"
                         />
                     </div>
 
                     {participant.is_mvp && (
                         <div className="mt-2 inline-flex items-center gap-1 rounded-full bg-yellow-400/10 px-2.5 py-1 text-xs font-semibold text-yellow-400">
-                            🏅 MVP
+                            MVP
                         </div>
                     )}
                 </div>

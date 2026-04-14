@@ -14,6 +14,7 @@ import {
   Target,
   PlusCircle,
   Clock,
+  Zap,
 } from "lucide-react";
 
 // --- Async Data Components ---
@@ -79,7 +80,7 @@ async function NextMatchHighlight({ userId }: { userId: string }) {
       {nextMatch && (
         <div className="mt-8 col-span-full">
           <h2 className="mb-4 text-lg font-semibold text-foreground">
-            ⚡ Tu Próximo Partido
+            <Zap size={20} className="inline" /> Tu Próximo Partido
           </h2>
           <Link href={`/matches/${nextMatch.id}`} prefetch={false}>
             <Card className="border-accent/30 bg-accent/5 transition-colors hover:bg-accent/10">
@@ -257,7 +258,7 @@ async function DashboardContent() {
           />
           <div>
             <h1 className="text-2xl font-bold text-foreground">
-              Hola, {profile?.username || "Jugador"} 👋
+              Hola, {profile?.username || "Jugador"}
             </h1>
             <p className="text-muted">¿Listo para la próxima pachanga?</p>
           </div>
@@ -284,7 +285,7 @@ async function DashboardContent() {
       {/* Open Matches */}
       <div className="mt-8">
         <h2 className="mb-4 text-lg font-semibold text-foreground">
-          🏟️ Partidos Abiertos
+          <Trophy size={20} className="inline" /> Partidos Abiertos
         </h2>
         <Suspense fallback={<MatchesListSkeleton />}>
           <OpenMatchesList userId={user.id} />

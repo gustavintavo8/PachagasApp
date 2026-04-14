@@ -5,6 +5,7 @@ import {
     AreaChart, Area,
 } from "recharts";
 import { Card } from "@/components/ui/Card";
+import { Target, TrendingUp } from "lucide-react";
 
 interface GoalData {
     month: string;
@@ -39,7 +40,7 @@ export function PlayerCharts({ goalsPerMonth, winRateOverTime }: PlayerChartsPro
             {goalsPerMonth.length > 0 && (
                 <Card>
                     <h3 className="mb-4 text-sm font-semibold text-foreground">
-                        ⚽ Goles por Mes
+                        <Target size={16} className="inline" /> Goles por Mes
                     </h3>
                     <div className="h-48">
                         <ResponsiveContainer width="100%" height="100%">
@@ -73,7 +74,7 @@ export function PlayerCharts({ goalsPerMonth, winRateOverTime }: PlayerChartsPro
             {winRateOverTime.length > 1 && (
                 <Card>
                     <h3 className="mb-4 text-sm font-semibold text-foreground">
-                        📈 Evolución Tasa de Victoria
+                        <TrendingUp size={16} className="inline" /> Evolución Tasa de Victoria
                     </h3>
                     <div className="h-48">
                         <ResponsiveContainer width="100%" height="100%">

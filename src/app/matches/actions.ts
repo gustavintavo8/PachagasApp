@@ -710,7 +710,7 @@ async function resolveMvp(matchId: string) {
     sendNotification(
         [winnerId],
         "mvp",
-        "🏅 ¡Eres el MVP!",
+        "¡Eres el MVP!",
         `Has sido elegido MVP del partido en ${matchInfo?.location || "tu partido"}`,
         matchId
     );

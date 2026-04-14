@@ -128,7 +128,7 @@ export function LeaderboardTabs({ data, currentUserId, adminUserIds }: Leaderboa
             {/* Provisional players notice */}
             {provisionalCount > 0 && (
                 <p className="mb-4 text-xs text-muted/70 italic">
-                    ⏳ {provisionalCount} jugador{provisionalCount !== 1 ? "es" : ""} con menos de {PROVISIONAL_MIN} partidos no aparece{provisionalCount !== 1 ? "n" : ""} en el ranking
+                    {provisionalCount} jugador{provisionalCount !== 1 ? "es" : ""} con menos de {PROVISIONAL_MIN} partidos no aparece{provisionalCount !== 1 ? "n" : ""} en el ranking
                 </p>
             )}
 

@@ -236,7 +236,7 @@ export function MvpVoting({
             {!votingClosed && !myVote && (
                 <div className="border-b border-border bg-accent/5 px-4 py-2.5 flex items-center justify-between">
                     <p className="text-xs text-accent">
-                        ⚡ Elige al jugador que mejor lo hizo. Tienes 24h para votar.
+                        Elige al jugador que mejor lo hizo. Tienes 24h para votar.
                     </p>
                     {canManage && (
                         <button
@@ -314,7 +314,7 @@ export function MvpVoting({
                                     <p className={`text-sm font-medium truncate ${isWinner ? "text-yellow-400" : "text-foreground"
                                         }`}>
                                         {p.profiles?.username || "Anónimo"}
-                                        {isWinner && " 🏅"}
+                                        {isWinner && " — MVP"}
                                     </p>
                                     {votingClosed && voteCount > 0 && (
                                         <p className="text-xs text-muted">

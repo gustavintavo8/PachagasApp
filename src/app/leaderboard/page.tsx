@@ -73,7 +73,7 @@ export default async function LeaderboardPage() {
     return (
         <div className="mx-auto max-w-5xl px-4 py-8">
             <div className="mb-8">
-                <h1 className="text-2xl font-bold text-foreground">🏆 Ranking</h1>
+                <h1 className="text-2xl font-bold text-foreground">Ranking</h1>
                 <p className="text-muted">Los mejores jugadores de la comunidad</p>
             </div>
             <LeaderboardTabs data={leaderboardData} currentUserId={user.id} adminUserIds={adminUserIds} />

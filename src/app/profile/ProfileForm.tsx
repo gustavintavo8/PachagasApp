@@ -12,10 +12,10 @@ import type { Profile } from "@/lib/types";
 
 const positions = ["GK", "DEF", "MID", "FWD"] as const;
 const positionLabels: Record<string, string> = {
-    GK: "🧤 Portero (POR)",
-    DEF: "🛡️ Defensa (DEF)",
-    MID: "🎯 Mediocampista (MED)",
-    FWD: "⚡ Delantero (DEL)",
+    GK: "Portero (POR)",
+    DEF: "Defensa (DEF)",
+    MID: "Mediocampista (MED)",
+    FWD: "Delantero (DEL)",
 };
 
 interface ProfileFormProps {
@@ -111,7 +111,7 @@ export function ProfileForm({ userId, profile }: ProfileFormProps) {
 
                 {success && (
                     <div className="rounded-lg border border-accent/30 bg-accent/10 px-4 py-3 text-sm text-accent">
-                        ✅ ¡Perfil actualizado!
+                        ¡Perfil actualizado!
                     </div>
                 )}
 

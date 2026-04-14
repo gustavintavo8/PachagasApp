@@ -63,7 +63,7 @@ export default async function CalendarPage() {
     return (
         <div className="mx-auto max-w-5xl px-4 py-8">
             <div className="mb-8">
-                <h1 className="text-2xl font-bold text-foreground">📅 Calendario</h1>
+                <h1 className="text-2xl font-bold text-foreground">Calendario</h1>
                 <p className="text-muted">Vista mensual de tus partidos</p>
             </div>
             <CalendarView matches={matches} />

@@ -154,7 +154,7 @@ export default async function HistoryPage() {
                                                 )}
                                                 {match.userMvp && (
                                                     <span className="rounded-full bg-yellow-500/10 px-2 py-0.5 text-xs font-medium text-yellow-400 border border-yellow-500/30">
-                                                        🏅 MVP
+                                                        MVP
                                                     </span>
                                                 )}
                                             </div>

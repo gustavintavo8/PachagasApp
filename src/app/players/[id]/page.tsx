@@ -16,6 +16,7 @@ import {
     User,
     Crown,
     Medal,
+    Swords,
 } from "lucide-react";
 
 import type { Metadata } from "next";
@@ -112,10 +113,10 @@ export default async function PlayerProfilePage({
     const isProfileAdmin = adminUserIds.includes(id);
 
     const positionLabels: Record<string, string> = {
-        GK: "🧤 Portero",
-        DEF: "🛡️ Defensa",
-        MID: "🎯 Mediocampista",
-        FWD: "⚡ Delantero",
+        GK: "Portero",
+        DEF: "Defensa",
+        MID: "Mediocampista",
+        FWD: "Delantero",
     };
 
     // Head-to-Head (H2H) Logic
@@ -202,11 +203,11 @@ export default async function PlayerProfilePage({
                                 </span>
                             )}
                             <span className="rounded-full border border-accent/40 bg-accent/10 px-3 py-1 font-semibold text-accent">
-                                ⭐ {profile.elo_rating ?? 1000} RP
+                                {profile.elo_rating ?? 1000} RP
                             </span>
                             {(profile.matches_played ?? 0) < 3 && (
                                 <span className="rounded-full border border-yellow-500/30 bg-yellow-500/10 px-3 py-1 text-xs font-medium text-yellow-400">
-                                    ⏳ Provisional
+                                    Provisional
                                 </span>
                             )}
                         </div>
@@ -274,7 +275,7 @@ export default async function PlayerProfilePage({
                 <Card className="mb-8 overflow-hidden">
                     <CardHeader className="border-b border-border/50 pb-4">
                         <CardTitle className="flex items-center gap-2 text-lg text-foreground">
-                            <span className="text-xl">⚔️</span>
+                            <Swords size={20} className="text-accent" />
                             Historial vs Ti
                         </CardTitle>
                     </CardHeader>
@@ -370,11 +371,11 @@ export default async function PlayerProfilePage({
                                                 </span>
                                                 {match.userGoals > 0 && (
                                                     <span className="text-accent">
-                                                        ⚽ {match.userGoals}
+                                                        {match.userGoals} gol{match.userGoals !== 1 ? "es" : ""}
                                                     </span>
                                                 )}
                                                 {match.userMvp && (
-                                                    <span className="text-yellow-400">🏅 MVP</span>
+                                                    <span className="text-yellow-400">MVP</span>
                                                 )}
                                             </div>
                                         </div>

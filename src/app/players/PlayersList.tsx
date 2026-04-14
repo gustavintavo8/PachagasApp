@@ -10,11 +10,11 @@ import type { Profile } from "@/lib/types";
 
 const positions = ["ALL", "GK", "DEF", "MID", "FWD"] as const;
 const positionLabels: Record<string, string> = {
-    ALL: "🌐 Todos",
-    GK: "🧤 POR",
-    DEF: "🛡️ DEF",
-    MID: "🎯 MED",
-    FWD: "⚡ DEL",
+    ALL: "Todos",
+    GK: "POR",
+    DEF: "DEF",
+    MID: "MED",
+    FWD: "DEL",
 };
 
 interface PlayersListProps {
@@ -87,10 +87,10 @@ export function PlayersList({ profiles, currentUserId, adminUserIds }: PlayersLi
                         const avatarUrl = getAvatarUrl(supabaseUrl, profile.avatar_url);
 
                         const positionBadge: Record<string, string> = {
-                            GK: "🧤",
-                            DEF: "🛡️",
-                            MID: "🎯",
-                            FWD: "⚡",
+                            GK: "POR",
+                            DEF: "DEF",
+                            MID: "MED",
+                            FWD: "DEL",
                         };
                         const positionShort: Record<string, string> = {
                             GK: "POR",
