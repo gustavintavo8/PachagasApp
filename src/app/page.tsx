@@ -140,8 +140,8 @@ async function OpenMatchesList({ userId }: { userId: string }) {
         const hasJoined = match.match_participants.some((p: any) => p.user_id === userId);
 
         return (
-          <Link key={match.id} href={`/matches/${match.id}`} prefetch={false}>
-            <Card className="h-full transition-all hover:border-border-hover hover:bg-surface-hover">
+          <Link key={match.id} href={`/matches/${match.id}`} prefetch={false} className="group block h-full">
+            <Card className="h-full transition-all border border-border/80 bg-gradient-to-br from-surface to-surface-hover/30 hover:border-accent/40 hover:-translate-y-1 hover:shadow-[0_8px_30px_rgba(204,255,0,0.08)]">
               <div className="mb-3 flex items-start justify-between">
                 <div>
                   <div className="flex items-center gap-2 text-sm text-muted">
@@ -159,18 +159,18 @@ async function OpenMatchesList({ userId }: { userId: string }) {
                   </span>
                 )}
               </div>
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2 text-sm text-muted">
-                  <Users size={14} />
+              <div className="mt-3 flex items-center justify-between border-t border-border/50 bg-black/10 px-6 py-3 -mx-6 -mb-6 rounded-b-2xl">
+                <div className="flex items-center gap-2 text-foreground font-semibold">
+                  <div className="flex items-center justify-center w-6 h-6 rounded-full bg-accent/10">
+                    <Users size={12} className="text-accent" />
+                  </div>
                   <span>
-                    {playerCount}/{match.max_players} jugadores
+                    {playerCount}<span className="text-muted/70 font-normal text-xs uppercase tracking-wider ml-1">/ {match.max_players}</span>
                   </span>
                 </div>
-                {isFull ? (
-                  <span className="text-xs font-medium text-red-400">Completo</span>
-                ) : (
-                  <span className="text-xs font-medium text-accent">Abierto</span>
-                )}
+                <span className={`text-xs font-bold uppercase tracking-wider ${isFull ? "text-red-400" : "text-accent group-hover:scale-105 transition-transform"}`}>
+                  {isFull ? "Completo" : "Abierto →"}
+                </span>
               </div>
             </Card>
           </Link>

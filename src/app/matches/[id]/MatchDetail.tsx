@@ -55,8 +55,9 @@ import {
     XCircle,
     X,
     Crown,
+    Target,
 } from "lucide-react";
-import { POSITION_ICONS, POSITION_SHORT } from "@/lib/positions";
+import { POSITION_ICONS, POSITION_SHORT, POSITION_COLORS } from "@/lib/positions";
 import type { Match, Profile } from "@/lib/types";
 
 interface Participant {
@@ -792,12 +793,15 @@ function PlayerRow({ participant, adminUserIds, organizerId, onKick }: { partici
     );
 
     return (
-        <div className="flex items-center gap-3 rounded-xl bg-zinc-800/50 px-3 py-2">
-            <Avatar
-                src={avatarUrl}
-                fallback={profile?.username || "P"}
-                size="sm"
-            />
+        <div className="group flex items-center gap-3 rounded-xl border border-border/50 bg-gradient-to-br from-surface to-surface-hover/30 px-3 py-2 transition-all hover:border-accent/40 hover:-translate-y-0.5 hover:shadow-[0_4px_20px_rgba(204,255,0,0.05)]">
+            <div className="relative">
+                <Avatar
+                    src={avatarUrl}
+                    fallback={profile?.username || "P"}
+                    size="sm"
+                />
+                <div className="absolute inset-0 rounded-full ring-2 ring-border ring-offset-2 ring-offset-surface transition-all group-hover:ring-accent/50"></div>
+            </div>
             <div className="flex-1 min-w-0">
                 <div className="flex items-center gap-1.5">
                     <p className="text-sm font-medium text-foreground truncate">
@@ -816,9 +820,9 @@ function PlayerRow({ participant, adminUserIds, organizerId, onKick }: { partici
                         </span>
                     )}
                 </div>
-                <div className="flex items-center gap-1.5 text-xs text-muted">
+                <div className="flex items-center gap-1.5 text-xs">
                     {profile?.position && (
-                        <span className="flex items-center gap-1">
+                        <span className={`inline-flex items-center gap-0.5 rounded-full px-1.5 py-0.5 text-[10px] font-bold tracking-wide uppercase border ${POSITION_COLORS[profile.position] || "text-muted"}`}>
                             {POSITION_ICONS[profile.position]}
                             {POSITION_SHORT[profile.position] || profile.position}
                         </span>
@@ -826,12 +830,18 @@ function PlayerRow({ participant, adminUserIds, organizerId, onKick }: { partici
                 </div>
             </div>
             {participant.goals > 0 && (
-                <span className="flex items-center gap-0.5 rounded-full bg-accent/10 px-2 py-0.5 text-xs font-medium text-accent">
-                    ×{participant.goals}
-                </span>
+                <div className="flex flex-col items-center justify-center h-6 min-w-[24px] rounded-full bg-accent/10 border border-accent/20 px-1.5">
+                    <span className="text-[10px] font-bold text-accent">
+                        ×{participant.goals} <Target size={8} className="inline ml-0.5 mb-0.5" />
+                    </span>
+                </div>
             )}
             {participant.is_mvp && (
-                <span className="text-yellow-400 text-xs">MVP</span>
+                <div className="flex flex-col items-center justify-center h-6 min-w-[24px] rounded-full bg-yellow-500/10 border border-yellow-500/20 px-1.5">
+                    <span className="text-[10px] font-bold text-yellow-400">
+                        MVP <Crown size={9} className="inline ml-0.5 mb-0.5" />
+                    </span>
+                </div>
             )}
             {onKick && (
                 <button

@@ -6,6 +6,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { Card } from "@/components/ui/Card";
 import { getAvatarUrl } from "@/lib/utils";
 import { Trophy, Target, TrendingUp, Medal, Crown, Star } from "lucide-react";
+import { POSITION_ICONS, POSITION_SHORT, POSITION_COLORS } from "@/lib/positions";
 
 interface PlayerData {
     id: string;
@@ -138,7 +139,7 @@ export function LeaderboardTabs({ data, currentUserId, adminUserIds }: Leaderboa
                     {top3.map((player, idx) => (
                         <Link key={player.id} href={`/players/${player.id}`}>
                             <Card
-                                className={`relative bg-gradient-to-b ${podiumColors[idx]} transition-all hover:scale-[1.02]`}
+                                className={`relative group bg-gradient-to-b ${podiumColors[idx]} border border-border/50 shadow-[0_4px_20px_rgba(0,0,0,0.2)] transition-all hover:-translate-y-2 hover:shadow-[0_8px_30px_rgba(204,255,0,0.15)] hover:border-accent/40`}
                             >
                                 <div className="flex flex-col items-center text-center">
                                     <span
@@ -146,12 +147,14 @@ export function LeaderboardTabs({ data, currentUserId, adminUserIds }: Leaderboa
                                     >
                                         {idx + 1}
                                     </span>
-                                    <Avatar
-                                        src={getAvatarUrl(supabaseUrl, player.avatar_url)}
-                                        fallback={player.username || "P"}
-                                        size="lg"
-                                        className="mb-3"
-                                    />
+                                    <div className="relative mb-3">
+                                        <Avatar
+                                            src={getAvatarUrl(supabaseUrl, player.avatar_url)}
+                                            fallback={player.username || "P"}
+                                            size="lg"
+                                        />
+                                        <div className="absolute inset-0 rounded-full ring-4 ring-border ring-offset-4 ring-offset-surface transition-all group-hover:ring-accent/50"></div>
+                                    </div>
                                     <div className="flex items-center gap-2">
                                         <p className="font-semibold text-foreground truncate max-w-[140px]">
                                             {player.username || "Desconocido"}
@@ -168,7 +171,15 @@ export function LeaderboardTabs({ data, currentUserId, adminUserIds }: Leaderboa
                                             </span>
                                         )}
                                     </div>
-                                    <p className="mt-2 text-3xl font-bold text-foreground">
+                                    <div className="mt-2 flex items-center justify-center">
+                                        {player.position && (
+                                            <span className={`inline-flex items-center gap-1 rounded-full px-2 py-0.5 text-[10px] font-bold tracking-wide uppercase border ${POSITION_COLORS[player.position] || "text-muted border-border"}`}>
+                                                {POSITION_ICONS[player.position]}
+                                                {POSITION_SHORT[player.position] || player.position}
+                                            </span>
+                                        )}
+                                    </div>
+                                    <p className="mt-3 text-4xl font-bold drop-shadow-md text-accent">
                                         {getStatValue(player, activeTab)}
                                     </p>
                                     <p className="text-xs text-muted">{getStatLabel(activeTab)}</p>
@@ -188,16 +199,19 @@ export function LeaderboardTabs({ data, currentUserId, adminUserIds }: Leaderboa
             {rest.length > 0 && (
                 <div className="space-y-2">
                     {rest.map((player, idx) => (
-                        <Link key={player.id} href={`/players/${player.id}`}>
-                            <div className="flex items-center gap-4 rounded-xl border border-border bg-surface px-4 py-3 transition-all hover:bg-surface-hover">
+                        <Link key={player.id} href={`/players/${player.id}`} className="group block">
+                            <div className="flex items-center gap-4 rounded-xl border border-border/80 bg-gradient-to-br from-surface to-surface-hover/30 px-4 py-3 transition-all hover:border-accent/40 hover:-translate-y-0.5 hover:shadow-[0_8px_30px_rgba(204,255,0,0.06)]">
                                 <span className="w-8 text-center text-sm font-bold text-muted">
                                     {idx + 4}
                                 </span>
-                                <Avatar
-                                    src={getAvatarUrl(supabaseUrl, player.avatar_url)}
-                                    fallback={player.username || "P"}
-                                    size="sm"
-                                />
+                                <div className="relative">
+                                    <Avatar
+                                        src={getAvatarUrl(supabaseUrl, player.avatar_url)}
+                                        fallback={player.username || "P"}
+                                        size="sm"
+                                    />
+                                    <div className="absolute inset-0 rounded-full ring-2 ring-border ring-offset-2 ring-offset-surface transition-all group-hover:ring-accent/50"></div>
+                                </div>
                                 <div className="flex-1 min-w-0">
                                     <div className="flex items-center gap-2">
                                         <p className="truncate text-sm font-medium text-foreground">
@@ -215,14 +229,21 @@ export function LeaderboardTabs({ data, currentUserId, adminUserIds }: Leaderboa
                                             </span>
                                         )}
                                     </div>
-                                    <div className="flex gap-2 text-xs text-muted">
+                                    <div className="flex items-center gap-3">
+                                        <div className="flex gap-1.5 text-[11px] font-medium text-muted">
                                         <span className="text-green-400">{player.wins}V</span>
                                         <span>{player.draws}E</span>
-                                        <span className="text-red-400">{player.losses}D</span>
+                                            <span className="text-red-400">{player.losses}D</span>
+                                        </div>
+                                        {player.position && (
+                                            <span className={`flex items-center gap-1 rounded-full px-1.5 py-0.5 text-[9px] font-bold uppercase border ${POSITION_COLORS[player.position] || "text-muted"}`}>
+                                                {POSITION_SHORT[player.position] || player.position}
+                                            </span>
+                                        )}
                                     </div>
                                 </div>
-                                <div className="text-right">
-                                    <p className="text-lg font-bold text-foreground">
+                                <div className="text-right flex flex-col justify-center items-end">
+                                    <p className="text-xl font-bold text-accent">
                                         {getStatValue(player, activeTab)}
                                     </p>
                                     <p className="text-[10px] text-muted">{getStatLabel(activeTab)}</p>

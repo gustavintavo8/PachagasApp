@@ -118,8 +118,8 @@ export function MatchesTabs({ matches, userId }: MatchesTabsProps) {
                                 const config = statusConfig[match.status] || statusConfig.open;
 
                                 return (
-                                    <Link key={match.id} href={`/matches/${match.id}`}>
-                                        <Card className="h-full transition-all hover:border-accent/40 hover:bg-surface-hover hover:-translate-y-0.5 hover:shadow-[0_8px_30px_rgba(204,255,0,0.06)]">
+                                    <Link key={match.id} href={`/matches/${match.id}`} className="group block h-full">
+                                        <Card className="h-full transition-all border border-border/80 bg-gradient-to-br from-surface to-surface-hover/30 hover:border-accent/40 hover:-translate-y-1 hover:shadow-[0_8px_30px_rgba(204,255,0,0.08)]">
                                             <div className="mb-3 flex items-center gap-2">
                                                 <span className={`flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium ${config.classes}`}>
                                                     {config.icon}
@@ -139,12 +139,14 @@ export function MatchesTabs({ matches, userId }: MatchesTabsProps) {
                                                 <Calendar size={14} className="shrink-0" />
                                                 {formatDate(match.date)}
                                             </div>
-                                            <div className="flex items-center justify-between border-t border-border pt-3">
-                                                <div className="flex items-center gap-2 text-sm text-muted">
-                                                    <Users size={14} />
-                                                    <span>{playerCount}/{match.max_players}</span>
+                                            <div className="flex items-center justify-between border-t border-border/50 bg-black/10 px-6 py-3 -mx-6 -mb-6 mt-3 rounded-b-2xl">
+                                                <div className="flex items-center gap-2 text-foreground font-semibold">
+                                                    <div className="flex items-center justify-center w-6 h-6 rounded-full bg-accent/10">
+                                                        <Users size={12} className="text-accent" />
+                                                    </div>
+                                                    <span>{playerCount}<span className="text-muted/70 font-normal text-xs uppercase tracking-wider ml-1">/ {match.max_players}</span></span>
                                                 </div>
-                                                <span className={`text-xs font-medium ${isFull ? "text-red-400" : "text-accent"}`}>
+                                                <span className={`text-xs font-bold uppercase tracking-wider ${isFull ? "text-red-400" : "text-accent group-hover:scale-105 transition-transform"}`}>
                                                     {isFull ? "Completo" : "Unirse →"}
                                                 </span>
                                             </div>
@@ -216,13 +218,13 @@ export function MatchesTabs({ matches, userId }: MatchesTabsProps) {
                                 const config = result ? resultConfig[result] : null;
 
                                 return (
-                                    <Link key={match.id} href={`/matches/${match.id}`}>
-                                        <Card className="transition-all hover:border-accent/40 hover:bg-surface-hover hover:shadow-[0_4px_20px_rgba(204,255,0,0.05)]">
+                                    <Link key={match.id} href={`/matches/${match.id}`} className="group block">
+                                        <Card className="transition-all border border-border/80 bg-gradient-to-br from-surface to-surface-hover/30 hover:border-accent/40 hover:-translate-y-0.5 hover:shadow-[0_8px_30px_rgba(204,255,0,0.08)]">
                                             <div className="flex items-center justify-between">
                                                 <div className="min-w-0 flex-1 space-y-2">
                                                     <div className="flex items-center gap-2">
                                                         {config && (
-                                                            <span className={`rounded-full border px-2.5 py-0.5 text-xs font-bold ${config.bg} ${config.text} ${config.border}`}>
+                                                            <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold uppercase tracking-wide ${config.bg} ${config.text} ${config.border}`}>
                                                                 {config.label}
                                                             </span>
                                                         )}
@@ -249,28 +251,31 @@ export function MatchesTabs({ matches, userId }: MatchesTabsProps) {
                                                         )}
                                                     </div>
                                                 </div>
-                                                {match.team_a_score !== null && match.team_b_score !== null && (
-                                                    <div className="ml-4 flex items-center gap-3 text-center">
+                                            </div>
+                                            {match.team_a_score !== null && match.team_b_score !== null && (
+                                                <div className="mt-4 flex items-center justify-between border-t border-border/50 bg-black/10 px-6 py-3 -mx-6 -mb-6 rounded-b-2xl">
+                                                    <span className="text-[10px] font-bold uppercase tracking-wider text-muted group-hover:text-foreground transition-colors relative z-10 pointer-events-none">Ver Detalles →</span>
+                                                    <div className="flex items-center justify-end gap-3 text-center shrink-0 min-w-[70px]">
                                                         <div>
-                                                            <p className={`text-xs font-medium ${myTeam === "A" ? "text-accent" : "text-muted"}`}>
+                                                            <p className={`text-[9px] uppercase tracking-wider font-bold mb-0.5 ${myTeam === "A" ? "text-accent" : "text-muted"}`}>
                                                                 {myTeam === "A" ? "Tú" : "Riv"}
                                                             </p>
-                                                            <p className="text-3xl font-bold text-foreground">
+                                                            <p className={`text-xl font-bold leading-none ${myTeam === "A" && result === "win" ? "text-accent drop-shadow-[0_0_8px_rgba(204,255,0,0.5)]" : "text-foreground"}`}>
                                                                 {myTeam === "A" ? match.team_a_score : match.team_b_score}
                                                             </p>
                                                         </div>
-                                                        <span className="text-lg text-muted">–</span>
+                                                        <span className="text-sm font-bold text-muted/50">-</span>
                                                         <div>
-                                                            <p className={`text-xs font-medium ${myTeam === "B" ? "text-accent" : "text-muted"}`}>
+                                                            <p className={`text-[9px] uppercase tracking-wider font-bold mb-0.5 ${myTeam === "B" ? "text-accent" : "text-muted"}`}>
                                                                 {myTeam === "B" ? "Tú" : "Riv"}
                                                             </p>
-                                                            <p className="text-3xl font-bold text-foreground">
+                                                            <p className={`text-xl font-bold leading-none ${myTeam === "B" && result === "win" ? "text-accent drop-shadow-[0_0_8px_rgba(204,255,0,0.5)]" : "text-foreground"}`}>
                                                                 {myTeam === "B" ? match.team_a_score : match.team_b_score}
                                                             </p>
                                                         </div>
                                                     </div>
-                                                )}
-                                            </div>
+                                                </div>
+                                            )}
                                         </Card>
                                     </Link>
                                 );

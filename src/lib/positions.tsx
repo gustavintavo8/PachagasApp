@@ -27,3 +27,11 @@ export const POSITION_FULL: Record<string, string> = {
     MID: "Mediocampista",
     FWD: "Delantero",
 };
+
+/** Shared color classes for position pills */
+export const POSITION_COLORS: Record<string, string> = {
+    GK: "text-blue-400 bg-blue-500/10 border-blue-500/20",
+    DEF: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
+    MID: "text-amber-400 bg-amber-500/10 border-amber-500/20",
+    FWD: "text-rose-400 bg-rose-500/10 border-rose-500/20",
+};
