@@ -4,6 +4,7 @@ export type Profile = {
     avatar_url: string | null;
     position: "GK" | "DEF" | "MID" | "FWD" | null;
     skill_level: number | null;
+    elo_rating: number;
     matches_played: number;
     goals_scored: number;
 };

@@ -5,7 +5,7 @@ import Link from "next/link";
 import { Avatar } from "@/components/ui/Avatar";
 import { Card } from "@/components/ui/Card";
 import { getAvatarUrl } from "@/lib/utils";
-import { Trophy, Target, TrendingUp, Medal, Crown } from "lucide-react";
+import { Trophy, Target, TrendingUp, Medal, Crown, Star } from "lucide-react";
 
 interface PlayerData {
     id: string;
@@ -13,6 +13,7 @@ interface PlayerData {
     avatar_url: string | null;
     position: string | null;
     skill_level: number | null;
+    elo_rating: number;
     matches_played: number;
     goals_scored: number;
     wins: number;
@@ -28,6 +29,7 @@ interface LeaderboardTabsProps {
 }
 
 const tabs = [
+    { key: "rating", label: "Rating", icon: Star },
     { key: "wins", label: "Victorias", icon: TrendingUp },
     { key: "goals", label: "Goles", icon: Target },
     { key: "matches", label: "Partidos", icon: Trophy },
@@ -39,6 +41,8 @@ type TabKey = (typeof tabs)[number]["key"];
 function getSortedData(data: PlayerData[], tab: TabKey): PlayerData[] {
     return [...data].sort((a, b) => {
         switch (tab) {
+            case "rating":
+                return b.elo_rating - a.elo_rating;
             case "wins":
                 return b.wins - a.wins || b.matches_played - a.matches_played;
             case "goals":
@@ -53,6 +57,7 @@ function getSortedData(data: PlayerData[], tab: TabKey): PlayerData[] {
 
 function getStatValue(player: PlayerData, tab: TabKey): number {
     switch (tab) {
+        case "rating": return player.elo_rating;
         case "wins": return player.wins;
         case "goals": return player.goals_scored;
         case "matches": return player.matches_played;
@@ -62,6 +67,7 @@ function getStatValue(player: PlayerData, tab: TabKey): number {
 
 function getStatLabel(tab: TabKey): string {
     switch (tab) {
+        case "rating": return "RP";
         case "wins": return "victorias";
         case "goals": return "goles";
         case "matches": return "partidos";
@@ -82,10 +88,18 @@ const podiumBadgeColors = [
 ];
 
 export function LeaderboardTabs({ data, currentUserId, adminUserIds }: LeaderboardTabsProps) {
-    const [activeTab, setActiveTab] = useState<TabKey>("wins");
-    const sorted = getSortedData(data, activeTab);
+    const [activeTab, setActiveTab] = useState<TabKey>("rating");
+    // For "rating" tab, only show players with ≥3 matches (non-provisional)
+    const PROVISIONAL_MIN = 3;
+    const filtered = activeTab === "rating"
+        ? data.filter((p) => p.matches_played >= PROVISIONAL_MIN)
+        : data;
+    const sorted = getSortedData(filtered, activeTab);
     const top3 = sorted.slice(0, 3);
     const rest = sorted.slice(3);
+    const provisionalCount = activeTab === "rating"
+        ? data.filter((p) => p.matches_played < PROVISIONAL_MIN && p.matches_played > 0).length
+        : 0;
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
     return (
@@ -110,6 +124,13 @@ export function LeaderboardTabs({ data, currentUserId, adminUserIds }: Leaderboa
                     );
                 })}
             </div>
+
+            {/* Provisional players notice */}
+            {provisionalCount > 0 && (
+                <p className="mb-4 text-xs text-muted/70 italic">
+                    ⏳ {provisionalCount} jugador{provisionalCount !== 1 ? "es" : ""} con menos de {PROVISIONAL_MIN} partidos no aparece{provisionalCount !== 1 ? "n" : ""} en el ranking
+                </p>
+            )}
 
             {/* Podium — Top 3 */}
             {top3.length > 0 && (

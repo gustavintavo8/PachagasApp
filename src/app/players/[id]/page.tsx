@@ -201,7 +201,14 @@ export default async function PlayerProfilePage({
                                     {positionLabels[profile.position] || profile.position}
                                 </span>
                             )}
-
+                            <span className="rounded-full border border-accent/40 bg-accent/10 px-3 py-1 font-semibold text-accent">
+                                ⭐ {profile.elo_rating ?? 1000} RP
+                            </span>
+                            {(profile.matches_played ?? 0) < 3 && (
+                                <span className="rounded-full border border-yellow-500/30 bg-yellow-500/10 px-3 py-1 text-xs font-medium text-yellow-400">
+                                    ⏳ Provisional
+                                </span>
+                            )}
                         </div>
 
                         {/* Trophies Section - Under Name */}

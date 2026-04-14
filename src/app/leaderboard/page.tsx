@@ -61,6 +61,7 @@ export default async function LeaderboardPage() {
         avatar_url: p.avatar_url,
         position: p.position,
         skill_level: p.skill_level,
+        elo_rating: p.elo_rating ?? 1000,
         matches_played: p.matches_played ?? 0,
         goals_scored: p.goals_scored ?? 0,
         wins: statsMap[p.id]?.wins ?? 0,

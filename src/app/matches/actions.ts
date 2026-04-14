@@ -5,6 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { balanceTeams } from "@/lib/team-balancer";
+import { computeMatchEloUpdates, ELO_BASE } from "@/lib/elo";
 import { rateLimit } from "@/lib/rate-limit";
 import { isAdmin } from "@/lib/permissions";
 import { z } from "zod";
@@ -314,6 +315,49 @@ export async function setScore(
 
     if (error) return { success: false, error: error.message };
 
+    // ── Recalcular ELO de todos los participantes ──────────────────────────
+    if (!isAlreadyFinished) {
+        const { data: eloParticipants } = await adminSupabase
+            .from("match_participants")
+            .select("user_id, team, goals, is_mvp, profiles(elo_rating, matches_played, position)")
+            .eq("match_id", validData.matchId);
+
+        if (eloParticipants && eloParticipants.length > 0) {
+            const eloInputs = eloParticipants
+                .filter((p) => p.team === "A" || p.team === "B")
+                .map((p) => {
+                    const profile = p.profiles as unknown as {
+                        elo_rating: number | null;
+                        matches_played: number | null;
+                        position: string | null;
+                    };
+                    return {
+                        userId: p.user_id,
+                        currentRating: profile?.elo_rating ?? ELO_BASE,
+                        matchesPlayed: profile?.matches_played ?? 0,
+                        team: p.team as "A" | "B",
+                        position: (profile?.position ?? "MID") as "GK" | "DEF" | "MID" | "FWD",
+                        goalsScored: p.goals ?? 0,
+                        isMvp: p.is_mvp ?? false,
+                    };
+                });
+
+            const eloUpdates = computeMatchEloUpdates(
+                eloInputs,
+                validData.teamAScore,
+                validData.teamBScore
+            );
+
+            // Bulk update ELO ratings
+            for (const update of eloUpdates) {
+                await adminSupabase
+                    .from("profiles")
+                    .update({ elo_rating: update.newRating })
+                    .eq("id", update.userId);
+            }
+        }
+    }
+    // ──────────────────────────────────────────────────────────────────────
 
     // Notify all participants about the score
     const { data: allParticipants } = await adminSupabase
@@ -365,10 +409,10 @@ export async function generateTeams(matchId: string): Promise<ActionResult> {
     if (match?.created_by !== user.id && !admin)
         return { success: false, error: "Solo el organizador puede generar equipos" };
 
-    // Fetch participants with positions
+    // Fetch participants with positions AND elo_rating
     const { data: participants } = await supabase
         .from("match_participants")
-        .select("user_id, profiles(position)")
+        .select("user_id, profiles(position, elo_rating)")
         .eq("match_id", matchId);
 
     if (!participants || participants.length < 2)
@@ -380,11 +424,12 @@ export async function generateTeams(matchId: string): Promise<ActionResult> {
     // Update players without a position to MID in the database
     const adminClient = createAdminClient();
     const playersWithPosition = participants.map((p) => {
-        const rawPos = (p.profiles as unknown as { position: string | null })?.position;
+        const prof = (p.profiles as unknown as { position: string | null; elo_rating: number | null });
+        const rawPos = prof?.position;
         const position: ValidPosition = rawPos && validPositions.includes(rawPos as ValidPosition)
             ? (rawPos as ValidPosition)
             : "MID";
-        return { user_id: p.user_id, position };
+        return { user_id: p.user_id, position, elo_rating: prof?.elo_rating ?? ELO_BASE };
     });
 
     // Persist MID default for players who had null position

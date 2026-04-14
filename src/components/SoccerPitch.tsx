@@ -597,7 +597,12 @@ function PlayerPopover({
                     </p>
 
                     {/* Stats grid */}
-                    <div className="mt-3 grid grid-cols-2 gap-1">
+                    <div className="mt-3 grid grid-cols-3 gap-1">
+                        <StatBox
+                            label="Rating"
+                            value={`${profile?.elo_rating ?? 1000}`}
+                            icon="⭐"
+                        />
                         <StatBox
                             label="Partidos"
                             value={`${profile?.matches_played ?? 0}`}

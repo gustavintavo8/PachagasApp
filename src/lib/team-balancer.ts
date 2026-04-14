@@ -1,12 +1,14 @@
 /**
- * Team Balancing Algorithm — Position-Based Random Assignment
+ * Team Balancing Algorithm — ELO-Based Position Distribution
  *
  * Strategy:
  * 1. Group players by position (GK, DEF, MID, FWD).
- * 2. For each position group, shuffle randomly.
- * 3. Distribute evenly: alternate between Team A and Team B.
- *    This ensures, e.g., 2 GKs → 1 per team.
- * 4. No skill weighting — purely random within each position group.
+ * 2. For each position group, sort by elo_rating descending.
+ * 3. Distribute in "snake draft" / zigzag order: best→A, 2nd→B, 3rd→A...
+ *    This ensures the two best players in each position end up on different teams.
+ * 4. If teams are still uneven in total size, move a player from the bigger team.
+ *
+ * Result: both teams have roughly equal ELO sum, guaranteeing fairer matches.
  */
 
 export type Position = "GK" | "DEF" | "MID" | "FWD";
@@ -14,21 +16,13 @@ export type Position = "GK" | "DEF" | "MID" | "FWD";
 export interface TeamPlayer {
     user_id: string;
     position: Position;
+    elo_rating: number;
 }
 
 export interface BalanceResult {
     teamA: TeamPlayer[];
     teamB: TeamPlayer[];
     assignments: { user_id: string; team: "A" | "B" }[];
-}
-
-/** Fisher-Yates shuffle (in place) */
-function shuffle<T>(arr: T[]): T[] {
-    for (let i = arr.length - 1; i > 0; i--) {
-        const j = Math.floor(Math.random() * (i + 1));
-        [arr[i], arr[j]] = [arr[j], arr[i]];
-    }
-    return arr;
 }
 
 export function balanceTeams(participants: TeamPlayer[]): BalanceResult {
@@ -47,22 +41,25 @@ export function balanceTeams(participants: TeamPlayer[]): BalanceResult {
     const teamA: TeamPlayer[] = [];
     const teamB: TeamPlayer[] = [];
 
-    // Process each position group: shuffle then alternate A/B
     const positionOrder: Position[] = ["GK", "DEF", "MID", "FWD"];
 
     for (const pos of positionOrder) {
-        const players = shuffle([...groups[pos]]);
-        for (let i = 0; i < players.length; i++) {
-            if (teamA.filter((p) => p.position === pos).length <=
-                teamB.filter((p) => p.position === pos).length) {
-                teamA.push(players[i]);
+        // Sort by ELO descending so the best players are distributed first
+        const sorted = [...groups[pos]].sort((a, b) => b.elo_rating - a.elo_rating);
+
+        for (let i = 0; i < sorted.length; i++) {
+            // Zigzag: even index → team with fewer pos players (or A on tie), odd → the other
+            const aCount = teamA.filter((p) => p.position === pos).length;
+            const bCount = teamB.filter((p) => p.position === pos).length;
+            if (aCount <= bCount) {
+                teamA.push(sorted[i]);
             } else {
-                teamB.push(players[i]);
+                teamB.push(sorted[i]);
             }
         }
     }
 
-    // If teams are uneven overall, move a player from the larger team
+    // Equalise overall sizes if needed
     while (Math.abs(teamA.length - teamB.length) > 1) {
         if (teamA.length > teamB.length) {
             teamB.push(teamA.pop()!);
