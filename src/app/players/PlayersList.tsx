@@ -87,16 +87,28 @@ export function PlayersList({ profiles, currentUserId, adminUserIds }: PlayersLi
                         const isYou = profile.id === currentUserId;
                         const avatarUrl = getAvatarUrl(supabaseUrl, profile.avatar_url);
 
+                        const posColors: Record<string, string> = {
+                            GK: "text-blue-400 bg-blue-500/10 border-blue-500/20",
+                            DEF: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
+                            MID: "text-amber-400 bg-amber-500/10 border-amber-500/20",
+                            FWD: "text-rose-400 bg-rose-500/10 border-rose-500/20",
+                        };
+
+                        const posColor = profile.position ? posColors[profile.position] || "text-muted" : "text-muted";
+
                         return (
-                            <Link key={profile.id} href={`/players/${profile.id}`}>
-                                <Card className="h-full transition-all hover:border-accent/40 hover:bg-surface-hover hover:-translate-y-0.5 hover:shadow-[0_8px_30px_rgba(204,255,0,0.06)]">
+                            <Link key={profile.id} href={`/players/${profile.id}`} className="group relative">
+                                <Card className="h-full transition-all border-border/80 bg-gradient-to-br from-surface to-surface-hover/30 hover:border-accent/40 hover:-translate-y-1 hover:shadow-[0_8px_30px_rgba(204,255,0,0.08)]">
                                     {/* Player Header */}
                                     <div className="mb-3 flex items-center gap-3">
-                                        <Avatar
-                                            src={avatarUrl}
-                                            fallback={profile.username || "P"}
-                                            size="md"
-                                        />
+                                        <div className="relative">
+                                            <Avatar
+                                                src={avatarUrl}
+                                                fallback={profile.username || "P"}
+                                                size="md"
+                                            />
+                                            <div className="absolute inset-0 rounded-full ring-2 ring-border ring-offset-2 ring-offset-surface transition-all group-hover:ring-accent/50"></div>
+                                        </div>
                                         <div className="min-w-0 flex-1">
                                             <div className="flex items-center gap-2">
                                                 <p className="truncate font-semibold text-foreground">
@@ -114,27 +126,30 @@ export function PlayersList({ profiles, currentUserId, adminUserIds }: PlayersLi
                                                     </span>
                                                 )}
                                             </div>
-                                            <div className="flex items-center gap-1.5 text-sm text-muted">
+                                            <div className="flex items-center gap-2 text-xs">
                                                 {profile.position && (
-                                                    <span className="flex items-center gap-1">
+                                                    <span className={`flex items-center gap-1 rounded-full border px-2 py-0.5 font-medium ${posColor}`}>
                                                         {POSITION_ICONS[profile.position]}
                                                         {POSITION_SHORT[profile.position] || profile.position}
                                                     </span>
                                                 )}
-
                                             </div>
                                         </div>
                                     </div>
 
                                     {/* Stats */}
-                                    <div className="flex items-center justify-between border-t border-border pt-3">
-                                        <div className="flex items-center gap-1.5 text-sm text-muted">
-                                            <Trophy size={14} />
-                                            <span>{profile.matches_played} partidos</span>
+                                    <div className="flex items-center justify-between border-t border-border/50 bg-black/10 px-6 py-3 -mx-6 -mb-6 mt-3 rounded-b-2xl">
+                                        <div className="flex items-center gap-2 text-foreground font-semibold">
+                                            <div className="flex items-center justify-center w-6 h-6 rounded-full bg-accent/10">
+                                                <Trophy size={12} className="text-accent" />
+                                            </div>
+                                            <span>{profile.matches_played} <span className="text-muted/70 font-normal text-xs uppercase tracking-wider">PJ</span></span>
                                         </div>
-                                        <div className="flex items-center gap-1.5 text-sm text-muted">
-                                            <Target size={14} />
-                                            <span>{profile.goals_scored} goles</span>
+                                        <div className="flex items-center gap-2 text-foreground font-semibold">
+                                            <div className="flex items-center justify-center w-6 h-6 rounded-full bg-accent/10">
+                                                <Target size={14} className="text-accent" />
+                                            </div>
+                                            <span>{profile.goals_scored} <span className="text-muted/70 font-normal text-xs uppercase tracking-wider">GL</span></span>
                                         </div>
                                     </div>
                                 </Card>
