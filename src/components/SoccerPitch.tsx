@@ -468,6 +468,15 @@ function PlayerMarker({
             : "ring-4 shadow-[0_0_20px_rgba(96,165,250,0.8)] scale-110"
         : "ring-[3px]";
 
+    // Solid background color mapping for pitch markers to guarantee contrast
+    const solidPosMap: Record<string, string> = {
+        GK: "bg-blue-950/90 text-blue-400 border-blue-500/50",
+        DEF: "bg-emerald-950/90 text-emerald-400 border-emerald-500/50",
+        MID: "bg-yellow-950/90 text-yellow-500 border-yellow-500/50",
+        FWD: "bg-red-950/90 text-red-500 border-red-500/50"
+    };
+    const pitchPosClass = solidPosMap[posKey] || solidPosMap.MID;
+
     return (
         <div
             data-player-marker
@@ -487,23 +496,25 @@ function PlayerMarker({
                 }
             }}
         >
-            {/* Avatar circle */}
-            <div
-                className={`relative rounded-full ${ringClass} ${activeRing} outline outline-1 outline-black/50 transition-all duration-300 group-hover:scale-110 group-hover:shadow-[0_0_15px_rgba(255,255,255,0.3)]`}
-            >
-                <Avatar
-                    src={avatarUrl}
-                    fallback={profile?.username || "P"}
-                    size="sm"
-                />
-                {/* Position badge */}
-                <span className={`absolute -bottom-2.5 left-1/2 -translate-x-1/2 flex items-center justify-center rounded-full border px-1.5 py-[1px] text-[8.5px] font-bold tracking-wider ${posColorClass} shadow-md whitespace-nowrap z-10 transition-transform group-hover:scale-105`}>
+            {/* Avatar container with mb to compensate for the absolute badge */}
+            <div className="relative mb-2.5 flex flex-col items-center">
+                <div
+                    className={`relative rounded-full ${ringClass} ${activeRing} outline outline-1 outline-black/50 transition-all duration-300 group-hover:scale-110 group-hover:shadow-[0_0_15px_rgba(255,255,255,0.3)]`}
+                >
+                    <Avatar
+                        src={avatarUrl}
+                        fallback={profile?.username || "P"}
+                        size="sm"
+                    />
+                </div>
+                {/* Position badge tightly attached */}
+                <span className={`absolute -bottom-3 left-1/2 -translate-x-1/2 flex items-center justify-center rounded-full border px-1.5 py-[1.5px] text-[8.5px] font-bold tracking-wider ${pitchPosClass} shadow-[0_2px_4px_rgba(0,0,0,0.6)] whitespace-nowrap z-10 transition-transform group-hover:scale-105 backdrop-blur-sm`}>
                     <span className="opacity-90 mr-[0.5px] text-[9px]">{posIcon}</span>
                     {posLabel}
                 </span>
             </div>
             {/* Name */}
-            <span className="max-w-[56px] truncate text-center text-[9px] font-semibold text-white/90 drop-shadow-[0_1px_2px_rgba(0,0,0,0.9)] sm:max-w-[70px] sm:text-[11px]">
+            <span className="max-w-[56px] truncate text-center text-[9px] font-semibold text-white drop-shadow-[0_2px_2px_rgba(0,0,0,1)] sm:max-w-[70px] sm:text-[11px]">
                 {profile?.username || "???"}
             </span>
             {participant.is_mvp && (

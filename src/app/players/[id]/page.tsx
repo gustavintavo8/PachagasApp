@@ -286,15 +286,15 @@ export default async function PlayerProfilePage({
                     <div className="grid grid-cols-3 divide-x divide-border/50 p-4 bg-black/10">
                         <div className="text-center px-2 group">
                             <p className="truncate text-[10px] uppercase tracking-wider text-muted mb-1 group-hover:text-green-400 transition-colors">Victoria Tuya</p>
-                            <p className="text-3xl font-bold text-green-400 drop-shadow-[0_0_8px_rgba(74,222,128,0.4)]">{h2h.viewerWins}</p>
+                            <p className="text-3xl font-bold text-green-400">{h2h.viewerWins}</p>
                         </div>
                         <div className="text-center px-2 group">
                             <p className="truncate text-[10px] uppercase tracking-wider text-muted mb-1 group-hover:text-red-500 transition-colors">Victoria Suya</p>
-                            <p className="text-3xl font-bold text-red-500 drop-shadow-[0_0_8px_rgba(239,68,68,0.4)]">{h2h.profileWins}</p>
+                            <p className="text-3xl font-bold text-red-500">{h2h.profileWins}</p>
                         </div>
                         <div className="text-center px-2 group">
                             <p className="truncate text-[10px] uppercase tracking-wider text-muted mb-1 group-hover:text-blue-400 transition-colors">Juntos</p>
-                            <p className="text-3xl font-bold text-blue-400 drop-shadow-[0_0_8px_rgba(96,165,250,0.4)]">{h2h.playedTogether}</p>
+                            <p className="text-3xl font-bold text-blue-400">{h2h.playedTogether}</p>
                         </div>
                     </div>
                 </Card>
