@@ -105,12 +105,12 @@ export function SoccerPitch({ teamA, teamB }: SoccerPitchProps) {
 
     return (
         <div className="w-full space-y-4">
-            {/* Team A header */}
+            {/* Equipo Rojo header */}
             <div className="flex items-center justify-between px-2">
                 <div className="flex items-center gap-2">
                     <span className="inline-block h-3 w-3 rounded-full bg-accent" />
                     <span className="text-sm font-bold text-accent">
-                        Team A
+                        Equipo Rojo
                     </span>
                 </div>
                 <span className="text-xs text-muted">
@@ -353,12 +353,12 @@ export function SoccerPitch({ teamA, teamB }: SoccerPitchProps) {
                 </div>
             </div>
 
-            {/* Team B header */}
+            {/* Equipo Azul header */}
             <div className="flex items-center justify-between px-2">
                 <div className="flex items-center gap-2">
                     <span className="inline-block h-3 w-3 rounded-full bg-blue-400" />
                     <span className="text-sm font-bold text-blue-400">
-                        Team B
+                        Equipo Azul
                     </span>
                 </div>
                 <span className="text-xs text-muted">
@@ -597,12 +597,7 @@ function PlayerPopover({
                     </p>
 
                     {/* Stats grid */}
-                    <div className="mt-3 grid grid-cols-3 gap-1">
-                        <StatBox
-                            label="Nivel"
-                            value={`${profile?.skill_level ?? "?"}`}
-                            icon="⭐"
-                        />
+                    <div className="mt-3 grid grid-cols-2 gap-1">
                         <StatBox
                             label="Partidos"
                             value={`${profile?.matches_played ?? 0}`}

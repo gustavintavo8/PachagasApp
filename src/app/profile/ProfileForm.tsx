@@ -28,7 +28,6 @@ export function ProfileForm({ userId, profile }: ProfileFormProps) {
     const [loading, setLoading] = useState(false);
     const [success, setSuccess] = useState(false);
     const [error, setError] = useState<string | null>(null);
-    const [skillLevel, setSkillLevel] = useState(profile?.skill_level ?? 5);
     const [avatarPath, setAvatarPath] = useState<string | null>(profile?.avatar_url ?? null);
 
     const avatarUrl = getAvatarUrl(
@@ -101,28 +100,6 @@ export function ProfileForm({ userId, profile }: ProfileFormProps) {
                                 </div>
                             </label>
                         ))}
-                    </div>
-                </div>
-
-                {/* Skill Level Slider */}
-                <div className="space-y-2">
-                    <label className="block text-sm font-medium text-zinc-300">
-                        Nivel:{" "}
-                        <span className="text-accent font-bold">{skillLevel}</span>
-                        <span className="text-muted"> / 10</span>
-                    </label>
-                    <input
-                        type="range"
-                        name="skill_level"
-                        min="1"
-                        max="10"
-                        value={skillLevel}
-                        onChange={(e) => setSkillLevel(parseInt(e.target.value))}
-                        className="w-full accent-[#ccff00]"
-                    />
-                    <div className="flex justify-between text-xs text-muted">
-                        <span>Principiante</span>
-                        <span>Pro</span>
                     </div>
                 </div>
 

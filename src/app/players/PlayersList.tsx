@@ -133,9 +133,7 @@ export function PlayersList({ profiles, currentUserId, adminUserIds }: PlayersLi
                                                         {positionShort[profile.position] || profile.position}
                                                     </span>
                                                 )}
-                                                {profile.skill_level && (
-                                                    <span>⭐ {profile.skill_level}</span>
-                                                )}
+
                                             </div>
                                         </div>
                                     </div>

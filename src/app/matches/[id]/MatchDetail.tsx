@@ -328,14 +328,14 @@ export function MatchDetail({
                     <Card className="mb-8 border-accent/20 bg-accent/5">
                         <div className="flex items-center justify-center gap-8 text-center">
                             <div>
-                                <p className="text-sm font-medium text-accent">Team A</p>
+                                <p className="text-sm font-medium text-accent">Equipo Rojo</p>
                                 <p className="text-5xl font-bold text-foreground">
                                     {match.team_a_score}
                                 </p>
                             </div>
                             <div className="text-2xl text-muted">vs</div>
                             <div>
-                                <p className="text-sm font-medium text-blue-400">Team B</p>
+                                <p className="text-sm font-medium text-blue-400">Equipo Azul</p>
                                 <p className="text-5xl font-bold text-foreground">
                                     {match.team_b_score}
                                 </p>
@@ -480,7 +480,7 @@ export function MatchDetail({
                 <div className="space-y-6">
                     <div className="flex items-center justify-center gap-6">
                         <div className="text-center">
-                            <p className="mb-2 text-sm font-medium text-accent">Team A</p>
+                            <p className="mb-2 text-sm font-medium text-accent">Equipo Rojo</p>
                             <input
                                 type="number"
                                 min="0"
@@ -495,7 +495,7 @@ export function MatchDetail({
                         </div>
                         <span className="text-xl text-muted">vs</span>
                         <div className="text-center">
-                            <p className="mb-2 text-sm font-medium text-blue-400">Team B</p>
+                            <p className="mb-2 text-sm font-medium text-blue-400">Equipo Azul</p>
                             <input
                                 type="number"
                                 min="0"
@@ -532,7 +532,7 @@ export function MatchDetail({
                                     {teamA.length > 0 && (
                                         <div>
                                             <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-accent">
-                                                Team A
+                                                Equipo Rojo
                                                 {teamAGoalsAssigned !== teamAScore && (
                                                     <span className="ml-2 font-normal normal-case text-yellow-400">
                                                         ({teamAGoalsAssigned}/{teamAScore} asignados)
@@ -597,7 +597,7 @@ export function MatchDetail({
                                     {teamB.length > 0 && (
                                         <div>
                                             <p className="mb-2 text-xs font-semibold uppercase tracking-wider text-blue-400">
-                                                Team B
+                                                Equipo Azul
                                                 {teamBGoalsAssigned !== teamBScore && (
                                                     <span className="ml-2 font-normal normal-case text-yellow-400">
                                                         ({teamBGoalsAssigned}/{teamBScore} asignados)
@@ -763,25 +763,12 @@ function TeamCard({
     adminUserIds: string[];
     organizerId: string;
 }) {
-    const avgSkill =
-        players.length > 0
-            ? (
-                players.reduce(
-                    (sum, p) => sum + (p.profiles?.skill_level ?? 5),
-                    0
-                ) / players.length
-            ).toFixed(1)
-            : "0";
-
     return (
         <Card>
             <CardHeader>
                 <CardTitle>
-                    <span className={`text-${color}`}>Team {team}</span>
+                    <span className={`text-${color}`}>{team === "A" ? "Equipo Rojo" : "Equipo Azul"}</span>
                 </CardTitle>
-                <span className={`text-xs text-${color} bg-${color}/10 px-2 py-1 rounded-full`}>
-                    Avg: {avgSkill}
-                </span>
             </CardHeader>
             <div className="space-y-3">
                 {players.map((p) => (
@@ -844,9 +831,6 @@ function PlayerRow({ participant, adminUserIds, organizerId, onKick }: { partici
                 <div className="flex items-center gap-2 text-xs text-muted">
                     {profile?.position && (
                         <span>{positionBadge[profile.position]} {positionShort[profile.position] || profile.position}</span>
-                    )}
-                    {profile?.skill_level && (
-                        <span>⭐ {profile.skill_level}</span>
                     )}
                 </div>
             </div>

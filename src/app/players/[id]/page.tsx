@@ -201,11 +201,7 @@ export default async function PlayerProfilePage({
                                     {positionLabels[profile.position] || profile.position}
                                 </span>
                             )}
-                            {profile.skill_level && (
-                                <span className="rounded-full border border-border bg-surface px-3 py-1">
-                                    ⭐ Nivel: {profile.skill_level}/10
-                                </span>
-                            )}
+
                         </div>
 
                         {/* Trophies Section - Under Name */}

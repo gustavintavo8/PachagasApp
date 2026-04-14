@@ -18,7 +18,6 @@ export async function updateProfile(formData: FormData) {
     // 2. Recoger datos
     const username = formData.get('username') as string
     const position = formData.get('position') as string
-    const skill_level = formData.get('skill_level') as string
     const avatar_url = formData.get('avatar_url') as string // Asegúrate de que el front envíe esto si ha cambiado
 
     // 3. Validar datos mínimos
@@ -32,7 +31,6 @@ export async function updateProfile(formData: FormData) {
         .update({
             username,
             position,
-            skill_level: parseInt(skill_level),
             // Solo actualizamos avatar si viene uno nuevo, si no, no lo tocamos
             ...(avatar_url && { avatar_url }),
             updated_at: new Date().toISOString(),
