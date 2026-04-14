@@ -119,7 +119,7 @@ export function MatchesTabs({ matches, userId }: MatchesTabsProps) {
 
                                 return (
                                     <Link key={match.id} href={`/matches/${match.id}`}>
-                                        <Card className="h-full transition-all hover:border-border-hover hover:bg-surface-hover">
+                                        <Card className="h-full transition-all hover:border-accent/40 hover:bg-surface-hover hover:-translate-y-0.5 hover:shadow-[0_8px_30px_rgba(204,255,0,0.06)]">
                                             <div className="mb-3 flex items-center gap-2">
                                                 <span className={`flex items-center gap-1 rounded-full border px-2.5 py-0.5 text-xs font-medium ${config.classes}`}>
                                                     {config.icon}
@@ -217,7 +217,7 @@ export function MatchesTabs({ matches, userId }: MatchesTabsProps) {
 
                                 return (
                                     <Link key={match.id} href={`/matches/${match.id}`}>
-                                        <Card className="transition-all hover:border-border-hover hover:bg-surface-hover">
+                                        <Card className="transition-all hover:border-accent/40 hover:bg-surface-hover hover:shadow-[0_4px_20px_rgba(204,255,0,0.05)]">
                                             <div className="flex items-center justify-between">
                                                 <div className="min-w-0 flex-1 space-y-2">
                                                     <div className="flex items-center gap-2">

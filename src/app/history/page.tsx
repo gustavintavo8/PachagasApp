@@ -142,7 +142,7 @@ export default async function HistoryPage() {
 
                         return (
                             <Link key={match.id} href={`/matches/${match.id}`}>
-                                <Card className="transition-all hover:border-border-hover hover:bg-surface-hover">
+                                <Card className="transition-all hover:border-accent/40 hover:bg-surface-hover hover:shadow-[0_4px_20px_rgba(204,255,0,0.05)]">
                                     <div className="flex items-center justify-between">
                                         {/* Left: Info */}
                                         <div className="min-w-0 flex-1 space-y-2">

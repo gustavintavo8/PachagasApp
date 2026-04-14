@@ -18,7 +18,7 @@ import {
     Medal,
     Swords,
 } from "lucide-react";
-import { POSITION_FULL } from "@/lib/positions";
+import { POSITION_FULL, POSITION_ICONS } from "@/lib/positions";
 
 import type { Metadata } from "next";
 
@@ -167,7 +167,8 @@ export default async function PlayerProfilePage({
             </Link>
 
             {/* Profile Header */}
-            <Card className="mb-6">
+            <Card className="mb-6 overflow-hidden relative border-accent/20">
+                <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-accent/10 to-transparent pointer-events-none" />
                 <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
                     <Avatar
                         src={avatarUrl}
@@ -194,11 +195,12 @@ export default async function PlayerProfilePage({
                         </div>
                         <div className="mt-2 flex flex-wrap items-center justify-center gap-3 text-sm text-muted sm:justify-start">
                             {profile.position && (
-                                <span className="rounded-full border border-border bg-surface px-3 py-1">
+                                <span className="flex items-center gap-1.5 rounded-full border border-accent/20 bg-accent/5 px-3 py-1 font-medium text-foreground">
+                                    <span className="text-accent">{POSITION_ICONS[profile.position]}</span>
                                     {positionLabels[profile.position] || profile.position}
                                 </span>
                             )}
-                            <span className="rounded-full border border-accent/40 bg-accent/10 px-3 py-1 font-semibold text-accent">
+                            <span className="flex items-center gap-1.5 rounded-full border border-accent/40 bg-accent/10 px-3 py-1 font-bold text-accent shadow-[0_0_10px_rgba(204,255,0,0.1)]">
                                 {profile.elo_rating ?? 1000} RP
                             </span>
                             {(profile.matches_played ?? 0) < 3 && (

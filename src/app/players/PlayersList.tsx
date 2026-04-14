@@ -89,7 +89,7 @@ export function PlayersList({ profiles, currentUserId, adminUserIds }: PlayersLi
 
                         return (
                             <Link key={profile.id} href={`/players/${profile.id}`}>
-                                <Card className="h-full transition-all hover:border-border-hover hover:bg-surface-hover">
+                                <Card className="h-full transition-all hover:border-accent/40 hover:bg-surface-hover hover:-translate-y-0.5 hover:shadow-[0_8px_30px_rgba(204,255,0,0.06)]">
                                     {/* Player Header */}
                                     <div className="mb-3 flex items-center gap-3">
                                         <Avatar

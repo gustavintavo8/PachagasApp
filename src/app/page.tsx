@@ -31,7 +31,7 @@ async function DashboardStats({ userId }: { userId: string }) {
         </div>
         <p className="text-sm text-muted">Partidos Jugados</p>
         <p className="mt-1 text-3xl font-bold text-foreground">
-          {profile?.matches_played ?? 0}
+          <span className="text-accent">{profile?.matches_played ?? 0}</span>
         </p>
       </Card>
       <Card className="relative overflow-hidden">
@@ -40,7 +40,7 @@ async function DashboardStats({ userId }: { userId: string }) {
         </div>
         <p className="text-sm text-muted">Goles Marcados</p>
         <p className="mt-1 text-3xl font-bold text-foreground">
-          {profile?.goals_scored ?? 0}
+          <span className="text-accent">{profile?.goals_scored ?? 0}</span>
         </p>
       </Card>
     </>
@@ -80,10 +80,10 @@ async function NextMatchHighlight({ userId }: { userId: string }) {
       {nextMatch && (
         <div className="mt-8 col-span-full">
           <h2 className="mb-4 text-lg font-semibold text-foreground">
-            <Zap size={20} className="inline" /> Tu Próximo Partido
+            <Zap size={20} className="inline text-accent" /> Tu Próximo Partido
           </h2>
           <Link href={`/matches/${nextMatch.id}`} prefetch={false}>
-            <Card className="border-accent/30 bg-accent/5 transition-colors hover:bg-accent/10">
+            <Card className="border-accent/30 bg-gradient-to-r from-accent/10 to-transparent transition-colors hover:border-accent/50 hover:bg-accent/10">
               <div className="flex items-center justify-between">
                 <div className="space-y-2">
                   <div className="flex items-center gap-2 text-accent">
@@ -249,7 +249,7 @@ async function DashboardContent() {
     <div className="mx-auto max-w-5xl px-4 py-8">
       {/* Welcome Header */}
       <div className="mb-8 flex items-center justify-between">
-        <div className="flex items-center gap-4">
+        <div className="flex items-center gap-4 rounded-3xl bg-gradient-to-br from-surface to-surface-hover p-6 border border-border/50 shadow-[0_0_30px_rgba(204,255,0,0.05)]">
           <Avatar
             src={avatarUrl}
             fallback={profile?.username || user.email || "P"}
@@ -285,7 +285,7 @@ async function DashboardContent() {
       {/* Open Matches */}
       <div className="mt-8">
         <h2 className="mb-4 text-lg font-semibold text-foreground">
-          <Trophy size={20} className="inline" /> Partidos Abiertos
+          <Trophy size={20} className="inline text-accent" /> Partidos Abiertos
         </h2>
         <Suspense fallback={<MatchesListSkeleton />}>
           <OpenMatchesList userId={user.id} />
