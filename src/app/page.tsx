@@ -230,6 +230,78 @@ function DashboardSkeleton() {
 }
 
 
+function DetailedStatsSkeleton() {
+  return (
+    <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
+      {[1, 2, 3, 4].map(i => (
+        <div key={i} className="h-24 rounded-xl bg-surface/50 animate-pulse" />
+      ))}
+    </div>
+  );
+}
+
+async function DetailedDashboardStats({ userId }: { userId: string }) {
+  const supabase = await createClient();
+  const { data: profile } = await supabase.from("profiles").select("matches_played, goals_scored").eq("id", userId).single();
+
+  const { data: participations } = await supabase
+    .from("match_participants")
+    .select(`
+        team,
+        matches!inner (
+            id,
+            status,
+            team_a_score,
+            team_b_score
+        )
+    `)
+    .eq("user_id", userId);
+
+  let wins = 0;
+  let losses = 0;
+
+  const finishedMatches = (participations || [])
+    .filter((p) => {
+        const m = p.matches as any;
+        return m && m.status === "finished";
+    });
+
+  finishedMatches.forEach((p) => {
+    const match = p.matches as any;
+    const isA = p.team === "A";
+    const teamScore = isA ? match.team_a_score : match.team_b_score;
+    const oppScore = isA ? match.team_b_score : match.team_a_score;
+
+    if (teamScore !== null && oppScore !== null) {
+        if (teamScore > oppScore) wins++;
+        else if (teamScore < oppScore) losses++;
+    }
+  });
+
+  return (
+    <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
+        <Card className="relative overflow-hidden text-center border-border/80 bg-gradient-to-br from-surface to-surface-hover/30 hover:border-accent/40 transition-colors">
+            <p className="text-sm text-muted">Partidos</p>
+            <p className="mt-1 text-3xl font-bold text-foreground">{profile?.matches_played || 0}</p>
+        </Card>
+        <Card className="relative overflow-hidden text-center border-border/80 bg-gradient-to-br from-surface to-surface-hover/30 hover:border-accent/40 transition-colors">
+            <p className="text-sm text-muted">Goles</p>
+            <p className="mt-1 text-3xl font-bold text-foreground">{profile?.goals_scored || 0}</p>
+        </Card>
+        <Card className="relative overflow-hidden text-center border-border/80 bg-gradient-to-br from-surface to-surface-hover/30 hover:border-green-500/40 transition-colors">
+            <div className="absolute top-0 right-1/2 translate-x-1/2 w-4/5 h-px bg-gradient-to-r from-transparent via-green-500/30 to-transparent"></div>
+            <p className="text-sm text-muted">Victorias</p>
+            <p className="mt-1 text-3xl font-bold text-green-400">{wins}</p>
+        </Card>
+        <Card className="relative overflow-hidden text-center border-border/80 bg-gradient-to-br from-surface to-surface-hover/30 hover:border-red-500/40 transition-colors">
+            <div className="absolute top-0 right-1/2 translate-x-1/2 w-4/5 h-px bg-gradient-to-r from-transparent via-red-500/30 to-transparent"></div>
+            <p className="text-sm text-muted">Derrotas</p>
+            <p className="mt-1 text-3xl font-bold text-red-500">{losses}</p>
+        </Card>
+    </div>
+  );
+}
+
 // --- Main Page Shell ---
 async function DashboardContent() {
   const supabase = await createClient();
@@ -283,12 +355,22 @@ async function DashboardContent() {
       </div>
 
       {/* Open Matches */}
-      <div className="mt-8">
+      <div className="mt-8 mb-12">
         <h2 className="mb-4 text-lg font-semibold text-foreground">
           <Trophy size={20} className="inline text-accent" /> Partidos Abiertos
         </h2>
         <Suspense fallback={<MatchesListSkeleton />}>
           <OpenMatchesList userId={user.id} />
+        </Suspense>
+      </div>
+
+      {/* Detailed Season Stats */}
+      <div className="mt-8 mb-12">
+        <h2 className="mb-4 text-lg font-semibold text-foreground">
+          <Target size={20} className="inline text-accent mr-1" /> Tu Rendimiento Global
+        </h2>
+        <Suspense fallback={<DetailedStatsSkeleton />}>
+          <DetailedDashboardStats userId={user.id} />
         </Suspense>
       </div>
     </div>
