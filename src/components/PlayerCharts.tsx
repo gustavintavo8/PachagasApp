@@ -162,7 +162,7 @@ export function PlayerCharts({ goalsPerMonth, winRateOverTime, rpOverTime = [] }
             {rpOverTime.length > 1 && (
                 <Card className="sm:col-span-2">
                     <h3 className="mb-4 text-sm font-semibold text-foreground">
-                        <TrendingUp size={16} className="inline text-[#00f260]" /> Evolución del Rating (RP)
+                        <TrendingUp size={16} className="inline text-[#ccff00]" /> Evolución del Rating (RP)
                     </h3>
                     <div className="h-64">
                         <LazyResponsiveContainer width="100%" height="100%">
@@ -186,17 +186,19 @@ export function PlayerCharts({ goalsPerMonth, winRateOverTime, rpOverTime = [] }
                                 />
                                 <defs>
                                     <linearGradient id="rpGradient" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#00f260" stopOpacity={0.3} />
-                                        <stop offset="95%" stopColor="#00f260" stopOpacity={0} />
+                                        <stop offset="5%" stopColor="#ccff00" stopOpacity={0.15} />
+                                        <stop offset="95%" stopColor="#ccff00" stopOpacity={0} />
                                     </linearGradient>
                                 </defs>
                                 <LazyArea
-                                    type="monotone"
+                                    type="stepAfter"
                                     dataKey="rp"
-                                    stroke="#00f260"
+                                    stroke="#ccff00"
                                     strokeWidth={2}
+                                    strokeDasharray="4 4"
                                     fill="url(#rpGradient)"
                                     name="RP"
+                                    activeDot={{ r: 6, fill: "#ccff00", stroke: "#18181b", strokeWidth: 3 }}
                                 />
                             </LazyAreaChart>
                         </LazyResponsiveContainer>
