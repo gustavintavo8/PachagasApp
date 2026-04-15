@@ -20,8 +20,8 @@ export function NavbarSkeleton() {
 
                 {/* Desktop Nav Skeleton */}
                 <div className="hidden items-center gap-1 md:flex">
-                    {[1, 2, 3, 4, 5, 6].map((i) => (
-                        <div key={i} className="skeleton h-9 w-24 rounded-lg px-3 py-2" />
+                    {Array.from({ length: 6 }, (_, i) => (
+                        <div key={`nav-skeleton-${i}`} className="skeleton h-9 w-24 rounded-lg px-3 py-2" />
                     ))}
                 </div>
 

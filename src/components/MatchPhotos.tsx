@@ -170,8 +170,8 @@ export function MatchPhotos({ matchId, currentUserId }: MatchPhotosProps) {
             <div className="p-4">
                 {loading ? (
                     <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                        {[1, 2, 3].map((i) => (
-                            <div key={i} className="skeleton aspect-square rounded-xl" />
+                        {Array.from({ length: 3 }, (_, i) => (
+                            <div key={`photo-skeleton-${i}`} className="skeleton aspect-square rounded-xl" />
                         ))}
                     </div>
                 ) : photos.length === 0 ? (

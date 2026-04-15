@@ -234,6 +234,7 @@ export default async function PlayerProfilePage({
                                                     alt="MVP Trophy"
                                                     fill
                                                     priority={true}
+                                                    sizes="112px"
                                                     className="object-contain transition-transform duration-300 hover:scale-110"
                                                 />
                                             </div>

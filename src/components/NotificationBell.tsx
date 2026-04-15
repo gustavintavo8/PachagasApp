@@ -142,8 +142,8 @@ export function NotificationBell({ userId }: NotificationBellProps) {
                         <div className="max-h-96 overflow-y-auto">
                             {loading ? (
                                 <div className="space-y-2 p-4">
-                                    {[1, 2, 3].map((i) => (
-                                        <div key={i} className="skeleton h-14 rounded-xl" />
+                                    {Array.from({ length: 3 }, (_, i) => (
+                                        <div key={`notif-skeleton-${i}`} className="skeleton h-14 rounded-xl" />
                                     ))}
                                 </div>
                             ) : notifications.length === 0 ? (

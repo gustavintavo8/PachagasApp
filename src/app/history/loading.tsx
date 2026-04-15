@@ -7,14 +7,14 @@ export default function HistoryLoading() {
             </div>
             {/* Stats summary skeleton */}
             <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
-                {[1, 2, 3, 4].map((i) => (
-                    <div key={i} className="skeleton h-24 rounded-2xl" />
+                {Array.from({ length: 4 }, (_, i) => (
+                    <div key={`history-stat-${i}`} className="skeleton h-24 rounded-2xl" />
                 ))}
             </div>
             {/* Match cards skeleton */}
             <div className="space-y-4">
-                {Array.from({ length: 5 }).map((_, i) => (
-                    <div key={i} className="skeleton h-28 rounded-2xl" />
+                {Array.from({ length: 5 }, (_, i) => (
+                    <div key={`history-match-${i}`} className="skeleton h-28 rounded-2xl" />
                 ))}
             </div>
         </div>

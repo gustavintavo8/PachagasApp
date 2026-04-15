@@ -30,10 +30,8 @@ const WEATHER_CODES: Record<number, string> = {
     96: "⛈️", // Thunderstorm with slight and heavy hail
     99: "⛈️", // Thunderstorm with slight and heavy hail
 };
-
 export function WeatherWidget({ date }: { date: string }) {
-    const [weather, setWeather] = useState<{ emoji: string; text: string } | null>(null);
-    const [loading, setLoading] = useState(true);
+    const [state, setState] = useState<{ loading: boolean; weather: { emoji: string; text: string } | null }>({ loading: true, weather: null });
 
     useEffect(() => {
         async function fetchWeather() {
@@ -49,7 +47,7 @@ export function WeatherWidget({ date }: { date: string }) {
                 const weatherData = await weatherRes.json();
 
                 if (!weatherData.daily) {
-                    setLoading(false);
+                    setState(prev => ({ ...prev, loading: false }));
                     return;
                 }
 
@@ -61,31 +59,35 @@ export function WeatherWidget({ date }: { date: string }) {
                     const temp = Math.round(weatherData.daily.temperature_2m_max[dateIndex]);
                     const prob = weatherData.daily.precipitation_probability_max[dateIndex];
 
-                    setWeather({
-                        emoji: WEATHER_CODES[weatherData.daily.weathercode[dateIndex]] || "🌤️",
-                        text: `${temp}º · 💧${prob}%`
+                    setState({
+                        loading: false,
+                        weather: {
+                            emoji: WEATHER_CODES[weatherData.daily.weathercode[dateIndex]] || "🌤️",
+                            text: `${temp}º · 💧${prob}%`
+                        }
                     });
+                } else {
+                    setState(prev => ({ ...prev, loading: false }));
                 }
             } catch (error) {
                 console.error("Failed to fetch weather:", error);
-            } finally {
-                setLoading(false);
+                setState(prev => ({ ...prev, loading: false }));
             }
         }
 
         fetchWeather();
     }, [location, date]);
 
-    if (loading) {
+    if (state.loading) {
         return <div className="skeleton h-6 w-24 rounded-full" />;
     }
 
-    if (!weather) return null;
+    if (!state.weather) return null;
 
     return (
         <span className="flex items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-xs font-medium text-muted transition-colors hover:border-accent/50 hover:text-foreground">
-            <span className="text-sm">{weather.emoji}</span>
-            <span>{weather.text}</span>
+            <span className="text-sm">{state.weather.emoji}</span>
+            <span>{state.weather.text}</span>
         </span>
     );
 }

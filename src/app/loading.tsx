@@ -12,15 +12,15 @@ export default function Loading() {
 
             {/* Stats skeleton */}
             <div className="mb-8 grid grid-cols-3 gap-4">
-                {[1, 2, 3].map((i) => (
-                    <div key={i} className="skeleton h-28 rounded-2xl" />
+                {Array.from({ length: 3 }, (_, i) => (
+                    <div key={`stat-skeleton-${i}`} className="skeleton h-28 rounded-2xl" />
                 ))}
             </div>
 
             {/* Cards skeleton */}
             <div className="grid gap-4 sm:grid-cols-2">
-                {[1, 2, 3, 4].map((i) => (
-                    <div key={i} className="skeleton h-36 rounded-2xl" />
+                {Array.from({ length: 4 }, (_, i) => (
+                    <div key={`card-skeleton-${i}`} className="skeleton h-36 rounded-2xl" />
                 ))}
             </div>
         </div>

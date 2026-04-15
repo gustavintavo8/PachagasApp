@@ -271,8 +271,8 @@ export function MvpVoting({
             <div className="divide-y divide-border">
                 {loading ? (
                     <div className="space-y-3 p-4">
-                        {[1, 2, 3].map((i) => (
-                            <div key={i} className="skeleton h-14 rounded-xl" />
+                        {Array.from({ length: 3 }, (_, i) => (
+                            <div key={`mvp-skeleton-${i}`} className="skeleton h-14 rounded-xl" />
                         ))}
                     </div>
                 ) : (

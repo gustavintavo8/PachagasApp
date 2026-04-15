@@ -198,8 +198,8 @@ function NextMatchSkeleton() {
 function MatchesListSkeleton() {
   return (
     <div className="grid gap-4 sm:grid-cols-2">
-      {[1, 2, 3, 4].map(i => (
-        <div key={i} className="h-32 rounded-xl bg-surface/50 animate-pulse" />
+      {Array.from({ length: 4 }, (_, i) => (
+        <div key={`match-list-skeleton-${i}`} className="h-32 rounded-xl bg-surface/50 animate-pulse" />
       ))}
     </div>
   );

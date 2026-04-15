@@ -9,13 +9,13 @@ export default function PlayersLoading() {
             <div className="skeleton mb-4 h-12 w-full rounded-xl" />
             {/* Filter buttons */}
             <div className="mb-6 flex gap-2">
-                {[1, 2, 3, 4, 5].map((i) => (
-                    <div key={i} className="skeleton h-8 w-16 rounded-full" />
+                {Array.from({ length: 5 }, (_, i) => (
+                    <div key={`player-filter-${i}`} className="skeleton h-8 w-16 rounded-full" />
                 ))}
             </div>
             <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                {Array.from({ length: 6 }).map((_, i) => (
-                    <div key={i} className="skeleton h-36 rounded-2xl" />
+                {Array.from({ length: 6 }, (_, i) => (
+                    <div key={`player-card-${i}`} className="skeleton h-36 rounded-2xl" />
                 ))}
             </div>
         </div>

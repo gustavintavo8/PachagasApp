@@ -6,18 +6,18 @@ export default function LeaderboardLoading() {
                 <div className="skeleton h-4 w-64" />
             </div>
             <div className="mb-6 flex gap-2">
-                {[1, 2, 3, 4].map((i) => (
-                    <div key={i} className="skeleton h-10 w-28 rounded-xl" />
+                {Array.from({ length: 4 }, (_, i) => (
+                    <div key={`lb-filter-${i}`} className="skeleton h-10 w-28 rounded-xl" />
                 ))}
             </div>
             <div className="mb-8 grid gap-4 sm:grid-cols-3">
-                {[1, 2, 3].map((i) => (
-                    <div key={i} className="skeleton h-52 rounded-2xl" />
+                {Array.from({ length: 3 }, (_, i) => (
+                    <div key={`lb-top-${i}`} className="skeleton h-52 rounded-2xl" />
                 ))}
             </div>
             <div className="space-y-2">
-                {Array.from({ length: 5 }).map((_, i) => (
-                    <div key={i} className="skeleton h-16 rounded-xl" />
+                {Array.from({ length: 5 }, (_, i) => (
+                    <div key={`lb-row-${i}`} className="skeleton h-16 rounded-xl" />
                 ))}
             </div>
         </div>

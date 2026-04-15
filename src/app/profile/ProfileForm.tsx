@@ -26,9 +26,7 @@ interface ProfileFormProps {
 
 export function ProfileForm({ userId, profile }: ProfileFormProps) {
     const router = useRouter();
-    const [loading, setLoading] = useState(false);
-    const [success, setSuccess] = useState(false);
-    const [error, setError] = useState<string | null>(null);
+    const [uiState, setUiState] = useState({ loading: false, success: false, error: null as string | null });
     const [avatarPath, setAvatarPath] = useState<string | null>(profile?.avatar_url ?? null);
     const [selectedPosition, setSelectedPosition] = useState<string>(profile?.position ?? "MID");
 
@@ -39,21 +37,18 @@ export function ProfileForm({ userId, profile }: ProfileFormProps) {
 
     async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
-        setLoading(true);
-        setError(null);
-        setSuccess(false);
+        setUiState({ loading: true, success: false, error: null });
 
         const formData = new FormData(e.currentTarget);
         const result = await updateProfile(formData);
 
         if (result?.error) {
-            setError(result.error);
+            setUiState({ loading: false, success: false, error: result.error });
         } else {
-            setSuccess(true);
-            setTimeout(() => setSuccess(false), 3000);
+            setUiState({ loading: false, success: true, error: null });
+            setTimeout(() => setUiState(prev => ({ ...prev, success: false })), 3000);
             router.refresh();
         }
-        setLoading(false);
     }
 
     return (
@@ -81,10 +76,10 @@ export function ProfileForm({ userId, profile }: ProfileFormProps) {
                 />
 
                 {/* Position Select */}
-                <div className="space-y-3">
-                    <label className="block text-sm font-medium text-foreground">
+                <div className="space-y-3" role="radiogroup" aria-labelledby="position-label">
+                    <p id="position-label" className="block text-sm font-medium text-foreground">
                         Tu Posición en el Campo
-                    </label>
+                    </p>
                     <div className="grid grid-cols-2 gap-3">
                         {positions.map((pos) => {
                             const isSelected = selectedPosition === pos;
@@ -117,19 +112,19 @@ export function ProfileForm({ userId, profile }: ProfileFormProps) {
                     </div>
                 </div>
 
-                {error && (
+                {uiState.error && (
                     <div className="rounded-lg border border-red-500/30 bg-red-500/10 px-4 py-3 text-sm text-red-400">
-                        {error}
+                        {uiState.error}
                     </div>
                 )}
 
-                {success && (
+                {uiState.success && (
                     <div className="rounded-lg border border-accent/30 bg-accent/10 px-4 py-3 text-sm text-accent">
                         ¡Perfil actualizado!
                     </div>
                 )}
 
-                <Button type="submit" loading={loading} size="lg" className="w-full shadow-[0_0_20px_rgba(204,255,0,0.15)] hover:shadow-[0_0_30px_rgba(204,255,0,0.25)] transition-shadow">
+                <Button type="submit" loading={uiState.loading} size="lg" className="w-full shadow-[0_0_20px_rgba(204,255,0,0.15)] hover:shadow-[0_0_30px_rgba(204,255,0,0.25)] transition-shadow">
                     Guardar Perfil
                 </Button>
             </form>
