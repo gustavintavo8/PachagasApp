@@ -162,7 +162,7 @@ export function PlayerCharts({ goalsPerMonth, winRateOverTime, rpOverTime = [] }
             {rpOverTime.length > 1 && (
                 <Card className="sm:col-span-2">
                     <h3 className="mb-4 text-sm font-semibold text-foreground">
-                        <TrendingUp size={16} className="inline text-purple-400" /> Evolución del Rating (RP)
+                        <TrendingUp size={16} className="inline text-[#00f260]" /> Evolución del Rating (RP)
                     </h3>
                     <div className="h-64">
                         <LazyResponsiveContainer width="100%" height="100%">
@@ -186,14 +186,14 @@ export function PlayerCharts({ goalsPerMonth, winRateOverTime, rpOverTime = [] }
                                 />
                                 <defs>
                                     <linearGradient id="rpGradient" x1="0" y1="0" x2="0" y2="1">
-                                        <stop offset="5%" stopColor="#a855f7" stopOpacity={0.3} />
-                                        <stop offset="95%" stopColor="#a855f7" stopOpacity={0} />
+                                        <stop offset="5%" stopColor="#00f260" stopOpacity={0.3} />
+                                        <stop offset="95%" stopColor="#00f260" stopOpacity={0} />
                                     </linearGradient>
                                 </defs>
                                 <LazyArea
                                     type="monotone"
                                     dataKey="rp"
-                                    stroke="#a855f7"
+                                    stroke="#00f260"
                                     strokeWidth={2}
                                     fill="url(#rpGradient)"
                                     name="RP"
