@@ -215,7 +215,7 @@ export async function closeMatch(matchId: string): Promise<ActionResult> {
         .eq("id", matchId)
         .single();
 
-    const admin = isAdmin(user.email);
+    const admin = await isAdmin(user.id);
     if (match?.created_by !== user.id && !admin)
         return { success: false, error: "Solo el organizador puede cerrar este partido" };
 
@@ -276,7 +276,7 @@ export async function setScore(
 
     if (!match) return { success: false, error: "Partido no encontrado" };
 
-    const admin = isAdmin(user.email);
+    const admin = await isAdmin(user.id);
     if (match.created_by !== user.id && !admin) {
         return { success: false, error: "No tienes permiso para establecer el resultado" };
     }
@@ -405,7 +405,7 @@ export async function generateTeams(matchId: string): Promise<ActionResult> {
         .eq("id", matchId)
         .single();
 
-    const admin = isAdmin(user.email);
+    const admin = await isAdmin(user.id);
     if (match?.created_by !== user.id && !admin)
         return { success: false, error: "Solo el organizador puede generar equipos" };
 
@@ -485,6 +485,11 @@ export async function cancelMatch(matchId: string): Promise<ActionResult> {
 
     if (!user) return { success: false, error: "No autenticado" };
 
+    // Validate matchId is a proper UUID
+    const CancelSchema = z.object({ matchId: z.string().uuid("ID de partido inválido") });
+    const parsedId = CancelSchema.safeParse({ matchId });
+    if (!parsedId.success) return { success: false, error: parsedId.error.issues[0].message };
+
     const { data: match } = await supabase
         .from("matches")
         .select("created_by, location")
@@ -493,7 +498,7 @@ export async function cancelMatch(matchId: string): Promise<ActionResult> {
 
     if (!match) return { success: false, error: "Partido no encontrado" };
 
-    const admin = isAdmin(user.email);
+    const admin = await isAdmin(user.id);
     if (match.created_by !== user.id && !admin)
         return { success: false, error: "No tienes permiso para cancelar este partido" };
 
@@ -539,27 +544,43 @@ export async function rescheduleMatch(
     } = await supabase.auth.getUser();
 
     if (!user) return { success: false, error: "No autenticado" };
-    if (!newDate) return { success: false, error: "La fecha es obligatoria" };
+
+    // Zod: validate matchId (UUID) and newDate (ISO datetime, must be in the future)
+    const RescheduleSchema = z.object({
+        matchId: z.string().uuid("ID de partido inválido"),
+        newDate: z
+            .string()
+            .datetime({ offset: true, message: "La fecha debe ser una fecha ISO válida" })
+            .refine(
+                (d) => new Date(d).getTime() > Date.now(),
+                { message: "La nueva fecha debe ser en el futuro" }
+            ),
+    });
+
+    const parsed = RescheduleSchema.safeParse({ matchId, newDate });
+    if (!parsed.success) return { success: false, error: parsed.error.issues[0].message };
+
+    const { matchId: validMatchId, newDate: validDate } = parsed.data;
 
     const { data: match } = await supabase
         .from("matches")
         .select("created_by, location, status")
-        .eq("id", matchId)
+        .eq("id", validMatchId)
         .single();
 
     if (!match) return { success: false, error: "Partido no encontrado" };
     if (match.status === "finished" || match.status === "cancelled")
         return { success: false, error: "No se puede cambiar la fecha de un partido finalizado o cancelado" };
 
-    const admin = isAdmin(user.email);
+    const admin = await isAdmin(user.id);
     if (match.created_by !== user.id && !admin)
         return { success: false, error: "No tienes permiso para cambiar la fecha" };
 
     const client = admin ? createAdminClient() : supabase;
     const { error } = await client
         .from("matches")
-        .update({ date: newDate })
-        .eq("id", matchId);
+        .update({ date: validDate })
+        .eq("id", validMatchId);
 
     if (error) return { success: false, error: error.message };
 
@@ -567,11 +588,11 @@ export async function rescheduleMatch(
     const { data: participants } = await supabase
         .from("match_participants")
         .select("user_id")
-        .eq("match_id", matchId);
+        .eq("match_id", validMatchId);
 
     if (participants) {
         const ids = participants.map((p) => p.user_id).filter((id) => id !== user.id);
-        const formattedDate = new Date(newDate).toLocaleString("es-ES", {
+        const formattedDate = new Date(validDate).toLocaleString("es-ES", {
             dateStyle: "medium",
             timeStyle: "short",
         });
@@ -580,11 +601,11 @@ export async function rescheduleMatch(
             "reschedule",
             "Fecha cambiada",
             `${match.location} se ha movido al ${formattedDate}`,
-            matchId
+            validMatchId
         );
     }
 
-    revalidatePath(`/matches/${matchId}`);
+    revalidatePath(`/matches/${validMatchId}`);
     revalidatePath("/");
     revalidatePath("/matches");
     revalidatePath("/calendar");
@@ -602,7 +623,15 @@ export async function kickPlayer(
 
     if (!user) return { success: false, error: "No autenticado" };
 
-    if (!isAdmin(user.email))
+    // Validate both IDs are proper UUIDs
+    const KickSchema = z.object({
+        matchId: z.string().uuid("ID de partido inválido"),
+        targetUserId: z.string().uuid("ID de usuario inválido"),
+    });
+    const parsedKick = KickSchema.safeParse({ matchId, targetUserId });
+    if (!parsedKick.success) return { success: false, error: parsedKick.error.issues[0].message };
+
+    if (!(await isAdmin(user.id)))
         return { success: false, error: "Solo el administrador puede expulsar jugadores" };
 
     if (targetUserId === user.id)
@@ -733,7 +762,7 @@ export async function forceResolveMvp(matchId: string): Promise<ActionResult> {
     if (!match) return { success: false, error: "Partido no encontrado" };
 
     const { isAdmin } = await import("@/lib/permissions");
-    if (match.created_by !== user.id && !isAdmin(user.email)) {
+    if (match.created_by !== user.id && !(await isAdmin(user.id))) {
         return { success: false, error: "No tienes permiso para finalizar la votación" };
     }
 

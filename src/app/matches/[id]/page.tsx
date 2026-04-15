@@ -24,12 +24,13 @@ export default async function MatchPage({
 
     if (!match) notFound();
 
-    const [{ data: participants }, { data: organizerProfile }, { data: currentProfile }, adminUserIds] =
+    const [{ data: participants }, { data: organizerProfile }, { data: currentProfile }, adminUserIds, userIsAdmin] =
         await Promise.all([
             supabase.from("match_participants").select("*, profiles(*)").eq("match_id", id),
             supabase.from("profiles").select("username, avatar_url").eq("id", match.created_by).single(),
             supabase.from("profiles").select("username, avatar_url").eq("id", user.id).single(),
             getAdminUserIds(),
+            isAdmin(user.id),
         ]);
 
     return (
@@ -43,7 +44,7 @@ export default async function MatchPage({
                 username: currentProfile?.username ?? null,
                 avatar_url: currentProfile?.avatar_url ?? null,
             }}
-            isAdmin={isAdmin(user.email)}
+            isAdmin={userIsAdmin}
             adminUserIds={adminUserIds}
         />
     );

@@ -1,52 +1,51 @@
 /**
- * Simple permission helpers for admin / organizer role checks.
- * Admin emails are hardcoded here — no database table needed.
+ * Permission helpers for admin / organizer role checks.
+ * Admin status is read from the `is_admin` column in the `profiles` table.
+ * This column is NOT modifiable by the user via RLS (enforced by a DB trigger).
  */
 
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 
-const ADMIN_EMAILS: string[] = ["gustavintavo1202@gmail.com"];
+/**
+ * Returns true if the currently authenticated user is a super-admin.
+ * Reads the `is_admin` flag from their profile row.
+ * Use this in Server Actions where you already have a supabase session.
+ */
+export async function isAdmin(userId: string): Promise<boolean> {
+    const admin = createAdminClient();
+    const { data, error } = await admin
+        .from("profiles")
+        .select("is_admin")
+        .eq("id", userId)
+        .single();
 
-/** Returns true if the given email belongs to a super-admin. */
-export function isAdmin(email?: string | null): boolean {
-    return !!email && ADMIN_EMAILS.includes(email.toLowerCase());
+    if (error || !data) return false;
+    return data.is_admin === true;
 }
 
 /**
  * Returns true if the user can manage the given match.
  * "Manage" means: the user is either admin or the match organizer.
  */
-export function canManageMatch(
-    userEmail: string | undefined | null,
+export async function canManageMatch(
     userId: string,
     matchCreatedBy: string
-): boolean {
-    return isAdmin(userEmail) || userId === matchCreatedBy;
+): Promise<boolean> {
+    if (userId === matchCreatedBy) return true;
+    return isAdmin(userId);
 }
 
 /**
- * Returns the user IDs of all admin users.
- * Resolves admin emails to Supabase auth user IDs.
- * Cached per server process to avoid repeated lookups.
+ * Returns the user IDs of all admin users by querying the profiles table.
  */
-let cachedAdminIds: string[] | null = null;
-
 export async function getAdminUserIds(): Promise<string[]> {
-    if (cachedAdminIds) return cachedAdminIds;
-
     const admin = createAdminClient();
-    const ids: string[] = [];
+    const { data, error } = await admin
+        .from("profiles")
+        .select("id")
+        .eq("is_admin", true);
 
-    for (const email of ADMIN_EMAILS) {
-        const { data } = await admin.auth.admin.listUsers({ page: 1, perPage: 50 });
-        if (data?.users) {
-            const match = data.users.find(
-                (u) => u.email?.toLowerCase() === email.toLowerCase()
-            );
-            if (match) ids.push(match.id);
-        }
-    }
-
-    cachedAdminIds = ids;
-    return cachedAdminIds;
+    if (error || !data) return [];
+    return data.map((p) => p.id);
 }
