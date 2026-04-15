@@ -48,13 +48,23 @@ export function balanceTeams(participants: TeamPlayer[]): BalanceResult {
         const sorted = [...groups[pos]].sort((a, b) => b.elo_rating - a.elo_rating);
 
         for (let i = 0; i < sorted.length; i++) {
-            // Zigzag: even index → team with fewer pos players (or A on tie), odd → the other
             const aCount = teamA.filter((p) => p.position === pos).length;
             const bCount = teamB.filter((p) => p.position === pos).length;
-            if (aCount <= bCount) {
+            
+            if (aCount < bCount) {
                 teamA.push(sorted[i]);
-            } else {
+            } else if (bCount < aCount) {
                 teamB.push(sorted[i]);
+            } else {
+                // If positional count is tied, assign to the team with the LOWER total ELO
+                const aElo = teamA.reduce((sum, p) => sum + p.elo_rating, 0);
+                const bElo = teamB.reduce((sum, p) => sum + p.elo_rating, 0);
+                
+                if (aElo <= bElo) {
+                    teamA.push(sorted[i]);
+                } else {
+                    teamB.push(sorted[i]);
+                }
             }
         }
     }
