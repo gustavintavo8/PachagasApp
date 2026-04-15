@@ -155,6 +155,13 @@ export default async function PlayerProfilePage({
         }
     }
 
+    // Fetch RP History
+    const { data: rpHistoryData } = await supabase
+        .from("rp_history")
+        .select("new_rp, created_at")
+        .eq("user_id", id)
+        .order("created_at", { ascending: true });
+
     return (
         <div className="mx-auto max-w-3xl px-4 py-8">
             {/* Back Link */}
@@ -326,15 +333,8 @@ export default async function PlayerProfilePage({
                         return { match: i + 1, rate: Math.round((w / (i + 1)) * 100) };
                     });
 
-                // RP History
-                const rpHistoryData = await supabase
-                    .from("rp_history")
-                    .select("new_rp, created_at")
-                    .eq("user_id", id)
-                    .order("created_at", { ascending: true });
-
                 let matchCounter = 1;
-                const rpOverTime = rpHistoryData.data?.map((entry) => ({
+                const rpOverTime = rpHistoryData?.map((entry) => ({
                     match: matchCounter++,
                     rp: entry.new_rp,
                 })) || [];
