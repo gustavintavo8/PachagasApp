@@ -14,9 +14,15 @@ interface WinRateData {
     rate: number;
 }
 
+interface RpData {
+    match: number;
+    rp: number;
+}
+
 interface PlayerChartsProps {
     goalsPerMonth: GoalData[];
     winRateOverTime: WinRateData[];
+    rpOverTime?: RpData[];
 }
 
 // ── Lazy-load recharts to keep it out of the initial JS bundle ──────────────
@@ -67,8 +73,8 @@ const ChartSkeleton = () => (
     <div className="h-48 w-full animate-pulse rounded-xl bg-zinc-800/60" />
 );
 
-export function PlayerCharts({ goalsPerMonth, winRateOverTime }: PlayerChartsProps) {
-    if (goalsPerMonth.length === 0 && winRateOverTime.length === 0) return null;
+export function PlayerCharts({ goalsPerMonth, winRateOverTime, rpOverTime = [] }: PlayerChartsProps) {
+    if (goalsPerMonth.length === 0 && winRateOverTime.length === 0 && rpOverTime.length === 0) return null;
 
     return (
         <div className="grid gap-6 sm:grid-cols-2">
@@ -145,6 +151,52 @@ export function PlayerCharts({ goalsPerMonth, winRateOverTime }: PlayerChartsPro
                                     strokeWidth={2}
                                     fill="url(#winGradient)"
                                     name="Tasa"
+                                />
+                            </LazyAreaChart>
+                        </LazyResponsiveContainer>
+                    </div>
+                </Card>
+            )}
+
+            {/* RP Evolution */}
+            {rpOverTime.length > 1 && (
+                <Card className="sm:col-span-2">
+                    <h3 className="mb-4 text-sm font-semibold text-foreground">
+                        <TrendingUp size={16} className="inline text-purple-400" /> Evolución del Rating (RP)
+                    </h3>
+                    <div className="h-64">
+                        <LazyResponsiveContainer width="100%" height="100%">
+                            <LazyAreaChart data={rpOverTime}>
+                                <LazyXAxis
+                                    dataKey="match"
+                                    tick={{ fill: "#71717a", fontSize: 11 }}
+                                    axisLine={false}
+                                    tickLine={false}
+                                />
+                                <LazyYAxis
+                                    domain={["dataMin - 10", "dataMax + 10"]}
+                                    tick={{ fill: "#71717a", fontSize: 11 }}
+                                    axisLine={false}
+                                    tickLine={false}
+                                    allowDecimals={false}
+                                />
+                                <LazyTooltip
+                                    contentStyle={customTooltipStyle}
+                                    formatter={(value: any) => [`${value} RP`, "Rating"]}
+                                />
+                                <defs>
+                                    <linearGradient id="rpGradient" x1="0" y1="0" x2="0" y2="1">
+                                        <stop offset="5%" stopColor="#a855f7" stopOpacity={0.3} />
+                                        <stop offset="95%" stopColor="#a855f7" stopOpacity={0} />
+                                    </linearGradient>
+                                </defs>
+                                <LazyArea
+                                    type="monotone"
+                                    dataKey="rp"
+                                    stroke="#a855f7"
+                                    strokeWidth={2}
+                                    fill="url(#rpGradient)"
+                                    name="RP"
                                 />
                             </LazyAreaChart>
                         </LazyResponsiveContainer>

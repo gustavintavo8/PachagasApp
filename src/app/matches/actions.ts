@@ -348,12 +348,22 @@ export async function setScore(
                 validData.teamBScore
             );
 
-            // Bulk update ELO ratings
+            // Bulk update ELO ratings and history
             for (const update of eloUpdates) {
                 await adminSupabase
                     .from("profiles")
                     .update({ elo_rating: update.newRating })
                     .eq("id", update.userId);
+                    
+                await adminSupabase
+                    .from("rp_history")
+                    .insert({
+                        user_id: update.userId,
+                        match_id: validData.matchId,
+                        rp_change: update.delta,
+                        new_rp: update.newRating,
+                        created_at: new Date().toISOString()
+                    });
             }
         }
     }

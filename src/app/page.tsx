@@ -298,11 +298,24 @@ async function DetailedDashboardStats({ userId }: { userId: string }) {
           return { match: i + 1, rate: Math.round((w / (i + 1)) * 100) };
       });
 
+  // RP History
+  const { data: rpHistoryData } = await supabase
+      .from("rp_history")
+      .select("new_rp, created_at")
+      .eq("user_id", userId)
+      .order("created_at", { ascending: true });
+
+  let matchCounter = 1;
+  const rpOverTime = rpHistoryData?.map((entry) => ({
+      match: matchCounter++,
+      rp: entry.new_rp,
+  })) || [];
+
   return (
     <div className="space-y-12">
         {/* Charts */}
         <div>
-            <PlayerCharts goalsPerMonth={goalsPerMonth} winRateOverTime={winRateOverTime} />
+            <PlayerCharts goalsPerMonth={goalsPerMonth} winRateOverTime={winRateOverTime} rpOverTime={rpOverTime} />
         </div>
 
         {/* Recent Matches */}

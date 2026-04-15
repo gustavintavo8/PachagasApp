@@ -326,9 +326,22 @@ export default async function PlayerProfilePage({
                         return { match: i + 1, rate: Math.round((w / (i + 1)) * 100) };
                     });
 
+                // RP History
+                const rpHistoryData = await supabase
+                    .from("rp_history")
+                    .select("new_rp, created_at")
+                    .eq("user_id", id)
+                    .order("created_at", { ascending: true });
+
+                let matchCounter = 1;
+                const rpOverTime = rpHistoryData.data?.map((entry) => ({
+                    match: matchCounter++,
+                    rp: entry.new_rp,
+                })) || [];
+
                 return (
                     <div className="mb-8">
-                        <PlayerCharts goalsPerMonth={goalsPerMonth} winRateOverTime={winRateOverTime} />
+                        <PlayerCharts goalsPerMonth={goalsPerMonth} winRateOverTime={winRateOverTime} rpOverTime={rpOverTime} />
                     </div>
                 );
             })()}

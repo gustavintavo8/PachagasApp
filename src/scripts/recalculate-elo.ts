@@ -178,6 +178,7 @@ async function main() {
 
     const ratingMap: Record<string, number> = {};
     const matchesPlayedMap: Record<string, number> = {};
+    const historyInserts: any[] = [];
 
     for (const match of matches ?? []) {
         const { data: participants, error: pError } = await supabase
@@ -220,6 +221,14 @@ async function main() {
         for (const u of updates) {
             ratingMap[u.userId] = u.newRating;
             matchesPlayedMap[u.userId] = (matchesPlayedMap[u.userId] ?? 0) + 1;
+            
+            historyInserts.push({
+                user_id: u.userId,
+                match_id: match.id,
+                rp_change: u.delta,
+                new_rp: u.newRating,
+                created_at: match.date
+            });
         }
 
         console.log(
@@ -227,8 +236,12 @@ async function main() {
         );
     }
 
-    // 3. Guardar ratings finales
-    console.log("\n💾 Guardando ratings finales...");
+    // 3. Guardar ratings finales y rellenar historial temporal
+    console.log("\n💾 Limpiando historial previo (rp_history)...");
+    const { error: delError } = await supabase.from("rp_history").delete().neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
+    if (delError) console.error("Error limpiando rp_history:", delError.message);
+
+    console.log("💾 Guardando ratings finales e historial...");
     let saved = 0;
     for (const [userId, rating] of Object.entries(ratingMap)) {
         const { error } = await supabase
@@ -242,7 +255,14 @@ async function main() {
         }
     }
 
-    console.log(`\n✅ Listo. ${saved} jugadores actualizados.`);
+    // Insertar en rp_history por chunks (Supabase bulk insert limits)
+    for (let i = 0; i < historyInserts.length; i += 500) {
+        const chunk = historyInserts.slice(i, i + 500);
+        const { error } = await supabase.from("rp_history").insert(chunk);
+        if (error) console.error("  ❌ Error guardando historial:", error.message);
+    }
+
+    console.log(`\n✅ Listo. ${saved} jugadores actualizados con ${historyInserts.length} eventos históricos.`);
 
     // Mostrar resultados con posición
     const { data: finalProfiles } = await supabase
