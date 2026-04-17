@@ -214,6 +214,11 @@ export default async function PlayerProfilePage({
                             <span className="flex items-center gap-1.5 rounded-full border border-accent/40 bg-accent/10 px-3 py-1 font-bold text-accent shadow-[0_0_10px_rgba(204,255,0,0.1)]">
                                 {profile.elo_rating ?? 1000} RP
                             </span>
+                            {profile.market_value !== null && (
+                                <span className="flex items-center gap-1.5 rounded-full border border-green-500/40 bg-green-500/10 px-3 py-1 text-xs font-semibold text-green-400">
+                                    {new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(profile.market_value)}
+                                </span>
+                            )}
                             {(profile.matches_played ?? 0) < 3 && (
                                 <span className="rounded-full border border-yellow-500/30 bg-yellow-500/10 px-3 py-1 text-xs font-medium text-yellow-400">
                                     Provisional
