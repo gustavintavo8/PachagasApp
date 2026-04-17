@@ -7,7 +7,7 @@ import { useState } from "react";
 import { signOut } from "@/app/login/actions";
 import { Avatar } from "@/components/ui/Avatar";
 import { cn, getAvatarUrl } from "@/lib/utils";
-import { Menu, X, Home, PlusCircle, LogOut, Trophy, BarChart3, CalendarDays, UsersRound } from "lucide-react";
+import { Menu, X, Home, LogOut, Trophy, BarChart3, UsersRound } from "lucide-react";
 import type { User as SupabaseUser } from "@supabase/supabase-js";
 
 interface NavbarClientProps {
@@ -19,9 +19,7 @@ interface NavbarClientProps {
 const navLinks = [
     { href: "/", label: "Inicio", icon: Home },
     { href: "/matches", label: "Partidos", icon: Trophy },
-    { href: "/matches/new", label: "Nuevo", icon: PlusCircle },
     { href: "/leaderboard", label: "Ranking", icon: BarChart3 },
-    { href: "/calendar", label: "Calendario", icon: CalendarDays },
     { href: "/players", label: "Jugadores", icon: UsersRound },
 ];
 
