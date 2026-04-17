@@ -89,7 +89,7 @@ export async function createMatch(formData: FormData): Promise<ActionResult> {
 
     revalidatePath("/");
     revalidatePath("/matches");
-    revalidatePath("/calendar");
+
     redirect(`/matches/${data.id}`);
 }
 
@@ -161,7 +161,7 @@ export async function joinMatch(matchId: string): Promise<ActionResult> {
     revalidatePath(`/matches/${matchId}`);
     revalidatePath("/");
     revalidatePath("/matches");
-    revalidatePath("/calendar");
+
     return { success: true };
 }
 
@@ -196,7 +196,7 @@ export async function leaveMatch(matchId: string): Promise<ActionResult> {
     revalidatePath(`/matches/${matchId}`);
     revalidatePath("/");
     revalidatePath("/matches");
-    revalidatePath("/calendar");
+
     return { success: true };
 }
 
@@ -231,7 +231,7 @@ export async function closeMatch(matchId: string): Promise<ActionResult> {
     revalidatePath(`/matches/${matchId}`);
     revalidatePath("/");
     revalidatePath("/matches");
-    revalidatePath("/calendar");
+
     return { success: true };
 }
 
@@ -396,7 +396,7 @@ export async function setScore(
     revalidatePath(`/matches/${validData.matchId}`);
     revalidatePath("/");
     revalidatePath("/matches");
-    revalidatePath("/calendar");
+
     return { success: true };
 }
 
@@ -483,7 +483,7 @@ export async function generateTeams(matchId: string): Promise<ActionResult> {
     );
 
     revalidatePath(`/matches/${matchId}`);
-    revalidatePath("/calendar");
+
     return { success: true };
 }
 
@@ -540,7 +540,7 @@ export async function cancelMatch(matchId: string): Promise<ActionResult> {
     revalidatePath(`/matches/${matchId}`);
     revalidatePath("/");
     revalidatePath("/matches");
-    revalidatePath("/calendar");
+
     return { success: true };
 }
 
@@ -618,7 +618,7 @@ export async function rescheduleMatch(
     revalidatePath(`/matches/${validMatchId}`);
     revalidatePath("/");
     revalidatePath("/matches");
-    revalidatePath("/calendar");
+
     return { success: true };
 }
 
@@ -684,7 +684,7 @@ export async function kickPlayer(
     revalidatePath(`/matches/${matchId}`);
     revalidatePath("/");
     revalidatePath("/matches");
-    revalidatePath("/calendar");
+
     return { success: true };
 }
 
