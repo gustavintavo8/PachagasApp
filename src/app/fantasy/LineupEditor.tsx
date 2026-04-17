@@ -20,7 +20,7 @@ interface LineupEditorProps {
     supabaseUrl: string;
 }
 
-const ZONES: Record<string, number> = { FWD: 13, MID: 38, DEF: 63, GK: 85 };
+const ZONES: Record<string, number> = { FWD: 14, MID: 40, DEF: 64, GK: 84 };
 
 const PITCH_COLORS: Record<string, string> = {
     GK: "bg-blue-950/90 text-blue-300 border-blue-500/50",
@@ -233,10 +233,10 @@ export function LineupEditor({ team, roster, supabaseUrl }: LineupEditorProps) {
 
             {/* Pitch + Bench */}
             <div>
-                {/* Pitch */}
+                {/* Pitch — half field, GK at bottom, FWD at top */}
                 <div
                     className="relative w-full overflow-hidden rounded-t-2xl border border-border"
-                    style={{ paddingBottom: "128%" }}
+                    style={{ paddingBottom: "66%" }}
                 >
                     {/* Grass */}
                     <div className="absolute inset-0 bg-gradient-to-b from-emerald-900 via-emerald-800 to-emerald-900">
@@ -244,40 +244,35 @@ export function LineupEditor({ team, roster, supabaseUrl }: LineupEditorProps) {
                             className="absolute inset-0"
                             style={{
                                 backgroundImage:
-                                    "repeating-linear-gradient(180deg, transparent, transparent 9.9%, rgba(0,0,0,0.07) 9.9%, rgba(0,0,0,0.07) 10.1%, transparent 10.1%, transparent 20%)",
+                                    "repeating-linear-gradient(180deg, transparent, transparent 14.9%, rgba(0,0,0,0.07) 14.9%, rgba(0,0,0,0.07) 15.1%, transparent 15.1%, transparent 30%)",
                             }}
                         />
                     </div>
 
-                    {/* SVG markings */}
+                    {/* SVG markings — half pitch */}
                     <svg
-                        viewBox="0 0 600 768"
+                        viewBox="0 0 600 396"
                         className="absolute inset-0 h-full w-full"
                         preserveAspectRatio="xMidYMid meet"
                         aria-hidden="true"
                     >
                         {/* Outer boundary */}
-                        <rect x="30" y="30" width="540" height="708" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="2.5" rx="4" />
-                        {/* Halfway line */}
-                        <line x1="30" y1="384" x2="570" y2="384" stroke="rgba(255,255,255,0.22)" strokeWidth="2" />
-                        {/* Centre circle */}
-                        <circle cx="300" cy="384" r="55" fill="none" stroke="rgba(255,255,255,0.22)" strokeWidth="2" />
-                        <circle cx="300" cy="384" r="4" fill="rgba(255,255,255,0.35)" />
-                        {/* Top penalty area */}
-                        <rect x="165" y="30" width="270" height="108" fill="none" stroke="rgba(255,255,255,0.22)" strokeWidth="2" />
-                        <rect x="225" y="30" width="150" height="44" fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="2" />
-                        <rect x="240" y="12" width="120" height="18" fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="2" rx="2" />
-                        <path d="M204,138 A60,60 0 0,0 396,138" fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="2" />
-                        {/* Bottom penalty area */}
-                        <rect x="165" y="630" width="270" height="108" fill="none" stroke="rgba(255,255,255,0.22)" strokeWidth="2" />
-                        <rect x="225" y="694" width="150" height="44" fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="2" />
-                        <rect x="240" y="738" width="120" height="18" fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="2" rx="2" />
-                        <path d="M204,630 A60,60 0 0,1 396,630" fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="2" />
-                        {/* Corners */}
-                        <path d="M30,45 A15,15 0 0,1 45,30" fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="2" />
-                        <path d="M555,30 A15,15 0 0,1 570,45" fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="2" />
-                        <path d="M45,738 A15,15 0 0,1 30,723" fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="2" />
-                        <path d="M570,723 A15,15 0 0,1 555,738" fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="2" />
+                        <rect x="25" y="5" width="550" height="386" fill="none" stroke="rgba(255,255,255,0.3)" strokeWidth="2.5" rx="4" />
+                        {/* Halfway line (top edge) + center circle arc */}
+                        <path d="M237,5 A63,63 0 0,0 363,5" fill="none" stroke="rgba(255,255,255,0.25)" strokeWidth="2" />
+                        {/* Penalty area */}
+                        <rect x="150" y="256" width="300" height="120" fill="none" stroke="rgba(255,255,255,0.28)" strokeWidth="2" />
+                        {/* Goal area */}
+                        <rect x="210" y="330" width="180" height="46" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="2" />
+                        {/* Penalty spot */}
+                        <circle cx="300" cy="308" r="3" fill="rgba(255,255,255,0.35)" />
+                        {/* Penalty arc */}
+                        <path d="M168,256 A68,68 0 0,0 432,256" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="2" />
+                        {/* Goal */}
+                        <rect x="238" y="376" width="124" height="15" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="2" rx="2" />
+                        {/* Bottom corner arcs */}
+                        <path d="M25,376 A15,15 0 0,0 40,391" fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="2" />
+                        <path d="M575,376 A15,15 0 0,0 560,391" fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="2" />
                     </svg>
 
                     {/* Players overlay */}
