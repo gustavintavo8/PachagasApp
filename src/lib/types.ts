@@ -7,6 +7,22 @@ export type Profile = {
     elo_rating: number;
     matches_played: number;
     goals_scored: number;
+    market_value: number | null;
+};
+
+export type FantasyTeam = {
+    id: string;
+    user_id: string;
+    name: string;
+    logo_url: string | null;
+    budget: number;
+    total_points: number;
+};
+
+export type FantasyRoster = {
+    team_id: string;
+    player_id: string;
+    is_captain: boolean;
 };
 
 export type MatchStatus = "open" | "closed" | "finished" | "cancelled";
