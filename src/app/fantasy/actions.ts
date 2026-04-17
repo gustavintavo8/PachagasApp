@@ -13,7 +13,7 @@ const nameSchema = z
 
 export async function createFantasyTeam(name: string): Promise<ActionResult> {
     const parsed = nameSchema.safeParse(name);
-    if (!parsed.success) return { success: false, error: parsed.error.errors[0].message };
+    if (!parsed.success) return { success: false, error: parsed.error.issues[0].message };
 
     const supabase = await createClient();
     const {
