@@ -15,7 +15,6 @@ interface MarketListProps {
     players: Profile[];
     team: FantasyTeam | null;
     myRosterIds: string[];
-    currentUserId: string;
 }
 
 function formatValue(value: number | null) {
@@ -28,7 +27,7 @@ function formatValue(value: number | null) {
     }).format(value);
 }
 
-export function MarketList({ players, team, myRosterIds, currentUserId }: MarketListProps) {
+export function MarketList({ players, team, myRosterIds }: MarketListProps) {
     const [query, setQuery] = useState("");
     const [loadingId, setLoadingId] = useState<string | null>(null);
     const { toast } = useToast();
@@ -38,17 +37,15 @@ export function MarketList({ players, team, myRosterIds, currentUserId }: Market
 
     const filtered =
         query === ""
-            ? players.filter((p) => p.id !== currentUserId)
+            ? players
             : players.filter(
-                  (p) =>
-                      p.id !== currentUserId &&
-                      (p.username?.toLowerCase().includes(query.toLowerCase()) ?? false)
+                  (p) => p.username?.toLowerCase().includes(query.toLowerCase()) ?? false
               );
 
     async function handleBuy(player: Profile) {
-        if (!team || player.market_value === null) return;
+        if (!team) return;
         setLoadingId(player.id);
-        const result = await buyPlayer(team.id, player.id, player.market_value);
+        const result = await buyPlayer(team.id, player.id);
         if (result.success) {
             toast(`${player.username ?? "Jugador"} fichado`, "success");
             router.refresh();
@@ -59,9 +56,9 @@ export function MarketList({ players, team, myRosterIds, currentUserId }: Market
     }
 
     async function handleSell(player: Profile) {
-        if (!team || player.market_value === null) return;
+        if (!team) return;
         setLoadingId(player.id);
-        const result = await sellPlayer(team.id, player.id, player.market_value);
+        const result = await sellPlayer(team.id, player.id);
         if (result.success) {
             toast(`${player.username ?? "Jugador"} vendido`, "success");
             router.refresh();

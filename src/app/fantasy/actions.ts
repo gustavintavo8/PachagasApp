@@ -41,16 +41,24 @@ export async function createFantasyTeam(name: string): Promise<ActionResult> {
     return { success: true };
 }
 
-export async function buyPlayer(
-    teamId: string,
-    playerId: string,
-    price: number
-): Promise<ActionResult> {
+export async function buyPlayer(teamId: string, playerId: string): Promise<ActionResult> {
     const supabase = await createClient();
     const {
         data: { user },
     } = await supabase.auth.getUser();
     if (!user) return { success: false, error: "No autenticado" };
+
+    // Fetch price from DB — never trust the client
+    const { data: playerData } = await supabase
+        .from("profiles")
+        .select("market_value")
+        .eq("id", playerId)
+        .single();
+
+    if (!playerData) return { success: false, error: "Jugador no encontrado" };
+    if (playerData.market_value === null)
+        return { success: false, error: "Este jugador no tiene valor de mercado" };
+    const price = playerData.market_value;
 
     const { data: team } = await supabase
         .from("fantasy_teams")
@@ -89,16 +97,24 @@ export async function buyPlayer(
     return { success: true };
 }
 
-export async function sellPlayer(
-    teamId: string,
-    playerId: string,
-    price: number
-): Promise<ActionResult> {
+export async function sellPlayer(teamId: string, playerId: string): Promise<ActionResult> {
     const supabase = await createClient();
     const {
         data: { user },
     } = await supabase.auth.getUser();
     if (!user) return { success: false, error: "No autenticado" };
+
+    // Fetch price from DB — never trust the client
+    const { data: playerData } = await supabase
+        .from("profiles")
+        .select("market_value")
+        .eq("id", playerId)
+        .single();
+
+    if (!playerData) return { success: false, error: "Jugador no encontrado" };
+    if (playerData.market_value === null)
+        return { success: false, error: "Este jugador no tiene valor de mercado" };
+    const price = playerData.market_value;
 
     const { data: team } = await supabase
         .from("fantasy_teams")

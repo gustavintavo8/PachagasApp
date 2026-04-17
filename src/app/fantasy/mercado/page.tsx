@@ -34,7 +34,6 @@ export default async function MercadoPage() {
             players={(players ?? []) as Profile[]}
             team={team as FantasyTeam | null}
             myRosterIds={myRosterIds}
-            currentUserId={user!.id}
         />
     );
 }
