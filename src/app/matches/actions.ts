@@ -352,7 +352,8 @@ export async function setScore(
             for (const update of eloUpdates) {
                 await adminSupabase
                     .from("profiles")
-                    .update({ elo_rating: update.newRating })
+                    // ← FANTASY: market_value = ELO × 10.000
+                    .update({ elo_rating: update.newRating, market_value: update.newRating * 10_000 })
                     .eq("id", update.userId);
                     
                 await adminSupabase
@@ -365,6 +366,74 @@ export async function setScore(
                         created_at: new Date().toISOString()
                     });
             }
+
+            // ── FANTASY: Puntuación del partido ──────────────────────────────────
+            // Reglas: +2 jugar, +3 victoria, +1 empate, +3/gol, +4 portería a cero
+            // (GK/DEF), multiplicador x2 si is_captain en el equipo fantasy.
+            const fantasyPointsMap: Record<string, number> = {};
+            const { teamAScore: aScore, teamBScore: bScore } = validData;
+
+            for (const p of eloParticipants) {
+                const pTeam = p.team as "A" | "B" | null;
+                if (pTeam !== "A" && pTeam !== "B") continue;
+
+                const goals = p.goals ?? 0;
+                const prof = p.profiles as unknown as { position: string | null } | null;
+                const position = prof?.position ?? "MID";
+
+                let pts = 2; // Jugar el partido
+
+                if (aScore === bScore) {
+                    pts += 1; // Empate
+                } else if (
+                    (pTeam === "A" && aScore > bScore) ||
+                    (pTeam === "B" && bScore > aScore)
+                ) {
+                    pts += 3; // Victoria
+                }
+
+                pts += goals * 3; // Goles: +3 c/u
+
+                if (position === "GK" || position === "DEF") {
+                    const conceded = pTeam === "A" ? bScore : aScore;
+                    if (conceded === 0) pts += 4; // Portería a cero
+                }
+
+                fantasyPointsMap[p.user_id] = pts;
+            }
+
+            const scoringPlayerIds = Object.keys(fantasyPointsMap);
+            if (scoringPlayerIds.length > 0) {
+                const { data: rosterEntries } = await adminSupabase
+                    .from("fantasy_rosters")
+                    .select("team_id, player_id, is_captain")
+                    .in("player_id", scoringPlayerIds);
+
+                if (rosterEntries && rosterEntries.length > 0) {
+                    // Agrupar puntos por equipo fantasy aplicando multiplicador de capitán
+                    const teamPointsMap: Record<string, number> = {};
+                    for (const entry of rosterEntries) {
+                        const base = fantasyPointsMap[entry.player_id] ?? 0;
+                        const earned = entry.is_captain ? base * 2 : base;
+                        teamPointsMap[entry.team_id] =
+                            (teamPointsMap[entry.team_id] ?? 0) + earned;
+                    }
+
+                    for (const [teamId, earned] of Object.entries(teamPointsMap)) {
+                        const { data: ft } = await adminSupabase
+                            .from("fantasy_teams")
+                            .select("total_points")
+                            .eq("id", teamId)
+                            .single();
+
+                        await adminSupabase
+                            .from("fantasy_teams")
+                            .update({ total_points: (ft?.total_points ?? 0) + earned })
+                            .eq("id", teamId);
+                    }
+                }
+            }
+            // ─────────────────────────────────────────────────────────────────────
         }
     }
     // ──────────────────────────────────────────────────────────────────────
@@ -753,6 +822,29 @@ async function resolveMvp(matchId: string) {
         `Has sido elegido MVP del partido en ${matchInfo?.location || "tu partido"}`,
         matchId
     );
+
+    // ── FANTASY: Bonus MVP (+5 base, +10 si capitán) ─────────────────────
+    const { data: mvpRosters } = await adminClient
+        .from("fantasy_rosters")
+        .select("team_id, is_captain")
+        .eq("player_id", winnerId);
+
+    if (mvpRosters && mvpRosters.length > 0) {
+        for (const entry of mvpRosters) {
+            const mvpPoints = entry.is_captain ? 10 : 5;
+            const { data: ft } = await adminClient
+                .from("fantasy_teams")
+                .select("total_points")
+                .eq("id", entry.team_id)
+                .single();
+
+            await adminClient
+                .from("fantasy_teams")
+                .update({ total_points: (ft?.total_points ?? 0) + mvpPoints })
+                .eq("id", entry.team_id);
+        }
+    }
+    // ─────────────────────────────────────────────────────────────────────
 }
 
 export async function forceResolveMvp(matchId: string): Promise<ActionResult> {
