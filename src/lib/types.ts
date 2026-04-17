@@ -23,6 +23,7 @@ export type FantasyRoster = {
     team_id: string;
     player_id: string;
     is_captain: boolean;
+    is_starter: boolean;
 };
 
 export type MatchStatus = "open" | "closed" | "finished" | "cancelled";

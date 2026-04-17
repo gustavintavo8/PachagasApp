@@ -32,7 +32,7 @@ export async function createFantasyTeam(name: string): Promise<ActionResult> {
     const { error } = await supabase.from("fantasy_teams").insert({
         user_id: user.id,
         name: parsed.data,
-        budget: 100_000_000,
+        budget: 115_000_000,
     });
 
     if (error) return { success: false, error: error.message };
@@ -78,6 +78,14 @@ export async function buyPlayer(teamId: string, playerId: string): Promise<Actio
         .maybeSingle();
 
     if (existing) return { success: false, error: "El jugador ya está en tu plantilla" };
+
+    const { count: rosterCount } = await supabase
+        .from("fantasy_rosters")
+        .select("*", { count: "exact", head: true })
+        .eq("team_id", teamId);
+
+    if ((rosterCount ?? 0) >= 11)
+        return { success: false, error: "Tu plantilla ya está llena (Máximo 11 jugadores). Vende a alguien primero." };
 
     const { error: insertError } = await supabase
         .from("fantasy_rosters")
@@ -193,6 +201,62 @@ export async function setCaptain(teamId: string, playerId: string): Promise<Acti
         .eq("player_id", playerId);
 
     if (setCaptainError) return { success: false, error: setCaptainError.message };
+
+    revalidatePath("/fantasy");
+    return { success: true };
+}
+
+export async function saveLineup(teamId: string, starterIds: string[]): Promise<ActionResult> {
+    if (starterIds.length !== 7)
+        return { success: false, error: "Debes seleccionar exactamente 7 titulares" };
+
+    const supabase = await createClient();
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+    if (!user) return { success: false, error: "No autenticado" };
+
+    const { data: team } = await supabase
+        .from("fantasy_teams")
+        .select("id")
+        .eq("id", teamId)
+        .eq("user_id", user.id)
+        .single();
+
+    if (!team) return { success: false, error: "Equipo no encontrado" };
+
+    const { data: nextMatch } = await supabase
+        .from("matches")
+        .select("date")
+        .eq("status", "open")
+        .order("date", { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+    if (nextMatch) {
+        const hoursUntil = (new Date(nextMatch.date).getTime() - Date.now()) / 3_600_000;
+        if (hoursUntil < 4) {
+            return {
+                success: false,
+                error: "No puedes cambiar la alineación: faltan menos de 4 horas para el próximo partido",
+            };
+        }
+    }
+
+    const { error: resetError } = await supabase
+        .from("fantasy_rosters")
+        .update({ is_starter: false })
+        .eq("team_id", teamId);
+
+    if (resetError) return { success: false, error: resetError.message };
+
+    const { error: setError } = await supabase
+        .from("fantasy_rosters")
+        .update({ is_starter: true })
+        .eq("team_id", teamId)
+        .in("player_id", starterIds);
+
+    if (setError) return { success: false, error: setError.message };
 
     revalidatePath("/fantasy");
     return { success: true };

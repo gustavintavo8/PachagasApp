@@ -352,8 +352,7 @@ export async function setScore(
             for (const update of eloUpdates) {
                 await adminSupabase
                     .from("profiles")
-                    // ← FANTASY: market_value = ELO × 10.000
-                    .update({ elo_rating: update.newRating, market_value: update.newRating * 10_000 })
+                    .update({ elo_rating: update.newRating, market_value: Math.max(1_000_000, (update.newRating - 800) * 50_000) })
                     .eq("id", update.userId);
                     
                 await adminSupabase
@@ -406,13 +405,14 @@ export async function setScore(
             if (scoringPlayerIds.length > 0) {
                 const { data: rosterEntries } = await adminSupabase
                     .from("fantasy_rosters")
-                    .select("team_id, player_id, is_captain")
+                    .select("team_id, player_id, is_captain, is_starter")
                     .in("player_id", scoringPlayerIds);
 
                 if (rosterEntries && rosterEntries.length > 0) {
                     // Agrupar puntos por equipo fantasy aplicando multiplicador de capitán
                     const teamPointsMap: Record<string, number> = {};
                     for (const entry of rosterEntries) {
+                        if (!entry.is_starter) continue;
                         const base = fantasyPointsMap[entry.player_id] ?? 0;
                         const earned = entry.is_captain ? base * 2 : base;
                         teamPointsMap[entry.team_id] =
@@ -826,11 +826,12 @@ async function resolveMvp(matchId: string) {
     // ── FANTASY: Bonus MVP (+5 base, +10 si capitán) ─────────────────────
     const { data: mvpRosters } = await adminClient
         .from("fantasy_rosters")
-        .select("team_id, is_captain")
+        .select("team_id, is_captain, is_starter")
         .eq("player_id", winnerId);
 
     if (mvpRosters && mvpRosters.length > 0) {
         for (const entry of mvpRosters) {
+            if (!entry.is_starter) continue;
             const mvpPoints = entry.is_captain ? 10 : 5;
             const { data: ft } = await adminClient
                 .from("fantasy_teams")
