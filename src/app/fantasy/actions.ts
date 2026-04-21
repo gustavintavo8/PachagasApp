@@ -254,6 +254,24 @@ export async function saveLineup(teamId: string, starterIds: string[]): Promise<
     } = await supabase.auth.getUser();
     if (!user) return { success: false, error: "No autenticado" };
 
+    // Validate position constraints: min 1, max 3 per position
+    const { data: starterProfiles } = await supabase
+        .from("profiles")
+        .select("id, position")
+        .in("id", starterIds);
+
+    if (starterProfiles) {
+        const posCounts: Record<string, number> = { GK: 0, DEF: 0, MID: 0, FWD: 0 };
+        for (const p of starterProfiles) {
+            const pos = p.position ?? "MID";
+            posCounts[pos] = (posCounts[pos] ?? 0) + 1;
+        }
+        for (const [pos, count] of Object.entries(posCounts)) {
+            if (count === 0) return { success: false, error: `Necesitas al menos 1 jugador en posición ${pos}` };
+            if (count > 3) return { success: false, error: `Máximo 3 jugadores en posición ${pos}` };
+        }
+    }
+
     const { data: team } = await supabase
         .from("fantasy_teams")
         .select("id")

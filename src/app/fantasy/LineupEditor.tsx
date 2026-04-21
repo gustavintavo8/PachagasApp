@@ -171,11 +171,41 @@ export function LineupEditor({ team, roster, supabaseUrl }: LineupEditorProps) {
     })();
     const captainChanged = !!captainId && captainId !== savedCaptainId && captainOnPitch;
 
-    function togglePlayer(playerId: string) {
-        if (!starterIds.has(playerId) && starterIds.size >= 7) {
-            toast("Ya tienes 7 titulares. Retira a uno primero.", "error");
-            return;
+    // Count starters per position
+    const starterPosCounts = (() => {
+        const counts: Record<string, number> = { GK: 0, DEF: 0, MID: 0, FWD: 0 };
+        for (const s of starters) {
+            const pos = s.profiles.position ?? "MID";
+            counts[pos] = (counts[pos] ?? 0) + 1;
         }
+        return counts;
+    })();
+
+    const POS_NAMES: Record<string, string> = { GK: "porteros", DEF: "defensas", MID: "centrocampistas", FWD: "delanteros" };
+
+    function togglePlayer(playerId: string) {
+        const entry = roster.find((r) => r.player_id === playerId);
+        if (!entry) return;
+        const pos = entry.profiles.position ?? "MID";
+
+        if (starterIds.has(playerId)) {
+            // Removing — check min 1 per position (only enforce when lineup is full)
+            if (starterIds.size === 7 && starterPosCounts[pos] <= 1) {
+                toast(`Necesitas al menos 1 ${POS_NAMES[pos] ?? pos} en el campo.`, "error");
+                return;
+            }
+        } else {
+            // Adding — check max 7 total and max 3 per position
+            if (starterIds.size >= 7) {
+                toast("Ya tienes 7 titulares. Retira a uno primero.", "error");
+                return;
+            }
+            if (starterPosCounts[pos] >= 3) {
+                toast(`Máximo 3 ${POS_NAMES[pos] ?? pos} como titulares.`, "error");
+                return;
+            }
+        }
+
         setStarterIds((prev) => {
             const next = new Set(prev);
             if (next.has(playerId)) next.delete(playerId);
