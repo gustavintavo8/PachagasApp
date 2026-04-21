@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 import type { FantasyRoster, Profile } from "@/lib/types";
 import { CreateTeamForm } from "./CreateTeamForm";
 import { LineupEditor } from "./LineupEditor";
@@ -10,6 +11,7 @@ export default async function FantasyPage() {
     const {
         data: { user },
     } = await supabase.auth.getUser();
+    if (!user) redirect("/login");
 
     const { data: team } = await supabase
         .from("fantasy_teams")

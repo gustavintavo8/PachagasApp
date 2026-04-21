@@ -27,6 +27,13 @@ const POSITION_LABELS: Record<PositionFilter, string> = {
     FWD: "DEL",
 };
 
+const POSITION_ES: Record<string, string> = {
+    GK: "POR",
+    DEF: "DEF",
+    MID: "MED",
+    FWD: "DEL",
+};
+
 function formatValue(value: number | null) {
     if (value === null) return "Sin valor";
     return new Intl.NumberFormat("es-ES", {
@@ -150,7 +157,7 @@ export function MarketList({ players, team, myRosterIds }: MarketListProps) {
                                     {player.username ?? "Sin nombre"}
                                 </p>
                                 <p className="text-xs text-muted">
-                                    {player.position ?? "—"} · {player.elo_rating} RP
+                                    {(player.position && POSITION_ES[player.position]) ?? "—"} · {player.elo_rating} RP
                                     {player.matches_played > 0 && ` · ${player.matches_played} PJ`}
                                     {player.goals_scored > 0 && ` · ${player.goals_scored} goles`}
                                 </p>
@@ -162,22 +169,27 @@ export function MarketList({ players, team, myRosterIds }: MarketListProps) {
                                 {price !== null && (
                                     inRoster ? (
                                         confirmingSell ? (
-                                            <div className="flex gap-1">
-                                                <Button
-                                                    size="sm"
-                                                    variant="danger"
-                                                    loading={loadingId === player.id}
-                                                    onClick={() => handleSellConfirmed(player)}
-                                                >
-                                                    Sí
-                                                </Button>
-                                                <Button
-                                                    size="sm"
-                                                    variant="outline"
-                                                    onClick={() => setSellConfirmId(null)}
-                                                >
-                                                    No
-                                                </Button>
+                                            <div className="flex flex-col items-end gap-1">
+                                                <p className="text-[11px] text-muted">
+                                                    ¿Vender a {player.username ?? "este jugador"}?
+                                                </p>
+                                                <div className="flex gap-1">
+                                                    <Button
+                                                        size="sm"
+                                                        variant="danger"
+                                                        loading={loadingId === player.id}
+                                                        onClick={() => handleSellConfirmed(player)}
+                                                    >
+                                                        Sí
+                                                    </Button>
+                                                    <Button
+                                                        size="sm"
+                                                        variant="outline"
+                                                        onClick={() => setSellConfirmId(null)}
+                                                    >
+                                                        No
+                                                    </Button>
+                                                </div>
                                             </div>
                                         ) : (
                                             <Button

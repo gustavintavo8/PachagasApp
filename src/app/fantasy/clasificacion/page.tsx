@@ -18,10 +18,13 @@ function formatBudget(n: number) {
 export default async function ClasificacionPage() {
     const supabase = await createClient();
 
-    const { data: teams } = await supabase
-        .from("fantasy_teams")
-        .select("*, profiles(username, avatar_url)")
-        .order("total_points", { ascending: false });
+    const [{ data: { user } }, { data: teams }] = await Promise.all([
+        supabase.auth.getUser(),
+        supabase
+            .from("fantasy_teams")
+            .select("*, profiles(username, avatar_url)")
+            .order("total_points", { ascending: false }),
+    ]);
 
     if (!teams || teams.length === 0) {
         return (
@@ -50,9 +53,13 @@ export default async function ClasificacionPage() {
                 const profile = team.profiles as { username: string | null; avatar_url: string | null } | null;
                 const avatarUrl = getAvatarUrl(supabaseUrl, profile?.avatar_url ?? null);
                 const playerCount = countMap[team.id] ?? 0;
+                const isMe = user && team.user_id === user.id;
 
                 return (
-                    <Card key={team.id} className="flex items-center gap-4 p-4">
+                    <Card
+                        key={team.id}
+                        className={`flex items-center gap-4 p-4 ${isMe ? "border-accent/50 ring-1 ring-accent/20" : ""}`}
+                    >
                         <span className="w-8 shrink-0 text-center text-lg font-bold">
                             {MEDALS[idx] ?? `#${idx + 1}`}
                         </span>
@@ -64,7 +71,14 @@ export default async function ClasificacionPage() {
                         />
 
                         <div className="min-w-0 flex-1">
-                            <p className="truncate font-semibold text-foreground">{team.name}</p>
+                            <div className="flex items-center gap-2">
+                                <p className="truncate font-semibold text-foreground">{team.name}</p>
+                                {isMe && (
+                                    <span className="shrink-0 rounded-full bg-accent/20 px-2 py-0.5 text-[10px] font-bold text-accent">
+                                        Tú
+                                    </span>
+                                )}
+                            </div>
                             <p className="text-xs text-muted">
                                 {profile?.username ?? "Desconocido"} · {playerCount}/11 jugadores
                             </p>

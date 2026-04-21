@@ -104,11 +104,12 @@ export async function buyPlayer(teamId: string, playerId: string): Promise<Actio
         .insert({ team_id: teamId, player_id: playerId, is_captain: false });
 
     if (insertError) {
-        // Roster insert failed — refund the budget
+        // Refund only if budget is still at the decremented value (avoids overwriting a concurrent change)
         await supabase
             .from("fantasy_teams")
             .update({ budget: team.budget })
-            .eq("id", teamId);
+            .eq("id", teamId)
+            .eq("budget", team.budget - price);
         return { success: false, error: insertError.message };
     }
 
@@ -154,10 +155,20 @@ export async function sellPlayer(teamId: string, playerId: string): Promise<Acti
     if (deleteError) return { success: false, error: deleteError.message };
     if (!deleted || deleted === 0) return { success: false, error: "Jugador no encontrado en tu plantilla" };
 
+    // Re-read budget after delete to get the freshest value before crediting
+    const { data: freshTeam } = await supabase
+        .from("fantasy_teams")
+        .select("budget")
+        .eq("id", teamId)
+        .single();
+
+    const currentBudget = freshTeam?.budget ?? team.budget;
+
     const { error: updateError } = await supabase
         .from("fantasy_teams")
-        .update({ budget: team.budget + price })
-        .eq("id", teamId);
+        .update({ budget: currentBudget + price })
+        .eq("id", teamId)
+        .eq("budget", currentBudget);
 
     if (updateError) return { success: false, error: updateError.message };
 

@@ -1,4 +1,5 @@
 import { createClient } from "@/lib/supabase/server";
+import { redirect } from "next/navigation";
 import type { Profile, FantasyTeam } from "@/lib/types";
 import { MarketList } from "./MarketList";
 
@@ -7,6 +8,7 @@ export default async function MercadoPage() {
     const {
         data: { user },
     } = await supabase.auth.getUser();
+    if (!user) redirect("/login");
 
     const [{ data: players }, { data: team }] = await Promise.all([
         supabase
