@@ -266,8 +266,8 @@ export function LineupEditor({ team, roster, supabaseUrl }: LineupEditorProps) {
                         <rect x="210" y="330" width="180" height="46" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="2" />
                         {/* Penalty spot */}
                         <circle cx="300" cy="308" r="3" fill="rgba(255,255,255,0.35)" />
-                        {/* Penalty arc */}
-                        <path d="M256,256 A68,68 0 0,1 344,256" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="2" />
+                        {/* Penalty arc — exact proportions from full SoccerPitch (r=60, same as full field) */}
+                        <path d="M150,256 A90,90 0 0,1 450,256" fill="none" stroke="rgba(255,255,255,0.22)" strokeWidth="2" />
                         {/* Goal */}
                         <rect x="238" y="376" width="124" height="15" fill="none" stroke="rgba(255,255,255,0.2)" strokeWidth="2" rx="2" />
                         {/* Bottom corner arcs */}
