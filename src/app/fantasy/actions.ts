@@ -87,18 +87,30 @@ export async function buyPlayer(teamId: string, playerId: string): Promise<Actio
     if ((rosterCount ?? 0) >= 11)
         return { success: false, error: "Tu plantilla ya está llena (Máximo 11 jugadores). Vende a alguien primero." };
 
+    // Atomic budget claim: only deducts if budget is still sufficient (guards race conditions)
+    const { data: claimed, error: claimError } = await supabase
+        .from("fantasy_teams")
+        .update({ budget: team.budget - price })
+        .eq("id", teamId)
+        .gte("budget", price)
+        .select("id");
+
+    if (claimError) return { success: false, error: claimError.message };
+    if (!claimed || claimed.length === 0)
+        return { success: false, error: "Presupuesto insuficiente" };
+
     const { error: insertError } = await supabase
         .from("fantasy_rosters")
         .insert({ team_id: teamId, player_id: playerId, is_captain: false });
 
-    if (insertError) return { success: false, error: insertError.message };
-
-    const { error: updateError } = await supabase
-        .from("fantasy_teams")
-        .update({ budget: team.budget - price })
-        .eq("id", teamId);
-
-    if (updateError) return { success: false, error: updateError.message };
+    if (insertError) {
+        // Roster insert failed — refund the budget
+        await supabase
+            .from("fantasy_teams")
+            .update({ budget: team.budget })
+            .eq("id", teamId);
+        return { success: false, error: insertError.message };
+    }
 
     revalidatePath("/fantasy");
     revalidatePath("/fantasy/mercado");
@@ -133,13 +145,14 @@ export async function sellPlayer(teamId: string, playerId: string): Promise<Acti
 
     if (!team) return { success: false, error: "Equipo no encontrado" };
 
-    const { error: deleteError } = await supabase
+    const { error: deleteError, count: deleted } = await supabase
         .from("fantasy_rosters")
-        .delete()
+        .delete({ count: "exact" })
         .eq("team_id", teamId)
         .eq("player_id", playerId);
 
     if (deleteError) return { success: false, error: deleteError.message };
+    if (!deleted || deleted === 0) return { success: false, error: "Jugador no encontrado en tu plantilla" };
 
     const { error: updateError } = await supabase
         .from("fantasy_teams")
@@ -168,6 +181,20 @@ export async function setCaptain(teamId: string, playerId: string): Promise<Acti
         .single();
 
     if (!team) return { success: false, error: "Equipo no encontrado" };
+
+    const { data: closedMatch } = await supabase
+        .from("matches")
+        .select("id")
+        .eq("status", "closed")
+        .limit(1)
+        .maybeSingle();
+
+    if (closedMatch) {
+        return {
+            success: false,
+            error: "No puedes cambiar el capitán: hay un partido en curso",
+        };
+    }
 
     const { data: nextMatch } = await supabase
         .from("matches")
@@ -224,6 +251,20 @@ export async function saveLineup(teamId: string, starterIds: string[]): Promise<
         .single();
 
     if (!team) return { success: false, error: "Equipo no encontrado" };
+
+    const { data: closedMatch } = await supabase
+        .from("matches")
+        .select("id")
+        .eq("status", "closed")
+        .limit(1)
+        .maybeSingle();
+
+    if (closedMatch) {
+        return {
+            success: false,
+            error: "No puedes cambiar la alineación: hay un partido en curso",
+        };
+    }
 
     const { data: nextMatch } = await supabase
         .from("matches")

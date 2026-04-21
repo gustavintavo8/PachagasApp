@@ -17,6 +17,16 @@ interface MarketListProps {
     myRosterIds: string[];
 }
 
+type PositionFilter = "ALL" | "GK" | "DEF" | "MID" | "FWD";
+
+const POSITION_LABELS: Record<PositionFilter, string> = {
+    ALL: "Todos",
+    GK: "POR",
+    DEF: "DEF",
+    MID: "MED",
+    FWD: "DEL",
+};
+
 function formatValue(value: number | null) {
     if (value === null) return "Sin valor";
     return new Intl.NumberFormat("es-ES", {
@@ -29,18 +39,19 @@ function formatValue(value: number | null) {
 
 export function MarketList({ players, team, myRosterIds }: MarketListProps) {
     const [query, setQuery] = useState("");
+    const [posFilter, setPosFilter] = useState<PositionFilter>("ALL");
     const [loadingId, setLoadingId] = useState<string | null>(null);
+    const [sellConfirmId, setSellConfirmId] = useState<string | null>(null);
     const { toast } = useToast();
     const router = useRouter();
 
     const rosterSet = new Set(myRosterIds);
 
-    const filtered =
-        query === ""
-            ? players
-            : players.filter(
-                  (p) => p.username?.toLowerCase().includes(query.toLowerCase()) ?? false
-              );
+    const filtered = players.filter((p) => {
+        const matchesQuery = query === "" || (p.username?.toLowerCase().includes(query.toLowerCase()) ?? false);
+        const matchesPos = posFilter === "ALL" || p.position === posFilter;
+        return matchesQuery && matchesPos;
+    });
 
     async function handleBuy(player: Profile) {
         if (!team) return;
@@ -55,8 +66,9 @@ export function MarketList({ players, team, myRosterIds }: MarketListProps) {
         setLoadingId(null);
     }
 
-    async function handleSell(player: Profile) {
+    async function handleSellConfirmed(player: Profile) {
         if (!team) return;
+        setSellConfirmId(null);
         setLoadingId(player.id);
         const result = await sellPlayer(team.id, player.id);
         if (result.success) {
@@ -95,6 +107,24 @@ export function MarketList({ players, team, myRosterIds }: MarketListProps) {
                 />
             </div>
 
+            {/* Position filter */}
+            <div className="flex gap-2">
+                {(["ALL", "GK", "DEF", "MID", "FWD"] as const).map((pos) => (
+                    <button
+                        key={pos}
+                        type="button"
+                        onClick={() => setPosFilter(pos)}
+                        className={`rounded-full border px-3 py-1 text-xs font-semibold transition-colors ${
+                            posFilter === pos
+                                ? "border-accent bg-accent/20 text-accent"
+                                : "border-border bg-surface text-muted hover:text-foreground"
+                        }`}
+                    >
+                        {POSITION_LABELS[pos]}
+                    </button>
+                ))}
+            </div>
+
             {/* Players */}
             <div className="grid gap-3 sm:grid-cols-2">
                 {filtered.map((player) => {
@@ -106,6 +136,7 @@ export function MarketList({ players, team, myRosterIds }: MarketListProps) {
                         process.env.NEXT_PUBLIC_SUPABASE_URL!,
                         player.avatar_url
                     );
+                    const confirmingSell = sellConfirmId === player.id;
 
                     return (
                         <Card key={player.id} className="flex items-center gap-3 p-4">
@@ -120,6 +151,8 @@ export function MarketList({ players, team, myRosterIds }: MarketListProps) {
                                 </p>
                                 <p className="text-xs text-muted">
                                     {player.position ?? "—"} · {player.elo_rating} RP
+                                    {player.matches_played > 0 && ` · ${player.matches_played} PJ`}
+                                    {player.goals_scored > 0 && ` · ${player.goals_scored} goles`}
                                 </p>
                             </div>
                             <div className="flex flex-col items-end gap-1.5">
@@ -128,14 +161,34 @@ export function MarketList({ players, team, myRosterIds }: MarketListProps) {
                                 </span>
                                 {price !== null && (
                                     inRoster ? (
-                                        <Button
-                                            size="sm"
-                                            variant="danger"
-                                            loading={loadingId === player.id}
-                                            onClick={() => handleSell(player)}
-                                        >
-                                            Vender
-                                        </Button>
+                                        confirmingSell ? (
+                                            <div className="flex gap-1">
+                                                <Button
+                                                    size="sm"
+                                                    variant="danger"
+                                                    loading={loadingId === player.id}
+                                                    onClick={() => handleSellConfirmed(player)}
+                                                >
+                                                    Sí
+                                                </Button>
+                                                <Button
+                                                    size="sm"
+                                                    variant="outline"
+                                                    onClick={() => setSellConfirmId(null)}
+                                                >
+                                                    No
+                                                </Button>
+                                            </div>
+                                        ) : (
+                                            <Button
+                                                size="sm"
+                                                variant="danger"
+                                                loading={loadingId === player.id}
+                                                onClick={() => setSellConfirmId(player.id)}
+                                            >
+                                                Vender
+                                            </Button>
+                                        )
                                     ) : (
                                         <Button
                                             size="sm"
