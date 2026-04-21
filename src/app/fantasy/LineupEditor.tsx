@@ -146,10 +146,22 @@ function BenchPlayer({
     );
 }
 
+// All valid 7-player formations: 1 GK + DEF/MID/FWD where each ≥1, ≤3, sum=6
+const VALID_FORMATIONS: { label: string; counts: Record<string, number> }[] = [
+    { label: "1-1-2-3", counts: { GK: 1, DEF: 1, MID: 2, FWD: 3 } },
+    { label: "1-1-3-2", counts: { GK: 1, DEF: 1, MID: 3, FWD: 2 } },
+    { label: "1-2-1-3", counts: { GK: 1, DEF: 2, MID: 1, FWD: 3 } },
+    { label: "1-2-2-2", counts: { GK: 1, DEF: 2, MID: 2, FWD: 2 } },
+    { label: "1-2-3-1", counts: { GK: 1, DEF: 2, MID: 3, FWD: 1 } },
+    { label: "1-3-1-2", counts: { GK: 1, DEF: 3, MID: 1, FWD: 2 } },
+    { label: "1-3-2-1", counts: { GK: 1, DEF: 3, MID: 2, FWD: 1 } },
+];
+
 /* ── Main component ── */
 export function LineupEditor({ team, roster, supabaseUrl }: LineupEditorProps) {
     const savedCaptainId = roster.find((r) => r.is_captain)?.player_id ?? "";
 
+    const [formation, setFormation] = useState(VALID_FORMATIONS[3]); // default 1-2-2-2
     const [starterIds, setStarterIds] = useState<Set<string>>(
         () => new Set(roster.filter((r) => r.is_starter).map((r) => r.player_id))
     );
@@ -181,31 +193,33 @@ export function LineupEditor({ team, roster, supabaseUrl }: LineupEditorProps) {
         return counts;
     })();
 
-    const POS_NAMES: Record<string, string> = { GK: "portero", DEF: "defensa", MID: "centrocampista", FWD: "delantero" };
     const POS_NAMES_PL: Record<string, string> = { GK: "porteros", DEF: "defensas", MID: "centrocampistas", FWD: "delanteros" };
-    // Formación obligatoria 1-2-2-2
-    const FORMATION: Record<string, number> = { GK: 1, DEF: 2, MID: 2, FWD: 2 };
+
+    function handleFormationChange(f: typeof VALID_FORMATIONS[number]) {
+        setFormation(f);
+        setStarterIds(new Set()); // clear starters when formation changes
+    }
 
     function togglePlayer(playerId: string) {
         const entry = roster.find((r) => r.player_id === playerId);
         if (!entry) return;
         const pos = entry.profiles.position ?? "MID";
-        const required = FORMATION[pos] ?? 2;
+        const required = formation.counts[pos] ?? 0;
 
         if (starterIds.has(playerId)) {
-            // Removing — only block if this position would go below its required count
+            // Removing — block if this position would drop below the formation's required count
             if (starterIds.size === 7 && starterPosCounts[pos] <= required) {
-                toast(`Necesitas exactamente ${required} ${POS_NAMES_PL[pos] ?? pos} (formación 1-2-2-2).`, "error");
+                toast(`Necesitas exactamente ${required} ${POS_NAMES_PL[pos] ?? pos} en la formación ${formation.label}.`, "error");
                 return;
             }
         } else {
-            // Adding — block if total full or this position already at its required count
+            // Adding — block if total is full or this position is already satisfied
             if (starterIds.size >= 7) {
                 toast("Ya tienes 7 titulares. Retira a uno primero.", "error");
                 return;
             }
             if (starterPosCounts[pos] >= required) {
-                toast(`Ya tienes ${required} ${POS_NAMES_PL[pos] ?? pos} (formación 1-2-2-2).`, "error");
+                toast(`Ya tienes ${required} ${POS_NAMES_PL[pos] ?? pos} en la formación ${formation.label}.`, "error");
                 return;
             }
         }
@@ -264,6 +278,24 @@ export function LineupEditor({ team, roster, supabaseUrl }: LineupEditorProps) {
                     </div>
                 </div>
             </Card>
+
+            {/* Formation selector */}
+            <div className="flex flex-wrap gap-1.5 mb-3">
+                {VALID_FORMATIONS.map((f) => (
+                    <button
+                        key={f.label}
+                        type="button"
+                        onClick={() => handleFormationChange(f)}
+                        className={`rounded-full border px-3 py-1 text-xs font-bold tracking-wide transition-colors ${
+                            formation.label === f.label
+                                ? "border-accent bg-accent/20 text-accent"
+                                : "border-border bg-surface text-muted hover:text-foreground"
+                        }`}
+                    >
+                        {f.label}
+                    </button>
+                ))}
+            </div>
 
             {/* Pitch + Bench */}
             <div>

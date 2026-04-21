@@ -266,7 +266,17 @@ export async function saveLineup(teamId: string, starterIds: string[]): Promise<
     } = await supabase.auth.getUser();
     if (!user) return { success: false, error: "No autenticado" };
 
-    // Regla 4: formación exacta 1-2-2-2 (1 GK, 2 DEF, 2 MID, 2 FWD)
+    // Regla 4: la alineación debe coincidir con alguna formación válida
+    const VALID_FORMATIONS = [
+        { label: "1-1-2-3", counts: { GK: 1, DEF: 1, MID: 2, FWD: 3 } },
+        { label: "1-1-3-2", counts: { GK: 1, DEF: 1, MID: 3, FWD: 2 } },
+        { label: "1-2-1-3", counts: { GK: 1, DEF: 2, MID: 1, FWD: 3 } },
+        { label: "1-2-2-2", counts: { GK: 1, DEF: 2, MID: 2, FWD: 2 } },
+        { label: "1-2-3-1", counts: { GK: 1, DEF: 2, MID: 3, FWD: 1 } },
+        { label: "1-3-1-2", counts: { GK: 1, DEF: 3, MID: 1, FWD: 2 } },
+        { label: "1-3-2-1", counts: { GK: 1, DEF: 3, MID: 2, FWD: 1 } },
+    ];
+
     const { data: starterProfiles } = await supabase
         .from("profiles")
         .select("id, position")
@@ -278,11 +288,14 @@ export async function saveLineup(teamId: string, starterIds: string[]): Promise<
             const pos = p.position ?? "MID";
             posCounts[pos] = (posCounts[pos] ?? 0) + 1;
         }
-        const REQUIRED: Record<string, number> = { GK: 1, DEF: 2, MID: 2, FWD: 2 };
-        for (const [pos, required] of Object.entries(REQUIRED)) {
-            if (posCounts[pos] !== required)
-                return { success: false, error: `La alineación debe ser 1-2-2-2: necesitas exactamente ${required} ${pos}` };
-        }
+        const isValid = VALID_FORMATIONS.some((f) =>
+            Object.entries(f.counts).every(([pos, required]) => posCounts[pos] === required)
+        );
+        if (!isValid)
+            return {
+                success: false,
+                error: `La alineación no corresponde a ninguna formación válida. Usa: ${VALID_FORMATIONS.map((f) => f.label).join(", ")}`,
+            };
     }
 
     const { data: team } = await supabase
