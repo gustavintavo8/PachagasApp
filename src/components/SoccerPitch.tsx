@@ -67,6 +67,15 @@ export function SoccerPitch({ teamA, teamB }: SoccerPitchProps) {
     } | null>(null);
     const pitchRef = useRef<HTMLDivElement>(null);
 
+    const avgElo = (players: Participant[]) => {
+        if (players.length === 0) return null;
+        const sum = players.reduce((acc, p) => acc + (p.profiles?.elo_rating ?? 1000), 0);
+        return Math.round(sum / players.length);
+    };
+
+    const avgA = avgElo(teamA);
+    const avgB = avgElo(teamB);
+
     // Close popover on click outside
     useEffect(() => {
         function handleClickOutside(e: MouseEvent) {
@@ -108,6 +117,11 @@ export function SoccerPitch({ teamA, teamB }: SoccerPitchProps) {
                     <span className="text-sm font-bold text-accent">
                         Equipo Rojo
                     </span>
+                    {avgA !== null && (
+                        <span className="rounded-full border border-accent/40 bg-accent/10 px-2 py-0.5 text-[10px] font-bold text-accent">
+                            ⚡ {avgA} RP med.
+                        </span>
+                    )}
                 </div>
                 <span className="text-xs text-muted">
                     {teamA.length} jugadores
@@ -356,6 +370,11 @@ export function SoccerPitch({ teamA, teamB }: SoccerPitchProps) {
                     <span className="text-sm font-bold text-blue-400">
                         Equipo Azul
                     </span>
+                    {avgB !== null && (
+                        <span className="rounded-full border border-blue-400/40 bg-blue-400/10 px-2 py-0.5 text-[10px] font-bold text-blue-400">
+                            ⚡ {avgB} RP med.
+                        </span>
+                    )}
                 </div>
                 <span className="text-xs text-muted">
                     {teamB.length} jugadores
