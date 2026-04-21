@@ -181,27 +181,31 @@ export function LineupEditor({ team, roster, supabaseUrl }: LineupEditorProps) {
         return counts;
     })();
 
-    const POS_NAMES: Record<string, string> = { GK: "porteros", DEF: "defensas", MID: "centrocampistas", FWD: "delanteros" };
+    const POS_NAMES: Record<string, string> = { GK: "portero", DEF: "defensa", MID: "centrocampista", FWD: "delantero" };
+    const POS_NAMES_PL: Record<string, string> = { GK: "porteros", DEF: "defensas", MID: "centrocampistas", FWD: "delanteros" };
+    // Formación obligatoria 1-2-2-2
+    const FORMATION: Record<string, number> = { GK: 1, DEF: 2, MID: 2, FWD: 2 };
 
     function togglePlayer(playerId: string) {
         const entry = roster.find((r) => r.player_id === playerId);
         if (!entry) return;
         const pos = entry.profiles.position ?? "MID";
+        const required = FORMATION[pos] ?? 2;
 
         if (starterIds.has(playerId)) {
-            // Removing — check min 1 per position (only enforce when lineup is full)
-            if (starterIds.size === 7 && starterPosCounts[pos] <= 1) {
-                toast(`Necesitas al menos 1 ${POS_NAMES[pos] ?? pos} en el campo.`, "error");
+            // Removing — only block if this position would go below its required count
+            if (starterIds.size === 7 && starterPosCounts[pos] <= required) {
+                toast(`Necesitas exactamente ${required} ${POS_NAMES_PL[pos] ?? pos} (formación 1-2-2-2).`, "error");
                 return;
             }
         } else {
-            // Adding — check max 7 total and max 3 per position
+            // Adding — block if total full or this position already at its required count
             if (starterIds.size >= 7) {
                 toast("Ya tienes 7 titulares. Retira a uno primero.", "error");
                 return;
             }
-            if (starterPosCounts[pos] >= 3) {
-                toast(`Máximo 3 ${POS_NAMES[pos] ?? pos} como titulares.`, "error");
+            if (starterPosCounts[pos] >= required) {
+                toast(`Ya tienes ${required} ${POS_NAMES_PL[pos] ?? pos} (formación 1-2-2-2).`, "error");
                 return;
             }
         }

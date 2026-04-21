@@ -367,10 +367,21 @@ export async function setScore(
             }
 
             // ── FANTASY: Puntuación del partido ──────────────────────────────────
-            // Reglas: +2 jugar, +3 victoria, +1 empate, +3/gol, +4 portería a cero
-            // (GK/DEF), multiplicador x2 si is_captain en el equipo fantasy.
+            // Reglas: +2 jugar, +3 victoria, +1 empate, +3/gol, +4 portería a cero (GK/DEF)
+            // Multiplicadores capitán: ×2 base | ×3 si GK portería a cero | ×3 si es MVP
             const fantasyPointsMap: Record<string, number> = {};
+            const fantasyIsMvpMap: Record<string, boolean> = {};
+            const fantasyPositionMap: Record<string, string> = {};
             const { teamAScore: aScore, teamBScore: bScore } = validData;
+
+            // Identify the MVP player from this match (if already resolved)
+            const { data: mvpParticipant } = await adminSupabase
+                .from("match_participants")
+                .select("user_id")
+                .eq("match_id", validData.matchId)
+                .eq("is_mvp", true)
+                .maybeSingle();
+            const mvpUserId = mvpParticipant?.user_id ?? null;
 
             for (const p of eloParticipants) {
                 const pTeam = p.team as "A" | "B" | null;
@@ -393,12 +404,14 @@ export async function setScore(
 
                 pts += goals * 3; // Goles: +3 c/u
 
+                const conceded = pTeam === "A" ? bScore : aScore;
                 if (position === "GK" || position === "DEF") {
-                    const conceded = pTeam === "A" ? bScore : aScore;
                     if (conceded === 0) pts += 4; // Portería a cero
                 }
 
                 fantasyPointsMap[p.user_id] = pts;
+                fantasyPositionMap[p.user_id] = position;
+                fantasyIsMvpMap[p.user_id] = p.user_id === mvpUserId;
             }
 
             const scoringPlayerIds = Object.keys(fantasyPointsMap);
@@ -414,7 +427,20 @@ export async function setScore(
                     for (const entry of rosterEntries) {
                         if (!entry.is_starter) continue;
                         const base = fantasyPointsMap[entry.player_id] ?? 0;
-                        const earned = entry.is_captain ? base * 2 : base;
+                        let earned = base;
+                        if (entry.is_captain) {
+                            const pos = fantasyPositionMap[entry.player_id] ?? "MID";
+                            const conceded = (() => {
+                                const p = eloParticipants.find((ep) => ep.user_id === entry.player_id);
+                                if (!p) return 99;
+                                return p.team === "A" ? bScore : aScore;
+                            })();
+                            const isMvp = fantasyIsMvpMap[entry.player_id] ?? false;
+                            // Regla 5: GK capitán con portería a cero → ×3
+                            // Regla 6: Capitán que es MVP → ×3
+                            const multiplier = (pos === "GK" && conceded === 0) || isMvp ? 3 : 2;
+                            earned = base * multiplier;
+                        }
                         teamPointsMap[entry.team_id] =
                             (teamPointsMap[entry.team_id] ?? 0) + earned;
                     }

@@ -87,6 +87,18 @@ export async function buyPlayer(teamId: string, playerId: string): Promise<Actio
     if ((rosterCount ?? 0) >= 11)
         return { success: false, error: "Tu plantilla ya está llena (Máximo 11 jugadores). Vende a alguien primero." };
 
+    // Regla 2: límites por posición en la plantilla completa
+    const SQUAD_POS_LIMITS: Record<string, number> = { GK: 2, DEF: 4, MID: 4, FWD: 3 };
+    const playerPos = (await supabase.from("profiles").select("position").eq("id", playerId).single()).data?.position ?? "MID";
+    const posLimit = SQUAD_POS_LIMITS[playerPos] ?? 4;
+    const { count: posCount } = await supabase
+        .from("fantasy_rosters")
+        .select("profiles!inner(position)", { count: "exact", head: true })
+        .eq("team_id", teamId)
+        .eq("profiles.position", playerPos);
+    if ((posCount ?? 0) >= posLimit)
+        return { success: false, error: `Ya tienes el máximo de ${posLimit} jugadores en esa posición (${playerPos})` };
+
     // Atomic budget claim: only deducts if budget is still sufficient (guards race conditions)
     const { data: claimed, error: claimError } = await supabase
         .from("fantasy_teams")
@@ -254,7 +266,7 @@ export async function saveLineup(teamId: string, starterIds: string[]): Promise<
     } = await supabase.auth.getUser();
     if (!user) return { success: false, error: "No autenticado" };
 
-    // Validate position constraints: min 1, max 3 per position
+    // Regla 4: formación exacta 1-2-2-2 (1 GK, 2 DEF, 2 MID, 2 FWD)
     const { data: starterProfiles } = await supabase
         .from("profiles")
         .select("id, position")
@@ -266,9 +278,10 @@ export async function saveLineup(teamId: string, starterIds: string[]): Promise<
             const pos = p.position ?? "MID";
             posCounts[pos] = (posCounts[pos] ?? 0) + 1;
         }
-        for (const [pos, count] of Object.entries(posCounts)) {
-            if (count === 0) return { success: false, error: `Necesitas al menos 1 jugador en posición ${pos}` };
-            if (count > 3) return { success: false, error: `Máximo 3 jugadores en posición ${pos}` };
+        const REQUIRED: Record<string, number> = { GK: 1, DEF: 2, MID: 2, FWD: 2 };
+        for (const [pos, required] of Object.entries(REQUIRED)) {
+            if (posCounts[pos] !== required)
+                return { success: false, error: `La alineación debe ser 1-2-2-2: necesitas exactamente ${required} ${pos}` };
         }
     }
 
