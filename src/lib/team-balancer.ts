@@ -1,14 +1,16 @@
 /**
  * Team Balancing Algorithm — ELO-Based Position Distribution
  *
- * Strategy:
- * 1. Group players by position (GK, DEF, MID, FWD).
- * 2. For each position group, sort by elo_rating descending.
- * 3. Distribute in "snake draft" / zigzag order: best→A, 2nd→B, 3rd→A...
- *    This ensures the two best players in each position end up on different teams.
- * 4. If teams are still uneven in total size, move a player from the bigger team.
+ * Strategy (3 phases):
+ * 1. DRAFT: Group by position, sort by ELO desc, zigzag assign.
+ *    On positional tie → assign to team with lower AVERAGE ELO (not sum).
+ * 2. EQUALISE: If teams are uneven in size, move the single player whose
+ *    transfer minimises the resulting average-ELO difference (not random pop).
+ * 3. OPTIMISE: Swap-pass — iteratively try every pair of players (one from
+ *    each team) and keep the swap if it reduces the average-ELO delta.
+ *    Repeat until no swap improves balance (converges in 2-3 iterations).
  *
- * Result: both teams have roughly equal ELO sum, guaranteeing fairer matches.
+ * Result: near-optimal ELO balance with positional awareness.
  */
 
 export type Position = "GK" | "DEF" | "MID" | "FWD";
@@ -23,65 +25,114 @@ export interface BalanceResult {
     teamA: TeamPlayer[];
     teamB: TeamPlayer[];
     assignments: { user_id: string; team: "A" | "B" }[];
+    avgEloA: number;
+    avgEloB: number;
+    eloDelta: number;
+}
+
+function avgElo(team: TeamPlayer[]): number {
+    if (team.length === 0) return 0;
+    return team.reduce((s, p) => s + p.elo_rating, 0) / team.length;
+}
+
+function eloDelta(teamA: TeamPlayer[], teamB: TeamPlayer[]): number {
+    return Math.abs(avgElo(teamA) - avgElo(teamB));
 }
 
 export function balanceTeams(participants: TeamPlayer[]): BalanceResult {
-    // Group by position
-    const groups: Record<Position, TeamPlayer[]> = {
-        GK: [],
-        DEF: [],
-        MID: [],
-        FWD: [],
-    };
-
-    for (const p of participants) {
-        groups[p.position].push(p);
-    }
+    // ── Phase 1: Draft ───────────────────────────────────────────────────────
+    const groups: Record<Position, TeamPlayer[]> = { GK: [], DEF: [], MID: [], FWD: [] };
+    for (const p of participants) groups[p.position].push(p);
 
     const teamA: TeamPlayer[] = [];
     const teamB: TeamPlayer[] = [];
-
     const positionOrder: Position[] = ["GK", "DEF", "MID", "FWD"];
 
     for (const pos of positionOrder) {
-        // Sort by ELO descending so the best players are distributed first
         const sorted = [...groups[pos]].sort((a, b) => b.elo_rating - a.elo_rating);
 
-        for (let i = 0; i < sorted.length; i++) {
+        for (const player of sorted) {
             const aCount = teamA.filter((p) => p.position === pos).length;
             const bCount = teamB.filter((p) => p.position === pos).length;
-            
+
             if (aCount < bCount) {
-                teamA.push(sorted[i]);
+                teamA.push(player);
             } else if (bCount < aCount) {
-                teamB.push(sorted[i]);
+                teamB.push(player);
             } else {
-                // If positional count is tied, assign to the team with the LOWER total ELO
-                const aElo = teamA.reduce((sum, p) => sum + p.elo_rating, 0);
-                const bElo = teamB.reduce((sum, p) => sum + p.elo_rating, 0);
-                
-                if (aElo <= bElo) {
-                    teamA.push(sorted[i]);
+                // Tie in positional count → assign to team with lower AVERAGE ELO
+                if (avgElo(teamA) <= avgElo(teamB)) {
+                    teamA.push(player);
                 } else {
-                    teamB.push(sorted[i]);
+                    teamB.push(player);
                 }
             }
         }
     }
 
-    // Equalise overall sizes if needed
+    // ── Phase 2: Smart size equalisation ────────────────────────────────────
+    // If teams differ by more than 1, move the player whose transfer
+    // produces the smallest resulting average-ELO delta (not just pop()).
     while (Math.abs(teamA.length - teamB.length) > 1) {
-        if (teamA.length > teamB.length) {
-            teamB.push(teamA.pop()!);
-        } else {
-            teamA.push(teamB.pop()!);
+        const donor   = teamA.length > teamB.length ? teamA : teamB;
+        const receiver = teamA.length > teamB.length ? teamB : teamA;
+
+        let bestIdx = 0;
+        let bestDelta = Infinity;
+
+        for (let i = 0; i < donor.length; i++) {
+            const testDonor    = donor.filter((_, j) => j !== i);
+            const testReceiver = [...receiver, donor[i]];
+            const d = Math.abs(avgElo(testDonor) - avgElo(testReceiver));
+            if (d < bestDelta) { bestDelta = d; bestIdx = i; }
+        }
+
+        receiver.push(donor.splice(bestIdx, 1)[0]);
+    }
+
+    // ── Phase 3: Swap-optimisation pass ─────────────────────────────────────
+    // Repeatedly try every A↔B player swap; keep it if it reduces delta.
+    // Stop when a full pass produces zero improvements (local optimum).
+    let improved = true;
+    while (improved) {
+        improved = false;
+        const currentDelta = eloDelta(teamA, teamB);
+
+        outer:
+        for (let i = 0; i < teamA.length; i++) {
+            for (let j = 0; j < teamB.length; j++) {
+                // Simulate swap
+                const newA = teamA.map((p, idx) => idx === i ? teamB[j] : p);
+                const newB = teamB.map((p, idx) => idx === j ? teamA[i] : p);
+                const newDelta = eloDelta(newA, newB);
+
+                if (newDelta < currentDelta - 0.5) { // 0.5 threshold avoids infinite micro-swaps
+                    // Commit swap
+                    const tmp = teamA[i];
+                    teamA[i] = teamB[j];
+                    teamB[j] = tmp;
+                    improved = true;
+                    break outer; // Restart pass after a change
+                }
+            }
         }
     }
 
+    // ── Build output ─────────────────────────────────────────────────────────
     const assignments: { user_id: string; team: "A" | "B" }[] = [
         ...teamA.map((p) => ({ user_id: p.user_id, team: "A" as const })),
         ...teamB.map((p) => ({ user_id: p.user_id, team: "B" as const })),
     ];
 
-    return { teamA, teamB, assignments };
+    const finalAvgA = avgElo(teamA);
+    const finalAvgB = avgElo(teamB);
+
+    return {
+        teamA,
+        teamB,
+        assignments,
+        avgEloA: Math.round(finalAvgA),
+        avgEloB: Math.round(finalAvgB),
+        eloDelta: Math.round(Math.abs(finalAvgA - finalAvgB)),
+    };
 }
