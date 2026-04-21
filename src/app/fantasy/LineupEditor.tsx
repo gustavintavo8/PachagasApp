@@ -96,6 +96,25 @@ function PitchPlayer({
     );
 }
 
+/* ── Empty slot placeholder ── */
+function EmptySlot({ pos }: { pos: string }) {
+    const label = (POSITION_SHORT as Record<string, string>)[pos] ?? pos;
+    const icon = (POSITION_ICONS as Record<string, string>)[pos] ?? "";
+    const color = PITCH_COLORS[pos as keyof typeof PITCH_COLORS] ?? PITCH_COLORS.MID;
+    return (
+        <div className="flex flex-col items-center gap-1 opacity-50">
+            <div className="relative mb-3 flex flex-col items-center">
+                <div className="h-8 w-8 sm:h-9 sm:w-9 rounded-full border-2 border-dashed border-white/40 bg-black/20" />
+                <span className={`absolute -bottom-3 left-1/2 -translate-x-1/2 flex items-center gap-[1px] rounded-full border px-1.5 py-[1.5px] text-[8.5px] font-bold tracking-wider ${color} shadow-[0_2px_4px_rgba(0,0,0,0.6)] whitespace-nowrap z-10 backdrop-blur-sm`}>
+                    <span className="text-[9px]">{icon}</span>
+                    {label}
+                </span>
+            </div>
+            <span className="text-[9px] sm:text-[10px] font-medium text-white/30">Vacío</span>
+        </div>
+    );
+}
+
 /* ── Bench player card ── */
 function BenchPlayer({
     entry,
@@ -206,14 +225,8 @@ export function LineupEditor({ team, roster, supabaseUrl }: LineupEditorProps) {
         const pos = entry.profiles.position ?? "MID";
         const required = formation.counts[pos] ?? 0;
 
-        if (starterIds.has(playerId)) {
-            // Removing — block if this position would drop below the formation's required count
-            if (starterIds.size === 7 && starterPosCounts[pos] <= required) {
-                toast(`Necesitas exactamente ${required} ${POS_NAMES_PL[pos] ?? pos} en la formación ${formation.label}.`, "error");
-                return;
-            }
-        } else {
-            // Adding — block if total is full or this position is already satisfied
+        if (!starterIds.has(playerId)) {
+            // Adding from bench: block if total full or this position's slots are all filled
             if (starterIds.size >= 7) {
                 toast("Ya tienes 7 titulares. Retira a uno primero.", "error");
                 return;
@@ -223,6 +236,7 @@ export function LineupEditor({ team, roster, supabaseUrl }: LineupEditorProps) {
                 return;
             }
         }
+        // Removing: always allowed — no restrictions
 
         setStarterIds((prev) => {
             const next = new Set(prev);
@@ -341,11 +355,13 @@ export function LineupEditor({ team, roster, supabaseUrl }: LineupEditorProps) {
                         <path d="M575,376 A15,15 0 0,0 560,391" fill="none" stroke="rgba(255,255,255,0.18)" strokeWidth="2" />
                     </svg>
 
-                    {/* Players overlay */}
+                    {/* Players overlay — slot-based rendering */}
                     <div className="absolute inset-0">
                         {(["FWD", "MID", "DEF", "GK"] as const).map((pos) => {
-                            const players = starterGroups[pos] ?? [];
-                            if (players.length === 0) return null;
+                            const required = formation.counts[pos] ?? 0;
+                            if (required === 0) return null;
+                            const filledPlayers = starterGroups[pos] ?? [];
+                            const emptyCount = required - filledPlayers.length;
                             return (
                                 <div
                                     key={pos}
@@ -353,7 +369,7 @@ export function LineupEditor({ team, roster, supabaseUrl }: LineupEditorProps) {
                                     style={{ top: `${ZONES[pos]}%`, transform: "translateY(-50%)" }}
                                 >
                                     <div className="flex flex-wrap items-center justify-center gap-4 sm:gap-6 px-3">
-                                        {players.map((entry) => (
+                                        {filledPlayers.map((entry) => (
                                             <PitchPlayer
                                                 key={entry.player_id}
                                                 entry={entry}
@@ -361,6 +377,9 @@ export function LineupEditor({ team, roster, supabaseUrl }: LineupEditorProps) {
                                                 supabaseUrl={supabaseUrl}
                                                 onClick={() => togglePlayer(entry.player_id)}
                                             />
+                                        ))}
+                                        {Array.from({ length: emptyCount }).map((_, i) => (
+                                            <EmptySlot key={`empty-${pos}-${i}`} pos={pos} />
                                         ))}
                                     </div>
                                 </div>
@@ -379,15 +398,6 @@ export function LineupEditor({ team, roster, supabaseUrl }: LineupEditorProps) {
                                 {starterIds.size}/7
                             </span>
                         </div>
-
-                        {/* Empty hint */}
-                        {starters.length === 0 && (
-                            <div className="absolute inset-0 flex items-center justify-center">
-                                <p className="rounded-xl bg-black/50 px-4 py-2 text-sm text-white/60 backdrop-blur-sm border border-white/10">
-                                    Selecciona titulares desde el banquillo ↓
-                                </p>
-                            </div>
-                        )}
                     </div>
                 </div>
 
