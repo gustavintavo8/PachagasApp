@@ -2,10 +2,10 @@
  * Rating Pachanga (RP) — Sistema ELO adaptado a fútbol informal
  *
  * Fórmula base ELO + bonus por rendimiento individual:
- *  - K=30 (K=60 para los primeros 5 partidos — incertidumbre alta)
+ *  - K=50 (K=80 para los primeros 5 partidos — incertidumbre alta)
  *  - Bonus: +3 por gol, +10 por MVP, ±5 por goleada (≥4 goles de diferencia)
  *  - GK bonus: +8 portería imbatida, +4 si encajan solo 1 gol, -3 si encajan ≥5
- *  - Límite: ±50 RP por partido
+ *  - Límite: ±70 RP por partido
  *  - Mínimo global: 100 RP (nadie cae por debajo)
  *  - Jugadores con <3 partidos son considerados "provisionales"
  */
@@ -13,11 +13,11 @@
 export const ELO_BASE = 1000;
 export const PROVISIONAL_THRESHOLD = 3; // Menos de 3 partidos = provisional
 
-const K_FACTOR = 30;
-const K_FACTOR_NEW = 60; // Para jugadores con < 5 partidos
+const K_FACTOR = 50;
+const K_FACTOR_NEW = 80; // Para jugadores con < 5 partidos
 const NEW_PLAYER_THRESHOLD = 5;
 const BLOWOUT_THRESHOLD = 4; // Diferencia de goles para considerar goleada
-const MAX_CHANGE_PER_MATCH = 50;
+const MAX_CHANGE_PER_MATCH = 70;
 const MIN_RATING = 100;
 
 // GK bonuses

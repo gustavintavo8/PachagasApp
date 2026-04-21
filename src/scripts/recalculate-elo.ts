@@ -236,7 +236,21 @@ async function main() {
         );
     }
 
-    // 3. Guardar ratings finales y rellenar historial temporal
+    // 3. Reescalar la dispersión ×2.5 (amplificar diferencias manteniendo rankings)
+    const SCALE_FACTOR = 2.5;
+    console.log(`\n📐 Reescalando dispersión ×${SCALE_FACTOR} desde base 1000...`);
+    for (const userId of Object.keys(ratingMap)) {
+        const raw = ratingMap[userId];
+        const amplified = Math.round(ELO_BASE + (raw - ELO_BASE) * SCALE_FACTOR);
+        ratingMap[userId] = Math.max(100, amplified);
+    }
+
+    // Aplicar el mismo reescalado al historial
+    for (const entry of historyInserts) {
+        entry.new_rp = Math.max(100, Math.round(ELO_BASE + (entry.new_rp - ELO_BASE) * SCALE_FACTOR));
+    }
+
+    // 4. Guardar ratings finales y rellenar historial temporal
     console.log("\n💾 Limpiando historial previo (rp_history)...");
     const { error: delError } = await supabase.from("rp_history").delete().neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
     if (delError) console.error("Error limpiando rp_history:", delError.message);
