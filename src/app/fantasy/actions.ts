@@ -3,6 +3,11 @@
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
+import {
+    SQUAD_POS_LIMITS,
+    FANTASY_MAX_SQUAD_SIZE,
+    FANTASY_INITIAL_BUDGET,
+} from "@/lib/constantes";
 
 type ActionResult = { success: boolean; error?: string };
 
@@ -32,7 +37,7 @@ export async function createFantasyTeam(name: string): Promise<ActionResult> {
     const { error } = await supabase.from("fantasy_teams").insert({
         user_id: user.id,
         name: parsed.data,
-        budget: 115_000_000,
+        budget: FANTASY_INITIAL_BUDGET,
     });
 
     if (error) return { success: false, error: error.message };
@@ -84,11 +89,10 @@ export async function buyPlayer(teamId: string, playerId: string): Promise<Actio
         .select("*", { count: "exact", head: true })
         .eq("team_id", teamId);
 
-    if ((rosterCount ?? 0) >= 11)
+    if ((rosterCount ?? 0) >= FANTASY_MAX_SQUAD_SIZE)
         return { success: false, error: "Tu plantilla ya está llena (Máximo 11 jugadores). Vende a alguien primero." };
 
     // Regla 2: límites por posición en la plantilla completa
-    const SQUAD_POS_LIMITS: Record<string, number> = { GK: 2, DEF: 4, MID: 4, FWD: 3 };
     const playerPos = (await supabase.from("profiles").select("position").eq("id", playerId).single()).data?.position ?? "MID";
     const posLimit = SQUAD_POS_LIMITS[playerPos] ?? 4;
     const { count: posCount } = await supabase
