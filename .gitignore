@@ -43,3 +43,6 @@ next-env.d.ts
 
 # agent
 CLAUDE.md
+
+# git worktrees
+.worktrees/
