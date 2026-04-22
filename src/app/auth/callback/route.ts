@@ -36,7 +36,7 @@ export async function GET(request: Request) {
 
             if (!existingProfile) {
                 // User has no profile at all, create it
-                const { error: insertError } = await adminClient.from("profiles").insert({
+                await adminClient.from("profiles").insert({
                     id: data.user.id,
                     username: googleUsername,
                     avatar_url: googleAvatarUrl,
@@ -46,10 +46,6 @@ export async function GET(request: Request) {
                     matches_played: 0,
                     goals_scored: 0,
                 });
-
-                if (insertError) {
-                    console.error("Error creating profile:", insertError);
-                }
             } else {
                 // Profile exists. Only update if it's an empty/default profile (e.g. created by DB trigger)
                 // We check if matches_played is 0 and there's no custom avatar yet

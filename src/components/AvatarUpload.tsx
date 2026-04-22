@@ -43,7 +43,6 @@ export function AvatarUpload({ uid, url, fallback, onUpload }: AvatarUploadProps
             .upload(filePath, compressedFile, { upsert: true });
 
         if (uploadError) {
-            console.error("Upload error:", uploadError);
             setUploading(false);
             return;
         }

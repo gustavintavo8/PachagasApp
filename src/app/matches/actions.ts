@@ -36,7 +36,7 @@ async function sendNotification(
         match_id: matchId ?? null,
     }));
     const { error } = await admin.from("notifications").insert(rows);
-    if (error) console.error("Error sending notifications:", error.message);
+    if (error) return;
 }
 
 export async function createMatch(formData: FormData): Promise<ActionResult> {
@@ -92,7 +92,7 @@ export async function createMatch(formData: FormData): Promise<ActionResult> {
             is_mvp: false,
         });
 
-    if (joinError) console.error("Error auto-joining creator:", joinError.message);
+    if (joinError) return { success: false, error: joinError.message };
 
     revalidatePath("/");
     revalidatePath("/matches");
@@ -297,12 +297,11 @@ export async function setScore(
     if (validData.goalScorers && validData.goalScorers.length > 0) {
         for (const scorer of validData.goalScorers) {
             if (scorer.goals > 0) {
-                const { error: scorerError } = await adminSupabase
+                await adminSupabase
                     .from("match_participants")
                     .update({ goals: scorer.goals })
                     .eq("match_id", validData.matchId)
                     .eq("user_id", scorer.userId);
-                if (scorerError) console.error("Error updating scorer:", scorer.userId, scorerError.message);
             }
         }
     }
@@ -353,20 +352,22 @@ export async function setScore(
 
             // Bulk update ELO ratings and history
             for (const update of eloUpdates) {
-                await adminSupabase
+                const { error: updateError } = await adminSupabase
                     .from("profiles")
                     .update({ elo_rating: update.newRating, market_value: Math.max(1_000_000, (update.newRating - 800) * 50_000) })
                     .eq("id", update.userId);
-                    
-                await adminSupabase
-                    .from("rp_history")
-                    .insert({
-                        user_id: update.userId,
-                        match_id: validData.matchId,
-                        rp_change: update.delta,
-                        new_rp: update.newRating,
-                        created_at: new Date().toISOString()
-                    });
+
+                if (!updateError) {
+                    await adminSupabase
+                        .from("rp_history")
+                        .insert({
+                            user_id: update.userId,
+                            match_id: validData.matchId,
+                            rp_change: update.delta,
+                            new_rp: update.newRating,
+                            created_at: new Date().toISOString()
+                        });
+                }
             }
 
             // ── FANTASY: Puntuación del partido ──────────────────────────────────
