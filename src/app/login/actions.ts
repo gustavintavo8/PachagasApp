@@ -2,6 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { rateLimit } from "@/lib/rate-limit";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 
@@ -16,6 +17,9 @@ export async function login(formData: FormData): Promise<ActionResult> {
     if (!email || !password) {
         return { success: false, error: "Email y contraseña son obligatorios" };
     }
+
+    const { allowed } = await rateLimit(`login:${email}`, 5, 60_000);
+    if (!allowed) return { success: false, error: "Demasiados intentos. Espera un minuto." };
 
     const { error } = await supabase.auth.signInWithPassword({ email, password });
 
@@ -46,6 +50,9 @@ export async function signup(formData: FormData): Promise<ActionResult> {
     if (password.length < 6) {
         return { success: false, error: "La contraseña debe tener al menos 6 caracteres" };
     }
+
+    const { allowed } = await rateLimit(`signup:${email}`, 3, 3_600_000);
+    if (!allowed) return { success: false, error: "Demasiados intentos de registro. Espera una hora." };
 
     // Clean up orphaned auth users (exist in auth but not in profiles — e.g. deleted during testing)
     const adminClient = createAdminClient();
