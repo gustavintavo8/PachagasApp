@@ -31,6 +31,10 @@ export function AvatarUpload({ uid, url, fallback, onUpload }: AvatarUploadProps
 
         const supabase = createClient();
         const fileExt = compressedFile.name.split(".").pop();
+        if (!fileExt) {
+            setUploading(false);
+            return;
+        }
         const filePath = `${uid}/${Date.now()}.${fileExt}`;
 
         // Upload to storage
