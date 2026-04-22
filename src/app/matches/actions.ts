@@ -532,7 +532,7 @@ export async function generateTeams(matchId: string): Promise<ActionResult> {
     // Update players without a position to MID in the database
     const adminClient = createAdminClient();
     const playersWithPosition = participants.map((p) => {
-        const prof = (p.profiles as unknown as { position: string | null; elo_rating: number | null });
+        const prof = Array.isArray(p.profiles) ? p.profiles[0] as ParticipantProfile : p.profiles as ParticipantProfile | null;
         const rawPos = prof?.position;
         const position: ValidPosition = rawPos && validPositions.includes(rawPos as ValidPosition)
             ? (rawPos as ValidPosition)
@@ -542,7 +542,7 @@ export async function generateTeams(matchId: string): Promise<ActionResult> {
 
     // Persist MID default for players who had null position
     const noPositionIds = participants
-        .filter((p) => !(p.profiles as unknown as { position: string | null })?.position)
+        .filter((p) => !(Array.isArray(p.profiles) ? p.profiles[0] as ParticipantProfile : p.profiles as ParticipantProfile | null)?.position)
         .map((p) => p.user_id);
 
     if (noPositionIds.length > 0) {
