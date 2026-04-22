@@ -1,6 +1,8 @@
 import { test, expect } from "@playwright/test";
 
 test.describe("Public pages", () => {
+    test.use({ storageState: { cookies: [], origins: [] } });
+
     test("login page loads", async ({ page }) => {
         await page.goto("/login");
         await expect(page).toHaveTitle(/Pachanga/);
@@ -22,6 +24,8 @@ test.describe("Public pages", () => {
 });
 
 test.describe("Navigation", () => {
+    test.use({ storageState: { cookies: [], origins: [] } });
+
     test("login page has correct form elements", async ({ page }) => {
         await page.goto("/login");
         const emailInput = page.locator('input[type="email"]');
@@ -54,6 +58,8 @@ test.describe("PWA", () => {
 });
 
 test.describe("SEO", () => {
+    test.use({ storageState: { cookies: [], origins: [] } });
+
     test("login page has lang=es", async ({ page }) => {
         await page.goto("/login");
         const lang = await page.locator("html").getAttribute("lang");
