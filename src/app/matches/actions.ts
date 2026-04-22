@@ -156,7 +156,7 @@ export async function joinMatch(matchId: string): Promise<ActionResult> {
         .eq("id", matchId)
         .single();
     if (matchForNotif && matchForNotif.created_by !== user.id) {
-        sendNotification(
+        await sendNotification(
             [matchForNotif.created_by],
             "join",
             "Nuevo jugador",
@@ -482,7 +482,7 @@ export async function setScore(
             .select("location")
             .eq("id", validData.matchId)
             .single();
-        sendNotification(
+        await sendNotification(
             participantIds,
             "score",
             "¡Resultado registrado!",
@@ -572,7 +572,7 @@ export async function generateTeams(matchId: string): Promise<ActionResult> {
         .eq("id", matchId)
         .single();
     const participantIds = participants.map((p) => p.user_id).filter((id) => id !== user.id);
-    sendNotification(
+    await sendNotification(
         participantIds,
         "teams",
         "¡Equipos generados!",
@@ -626,7 +626,7 @@ export async function cancelMatch(matchId: string): Promise<ActionResult> {
 
     if (participants) {
         const ids = participants.map((p) => p.user_id).filter((id) => id !== user.id);
-        sendNotification(
+        await sendNotification(
             ids,
             "cancel",
             "Partido cancelado",
@@ -704,7 +704,7 @@ export async function rescheduleMatch(
             dateStyle: "medium",
             timeStyle: "short",
         });
-        sendNotification(
+        await sendNotification(
             ids,
             "reschedule",
             "Fecha cambiada",
@@ -771,7 +771,7 @@ export async function kickPlayer(
         .eq("id", matchId)
         .single();
 
-    sendNotification(
+    await sendNotification(
         [targetUserId],
         "kick",
         "Expulsado del partido",
@@ -842,7 +842,7 @@ async function resolveMvp(matchId: string) {
         .eq("id", matchId)
         .single();
 
-    sendNotification(
+    await sendNotification(
         [winnerId],
         "mvp",
         "¡Eres el MVP!",
