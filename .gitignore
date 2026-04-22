@@ -46,3 +46,7 @@ CLAUDE.md
 
 # git worktrees
 .worktrees/
+
+# E2E tests
+e2e/.auth/
+.env.test.local
