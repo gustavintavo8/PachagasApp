@@ -2,61 +2,70 @@
 
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
-import { redirect } from 'next/navigation'
+import { rateLimit } from '@/lib/rate-limit'
+import { z } from 'zod'
 
 type ActionResult = { success: boolean; error?: string };
 
-export async function updateProfile(formData: FormData) {
+const UpdateProfileSchema = z.object({
+    username: z.string().min(2, "El nombre debe tener al menos 2 caracteres").max(30, "Máximo 30 caracteres"),
+    position: z.enum(["GK", "DEF", "MID", "FWD"], { message: "Posición inválida" }),
+    avatar_url: z.string().optional(),
+});
+
+export async function updateProfile(formData: FormData): Promise<ActionResult> {
     const supabase = await createClient()
 
-    // 1. Verificar usuario
     const { data: { user }, error: authError } = await supabase.auth.getUser()
     if (authError || !user) {
-        return { error: 'No estás autenticado' }
+        return { success: false, error: 'No estás autenticado' }
     }
 
-    // 2. Recoger datos
-    const username = formData.get('username') as string
-    const position = formData.get('position') as string
-    const avatar_url = formData.get('avatar_url') as string // Asegúrate de que el front envíe esto si ha cambiado
+    const { allowed } = await rateLimit(`update-profile:${user.id}`, 5, 60_000);
+    if (!allowed) return { success: false, error: "Demasiadas actualizaciones. Espera un momento." };
 
-    // 3. Validar datos mínimos
-    if (!username || !position) {
-        return { error: 'El nombre de usuario y la posición son obligatorios' }
+    const parsed = UpdateProfileSchema.safeParse({
+        username: formData.get('username'),
+        position: formData.get('position'),
+        avatar_url: formData.get('avatar_url') ?? undefined,
+    });
+
+    if (!parsed.success) {
+        return { success: false, error: parsed.error.issues[0].message };
     }
 
-    // 4. ACTUALIZAR (Usar update, no upsert)
+    const { username, position, avatar_url } = parsed.data;
+
     const { error } = await supabase
         .from('profiles')
         .update({
             username,
             position,
-            // Solo actualizamos avatar si viene uno nuevo, si no, no lo tocamos
             ...(avatar_url && { avatar_url }),
             updated_at: new Date().toISOString(),
         })
-        .eq('id', user.id) // ¡Importante! Asegurar que solo tocas TU fila
+        .eq('id', user.id)
 
     if (error) {
-        console.error('Error updating profile:', error)
-        return { error: 'Error al actualizar el perfil. Inténtalo de nuevo.' }
+        return { success: false, error: 'Error al actualizar el perfil. Inténtalo de nuevo.' }
     }
 
     revalidatePath('/profile')
-    revalidatePath('/') // Para actualizar el avatar en el Navbar
+    revalidatePath('/')
 
     return { success: true }
 }
 
 export async function updateAvatar(path: string): Promise<ActionResult> {
     const supabase = await createClient();
-    const {
-        data: { user },
-    } = await supabase.auth.getUser();
+    const { data: { user } } = await supabase.auth.getUser();
 
     if (!user) {
         return { success: false, error: "No autenticado" };
     }
+
+    const { allowed } = await rateLimit(`update-avatar:${user.id}`, 10, 60_000);
+    if (!allowed) return { success: false, error: "Demasiadas subidas. Espera un momento." };
 
     const { error } = await supabase
         .from("profiles")
@@ -64,7 +73,7 @@ export async function updateAvatar(path: string): Promise<ActionResult> {
         .eq("id", user.id);
 
     if (error) {
-        return { success: false, error: error.message };
+        return { success: false, error: "Error al guardar el avatar." };
     }
 
     revalidatePath("/profile");
