@@ -11,6 +11,12 @@ import { isAdmin } from "@/lib/permissions";
 import { MVP_VOTING_WINDOW_MS } from "@/lib/constantes";
 import { z } from "zod";
 
+interface ParticipantProfile {
+    elo_rating: number | null;
+    matches_played: number | null;
+    position: string | null;
+}
+
 type ActionResult = { success: boolean; error?: string; data?: unknown };
 
 async function sendNotification(
@@ -327,11 +333,7 @@ export async function setScore(
             const eloInputs = eloParticipants
                 .filter((p) => p.team === "A" || p.team === "B")
                 .map((p) => {
-                    const profile = p.profiles as unknown as {
-                        elo_rating: number | null;
-                        matches_played: number | null;
-                        position: string | null;
-                    };
+                    const profile = Array.isArray(p.profiles) ? p.profiles[0] as ParticipantProfile : p.profiles as ParticipantProfile | null;
                     return {
                         userId: p.user_id,
                         currentRating: profile?.elo_rating ?? ELO_BASE,
@@ -389,8 +391,8 @@ export async function setScore(
                 if (pTeam !== "A" && pTeam !== "B") continue;
 
                 const goals = p.goals ?? 0;
-                const prof = p.profiles as unknown as { position: string | null } | null;
-                const position = prof?.position ?? "MID";
+                const profileData = Array.isArray(p.profiles) ? p.profiles[0] as ParticipantProfile : p.profiles as ParticipantProfile | null;
+                const position = profileData?.position ?? "MID";
 
                 let pts = 2; // Jugar el partido
 
