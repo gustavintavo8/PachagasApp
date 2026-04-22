@@ -3,7 +3,6 @@
 import { useState, useEffect } from "react";
 
 interface WeatherWidgetProps {
-    location: string;
     date: string;
 }
 
@@ -76,7 +75,7 @@ export function WeatherWidget({ date }: { date: string }) {
         }
 
         fetchWeather();
-    }, [location, date]);
+    }, [date]);
 
     if (state.loading) {
         return <div className="skeleton h-6 w-24 rounded-full" />;
