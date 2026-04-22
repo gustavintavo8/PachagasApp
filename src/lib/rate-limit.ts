@@ -14,14 +14,11 @@ export async function rateLimit(
         });
 
         if (error) {
-            console.error("Rate limit DB error:", error);
-            // Fallback to true if DB function is not created yet
-            return { allowed: true, remaining: 0 };
+            return { allowed: false, remaining: 0 };
         }
 
         return { allowed: data === true, remaining: 0 };
-    } catch (e) {
-        console.error("Rate limit check completely failed:", e);
-        return { allowed: true, remaining: 0 };
+    } catch {
+        return { allowed: false, remaining: 0 };
     }
 }
