@@ -136,7 +136,7 @@ export function PlayerCharts({ goalsPerMonth, winRateOverTime, rpOverTime = [] }
                                 />
                                 <LazyTooltip
                                     contentStyle={customTooltipStyle}
-                                    formatter={(value: any) => [`${(Number(value) ?? 0).toFixed(0)}%`, "Tasa de Victoria"]}
+                                    formatter={(value: any) => [`${value.toFixed(0)}%`, "Tasa de Victoria"]}
                                 />
                                 <defs>
                                     <linearGradient id="winGradient" x1="0" y1="0" x2="0" y2="1">
@@ -182,7 +182,7 @@ export function PlayerCharts({ goalsPerMonth, winRateOverTime, rpOverTime = [] }
                                 />
                                 <LazyTooltip
                                     contentStyle={customTooltipStyle}
-                                    formatter={(value: any) => [`${value} RP`, "Rating"]}
+                                    formatter={(value: any) => [`${Number(value)} RP`, "Rating"]}
                                 />
                                 <defs>
                                     <linearGradient id="rpGradient" x1="0" y1="0" x2="0" y2="1">
