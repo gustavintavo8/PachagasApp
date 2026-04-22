@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/Toast";
 import { Card } from "@/components/ui/Card";
 import { Avatar } from "@/components/ui/Avatar";
-import { getAvatarUrl } from "@/lib/utils";
+import { getAvatarUrl, timeAgo } from "@/lib/utils";
 import { Camera, Plus, X, ImageIcon, Loader2 } from "lucide-react";
 import Image from "next/image";
 import imageCompression from "browser-image-compression";
@@ -113,16 +113,6 @@ export function MatchPhotos({ matchId, currentUserId }: MatchPhotosProps) {
         toast("¡Foto subida!", "success");
         setUploading(false);
         if (fileInputRef.current) fileInputRef.current.value = "";
-    }
-
-    function timeAgo(dateStr: string) {
-        const now = Date.now();
-        const then = new Date(dateStr).getTime();
-        const diff = Math.floor((now - then) / 1000);
-        if (diff < 60) return "ahora";
-        if (diff < 3600) return `hace ${Math.floor(diff / 60)}m`;
-        if (diff < 86400) return `hace ${Math.floor(diff / 3600)}h`;
-        return `hace ${Math.floor(diff / 86400)}d`;
     }
 
     return (

@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { timeAgo } from "@/lib/utils";
 import { Bell } from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
@@ -75,14 +76,6 @@ export function NotificationBell({ userId }: NotificationBellProps) {
             .update({ read: true })
             .in("id", unreadIds);
         setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
-    }
-
-    function timeAgo(dateStr: string) {
-        const diff = Math.floor((Date.now() - new Date(dateStr).getTime()) / 1000);
-        if (diff < 60) return "ahora";
-        if (diff < 3600) return `${Math.floor(diff / 60)}m`;
-        if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
-        return `${Math.floor(diff / 86400)}d`;
     }
 
     const typeIcons: Record<string, string> = {

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useOptimistic, useTransition } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { Avatar } from "@/components/ui/Avatar";
-import { getAvatarUrl } from "@/lib/utils";
+import { getAvatarUrl, timeAgo } from "@/lib/utils";
 import { Send, MessageCircle } from "lucide-react";
 
 interface Comment {
@@ -25,16 +25,6 @@ interface MatchChatProps {
         username: string | null;
         avatar_url: string | null;
     };
-}
-
-function timeAgo(dateStr: string) {
-    const now = Date.now();
-    const then = new Date(dateStr).getTime();
-    const diff = Math.floor((now - then) / 1000);
-    if (diff < 60) return "ahora";
-    if (diff < 3600) return `${Math.floor(diff / 60)}m`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)}h`;
-    return `${Math.floor(diff / 86400)}d`;
 }
 
 export function MatchChat({
