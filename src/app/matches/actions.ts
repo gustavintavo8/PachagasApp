@@ -8,6 +8,7 @@ import { balanceTeams } from "@/lib/team-balancer";
 import { computeMatchEloUpdates, ELO_BASE } from "@/lib/elo";
 import { rateLimit } from "@/lib/rate-limit";
 import { isAdmin } from "@/lib/permissions";
+import { MVP_VOTING_WINDOW_MS } from "@/lib/constantes";
 import { z } from "zod";
 
 type ActionResult = { success: boolean; error?: string; data?: unknown };
@@ -784,8 +785,6 @@ export async function kickPlayer(
 }
 
 // ─── MVP Voting ───────────────────────────────────────────────────
-
-const MVP_VOTING_WINDOW_MS = 24 * 60 * 60 * 1000; // 24 hours
 
 async function resolveMvp(matchId: string) {
     const adminClient = createAdminClient();

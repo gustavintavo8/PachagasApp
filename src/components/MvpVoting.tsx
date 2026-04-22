@@ -6,6 +6,7 @@ import { voteForMvp } from "@/app/matches/actions";
 import { useToast } from "@/components/ui/Toast";
 import { Avatar } from "@/components/ui/Avatar";
 import { getAvatarUrl } from "@/lib/utils";
+import { MVP_VOTING_WINDOW_MS } from "@/lib/constantes";
 import { Trophy, Check, Clock, Crown } from "lucide-react";
 
 interface Participant {
@@ -30,8 +31,6 @@ interface MvpVotingProps {
     matchDate: string;
     canManage?: boolean;
 }
-
-const MVP_VOTING_WINDOW_MS = 24 * 60 * 60 * 1000;
 
 function getTimeRemaining(finishedAt: string): {
     expired: boolean;
