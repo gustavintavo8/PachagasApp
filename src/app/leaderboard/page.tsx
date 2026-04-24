@@ -33,6 +33,7 @@ export default async function LeaderboardPage({
         supabase
             .from("profiles")
             .select("*", { count: "exact" })
+            .order("elo_rating", { ascending: false })
             .order("matches_played", { ascending: false })
             .range(from, to),
         getAdminUserIds(),
