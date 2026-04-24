@@ -95,7 +95,7 @@ export function MatchDetail({
 }: MatchDetailProps) {
     const { toast } = useToast();
     const [loading, setLoading] = useState<string | null>(null);
-    const [activeTab, setActiveTab] = useState<"info" | "equipos" | "chat" | "fotos">("info");
+    const [activeTab, setActiveTab] = useState<"info" | "chat" | "fotos">("info");
     const [isPending, startTransition] = useTransition();
     const [scoreDialogOpen, setScoreDialogOpen] = useState(false);
     const [teamAScore, setTeamAScore] = useState<number | "">(match.team_a_score ?? 0);
@@ -175,7 +175,7 @@ export function MatchDetail({
         <div className="mx-auto max-w-3xl">
             {/* ── Tab navigation bar ── */}
             <div className="sticky top-16 z-40 flex border-b border-border bg-surface/95 backdrop-blur-xl">
-                {(["info", "equipos", "chat", "fotos"] as const).map((tab) => (
+                {(["info", "chat", "fotos"] as const).map((tab) => (
                     <button
                         key={tab}
                         onClick={() => startTransition(() => setActiveTab(tab))}
@@ -359,45 +359,7 @@ export function MatchDetail({
                         </Card>
                     )}
 
-                    {/* Players list (only when no teams generated) */}
-                    {!teamsGenerated && (
-                        <Card>
-                            <CardHeader>
-                                <CardTitle>
-                                    <Users size={18} className="inline mr-2" />
-                                    Jugadores ({participants.length})
-                                </CardTitle>
-                            </CardHeader>
-                            <div className="space-y-3">
-                                {participants.map((p) => (
-                                    <PlayerRow
-                                        key={p.user_id}
-                                        participant={p}
-                                        adminUserIds={adminUserIds}
-                                        organizerId={match.created_by}
-                                        onKick={
-                                            isAdmin && match.status === "open" && p.user_id !== currentUserId
-                                                ? async () => {
-                                                    const result = await kickPlayer(match.id, p.user_id);
-                                                    if (result?.error) toast(result.error, "error");
-                                                    else toast(`${p.profiles?.username || "Jugador"} expulsado`, "success");
-                                                }
-                                                : undefined
-                                        }
-                                    />
-                                ))}
-                                {participants.length === 0 && (
-                                    <p className="py-4 text-center text-muted">No hay jugadores aún. ¡Sé el primero en unirte!</p>
-                                )}
-                            </div>
-                        </Card>
-                    )}
-                </div>
-            )}
-
-            {/* ── Tab: Equipos ── */}
-            {activeTab === "equipos" && (
-                <div className="px-4 py-6">
+                    {/* Terreno de juego o lista de jugadores */}
                     {teamsGenerated ? (
                         <>
                             <SoccerPitch teamA={teamA} teamB={teamB} />
@@ -429,22 +391,35 @@ export function MatchDetail({
                             )}
                         </>
                     ) : (
-                        <Card className="py-12 text-center border-border/50">
-                            <Shuffle size={32} className="mx-auto mb-3 text-muted/50" />
-                            <p className="text-sm text-muted">Los equipos aún no se han generado.</p>
-                            {canManage && match.status === "open" && participants.length >= 2 && (
-                                <Button
-                                    className="mt-4"
-                                    variant="outline"
-                                    loading={loading === "generate"}
-                                    onClick={() => {
-                                        handleAction(() => generateTeams(match.id), "generate", "¡Equipos generados!");
-                                    }}
-                                >
-                                    <Shuffle size={16} />
-                                    Generar equipos
-                                </Button>
-                            )}
+                        <Card>
+                            <CardHeader>
+                                <CardTitle>
+                                    <Users size={18} className="inline mr-2" />
+                                    Jugadores ({participants.length})
+                                </CardTitle>
+                            </CardHeader>
+                            <div className="space-y-3">
+                                {participants.map((p) => (
+                                    <PlayerRow
+                                        key={p.user_id}
+                                        participant={p}
+                                        adminUserIds={adminUserIds}
+                                        organizerId={match.created_by}
+                                        onKick={
+                                            isAdmin && match.status === "open" && p.user_id !== currentUserId
+                                                ? async () => {
+                                                    const result = await kickPlayer(match.id, p.user_id);
+                                                    if (result?.error) toast(result.error, "error");
+                                                    else toast(`${p.profiles?.username || "Jugador"} expulsado`, "success");
+                                                }
+                                                : undefined
+                                        }
+                                    />
+                                ))}
+                                {participants.length === 0 && (
+                                    <p className="py-4 text-center text-muted">No hay jugadores aún. ¡Sé el primero en unirte!</p>
+                                )}
+                            </div>
                         </Card>
                     )}
                 </div>
