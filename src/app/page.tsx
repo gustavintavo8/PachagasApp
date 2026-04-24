@@ -16,7 +16,7 @@ async function HeroCard({ userId }: { userId: string }) {
 
   const { data: profile } = await supabase
     .from("profiles")
-    .select("username, avatar_url, elo_rating, matches_played, goals_scored, position")
+    .select("username, avatar_url, elo_rating, matches_played, goals_scored")
     .eq("id", userId)
     .single();
 
@@ -81,8 +81,7 @@ async function NextMatchCard({ userId }: { userId: string }) {
     .eq("status", "open")
     .gte("date", new Date().toISOString())
     .order("date", { ascending: true })
-    .limit(1)
-    .single();
+    .maybeSingle();
 
   if (!openMatches) {
     return (
