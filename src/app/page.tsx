@@ -23,7 +23,8 @@ async function HeroCard({ userId }: { userId: string }) {
   const { count: rankAbove } = await supabase
     .from("profiles")
     .select("id", { count: "exact", head: true })
-    .gt("elo_rating", profile?.elo_rating ?? 1000);
+    .gt("elo_rating", profile?.elo_rating ?? 1000)
+    .gte("matches_played", 3);
 
   const rank = (rankAbove ?? 0) + 1;
   const avatarUrl = getAvatarUrl(process.env.NEXT_PUBLIC_SUPABASE_URL!, profile?.avatar_url ?? null);
