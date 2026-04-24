@@ -47,6 +47,9 @@ async function globalSetup() {
         }, { onConflict: "id" });
     }
 
+    // Limpiar rate limits del usuario test para evitar bloqueos entre ejecuciones
+    await admin.from("rate_limits").delete().like("key", `login:${email}%`);
+
     // Login vía UI y guardar storageState
     const browser = await chromium.launch();
     const page = await browser.newPage();
@@ -55,7 +58,22 @@ async function globalSetup() {
     await page.fill('input[type="email"]', email);
     await page.fill('input[type="password"]', password);
     await page.click('button[type="submit"]');
-    await page.waitForURL("http://localhost:3000/", { timeout: 10_000 });
+
+    // waitForFunction sondea window.location directamente, compatible con
+    // las soft navigations del App Router (router.replace vía pushState).
+    await page.waitForFunction(
+        () => window.location.pathname === "/",
+        { timeout: 30_000 }
+    ).catch(async (e) => {
+        const url = page.url();
+        const errorText = await page.$eval(".text-red-400", (el) => el.textContent).catch(() => null);
+        throw new Error(
+            `[global-setup] Login no redirigió a /. URL actual: ${url}. ` +
+            (errorText ? `Error en UI: ${errorText}` : "No hay error visible en la página.")
+        );
+    });
+
+    await page.waitForLoadState("networkidle");
 
     const authDir = path.resolve("e2e/.auth");
     if (!fs.existsSync(authDir)) fs.mkdirSync(authDir, { recursive: true });
