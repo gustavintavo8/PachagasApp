@@ -16,11 +16,11 @@ export default async function MatchesPage() {
 
     if (!user) redirect("/login");
 
-    // Fetch all matches with participants
     const { data: matches } = await supabase
         .from("matches")
         .select("*, match_participants(user_id, team, goals, is_mvp)")
-        .order("date", { ascending: false });
+        .order("date", { ascending: false })
+        .limit(30);
 
     return (
         <MatchesTabs

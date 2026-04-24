@@ -3,13 +3,20 @@ import { redirect } from "next/navigation";
 import { LeaderboardTabs } from "./LeaderboardTabs";
 import { getAdminUserIds } from "@/lib/permissions";
 import type { Metadata } from "next";
+import Link from "next/link";
 
 export const metadata: Metadata = {
     title: "Ranking — Pachanga",
     description: "Clasificación de los mejores jugadores de la comunidad.",
 };
 
-export default async function LeaderboardPage() {
+const PAGE_SIZE = 20;
+
+export default async function LeaderboardPage({
+    searchParams,
+}: {
+    searchParams: Promise<{ page?: string }>;
+}) {
     const supabase = await createClient();
     const {
         data: { user },
@@ -17,16 +24,24 @@ export default async function LeaderboardPage() {
 
     if (!user) redirect("/login");
 
-    const [{ data: profiles }, { data: allParticipations }, adminUserIds] = await Promise.all([
+    const { page: pageParam } = await searchParams;
+    const page = Math.max(1, parseInt(pageParam ?? "1", 10));
+    const from = (page - 1) * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
+
+    const [{ data: profiles, count }, { data: allParticipations }, adminUserIds] = await Promise.all([
         supabase
             .from("profiles")
-            .select("*")
-            .order("matches_played", { ascending: false }),
+            .select("*", { count: "exact" })
+            .order("matches_played", { ascending: false })
+            .range(from, to),
         supabase
             .from("match_participants")
             .select("user_id, team, goals, is_mvp, matches(status, team_a_score, team_b_score)"),
         getAdminUserIds(),
     ]);
+
+    const totalPages = Math.ceil((count ?? 0) / PAGE_SIZE);
 
     // Build stats map
     const statsMap: Record<string, { wins: number; draws: number; losses: number; mvps: number }> = {};
@@ -77,6 +92,27 @@ export default async function LeaderboardPage() {
                 <p className="text-muted">Los mejores jugadores de la comunidad</p>
             </div>
             <LeaderboardTabs data={leaderboardData} currentUserId={user.id} adminUserIds={adminUserIds} />
+            {totalPages > 1 && (
+                <div className="mt-8 flex items-center justify-center gap-2">
+                    {page > 1 && (
+                        <Link
+                            href={`/leaderboard?page=${page - 1}`}
+                            className="rounded-lg border border-border px-4 py-2 text-sm text-muted transition-colors hover:border-accent/30 hover:text-foreground"
+                        >
+                            ← Anterior
+                        </Link>
+                    )}
+                    <span className="text-sm text-muted">{page} / {totalPages}</span>
+                    {page < totalPages && (
+                        <Link
+                            href={`/leaderboard?page=${page + 1}`}
+                            className="rounded-lg border border-border px-4 py-2 text-sm text-muted transition-colors hover:border-accent/30 hover:text-foreground"
+                        >
+                            Siguiente →
+                        </Link>
+                    )}
+                </div>
+            )}
         </div>
     );
 }
