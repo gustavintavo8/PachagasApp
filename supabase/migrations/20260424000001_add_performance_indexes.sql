@@ -1,8 +1,5 @@
 -- supabase/migrations/20260424000001_add_performance_indexes.sql
 
-CREATE INDEX IF NOT EXISTS idx_match_participants_match_id
-  ON match_participants(match_id);
-
 CREATE INDEX IF NOT EXISTS idx_match_participants_user_id
   ON match_participants(user_id);
 
