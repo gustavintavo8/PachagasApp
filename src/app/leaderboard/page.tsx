@@ -29,17 +29,23 @@ export default async function LeaderboardPage({
     const from = (page - 1) * PAGE_SIZE;
     const to = from + PAGE_SIZE - 1;
 
-    const [{ data: profiles, count }, { data: allParticipations }, adminUserIds] = await Promise.all([
+    const [{ data: profiles, count }, adminUserIds] = await Promise.all([
         supabase
             .from("profiles")
             .select("*", { count: "exact" })
             .order("matches_played", { ascending: false })
             .range(from, to),
-        supabase
-            .from("match_participants")
-            .select("user_id, team, goals, is_mvp, matches(status, team_a_score, team_b_score)"),
         getAdminUserIds(),
     ]);
+
+    const profileIds = (profiles || []).map((p) => p.id);
+
+    const { data: allParticipations } = profileIds.length > 0
+        ? await supabase
+            .from("match_participants")
+            .select("user_id, team, goals, is_mvp, matches(status, team_a_score, team_b_score)")
+            .in("user_id", profileIds)
+        : { data: [] };
 
     const totalPages = Math.ceil((count ?? 0) / PAGE_SIZE);
 
