@@ -58,7 +58,11 @@ async function HeroCard({ userId }: { userId: string }) {
         </div>
         <div className="px-4 text-center first:pl-0 last:pr-0">
           <Link href="/leaderboard" className="block transition-opacity hover:opacity-80">
-            <p className="text-xl font-bold text-accent">#{rank}</p>
+            {(profile?.matches_played ?? 0) >= 3 ? (
+              <p className="text-xl font-bold text-accent">#{rank}</p>
+            ) : (
+              <p className="text-sm font-bold text-muted">Prov.</p>
+            )}
             <p className="text-[10px] uppercase tracking-wider text-muted">Ranking</p>
           </Link>
         </div>
