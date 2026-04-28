@@ -1052,8 +1052,9 @@ export async function markAsPaid(
     const MarkPaidSchema = z.object({
         matchId: z.string().uuid("ID de partido inválido"),
         targetUserId: z.string().uuid("ID de usuario inválido"),
+        paid: z.boolean(),
     });
-    const parsed = MarkPaidSchema.safeParse({ matchId, targetUserId });
+    const parsed = MarkPaidSchema.safeParse({ matchId, targetUserId, paid });
     if (!parsed.success) return { success: false, error: parsed.error.issues[0].message };
 
     const { allowed } = await rateLimit(`mark-paid:${user.id}`, 20, 60_000);
@@ -1075,7 +1076,7 @@ export async function markAsPaid(
     const adminClient = createAdminClient();
     const { error } = await adminClient
         .from("match_participants")
-        .update({ has_paid: paid })
+        .update({ has_paid: parsed.data.paid })
         .eq("match_id", parsed.data.matchId)
         .eq("user_id", parsed.data.targetUserId);
 
