@@ -11,6 +11,7 @@ import {
     cancelMatch,
     rescheduleMatch,
     kickPlayer,
+    markAsPaid,
 } from "../actions";
 import Link from "next/link";
 import { Button } from "@/components/ui/Button";
@@ -56,6 +57,8 @@ import {
     X,
     Crown,
     Target,
+    CheckCircle2,
+    CircleDashed,
 } from "lucide-react";
 import { POSITION_ICONS, POSITION_SHORT, POSITION_COLORS } from "@/lib/positions";
 import type { Match, Profile } from "@/lib/types";
@@ -67,6 +70,7 @@ interface Participant {
     goals: number;
     is_mvp: boolean;
     profiles: Profile;
+    has_paid: boolean;
 }
 
 interface MatchDetailProps {
@@ -104,6 +108,9 @@ export function MatchDetail({
     const [showGoalScorers, setShowGoalScorers] = useState(false);
     const [rescheduleDialogOpen, setRescheduleDialogOpen] = useState(false);
     const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+    const [paidState, setPaidState] = useState<Record<string, boolean>>(
+        () => Object.fromEntries(participants.map((p) => [p.user_id, p.has_paid]))
+    );
     const [newDate, setNewDate] = useState("");
 
     const isOrganizer = match.created_by === currentUserId;
@@ -125,6 +132,16 @@ export function MatchDetail({
 
     function setPlayerGoals(userId: string, goals: number) {
         setGoalScorers((prev) => ({ ...prev, [userId]: Math.max(0, goals) }));
+    }
+
+    async function handleTogglePaid(userId: string) {
+        const current = paidState[userId] ?? false;
+        setPaidState((prev) => ({ ...prev, [userId]: !current }));
+        const result = await markAsPaid(match.id, userId, !current);
+        if (result?.error) {
+            setPaidState((prev) => ({ ...prev, [userId]: current }));
+            toast(result.error, "error");
+        }
     }
 
     const statusColors: Record<string, string> = {
@@ -342,6 +359,20 @@ export function MatchDetail({
                         )}
                     </div>
 
+                    {canManage && match.status === "open" && participants.length > 0 && (
+                        <div className="flex items-center gap-2 rounded-xl border border-border/50 bg-surface px-4 py-2.5 text-sm">
+                            <CheckCircle2 size={16} className="text-[#ccff00]" />
+                            <span className="text-muted">
+                                <span className="font-bold text-foreground">
+                                    {Object.values(paidState).filter(Boolean).length}
+                                </span>
+                                {" / "}
+                                <span className="font-bold text-foreground">{participants.length}</span>
+                                {" pagados"}
+                            </span>
+                        </div>
+                    )}
+
                     {/* Score Display */}
                     {match.status === "finished" && match.team_a_score !== null && match.team_b_score !== null && (
                         <Card className="border-accent/20 bg-accent/5">
@@ -375,6 +406,13 @@ export function MatchDetail({
                                                 participant={p}
                                                 adminUserIds={adminUserIds}
                                                 organizerId={match.created_by}
+                                                showPaid={match.status === "open"}
+                                                isPaid={paidState[p.user_id] ?? false}
+                                                onTogglePaid={
+                                                    canManage && match.status === "open"
+                                                        ? () => handleTogglePaid(p.user_id)
+                                                        : undefined
+                                                }
                                                 onKick={
                                                     isAdmin && match.status === "open" && p.user_id !== currentUserId
                                                         ? async () => {
@@ -405,6 +443,13 @@ export function MatchDetail({
                                         participant={p}
                                         adminUserIds={adminUserIds}
                                         organizerId={match.created_by}
+                                        showPaid={match.status === "open"}
+                                        isPaid={paidState[p.user_id] ?? false}
+                                        onTogglePaid={
+                                            canManage && match.status === "open"
+                                                ? () => handleTogglePaid(p.user_id)
+                                                : undefined
+                                        }
                                         onKick={
                                             isAdmin && match.status === "open" && p.user_id !== currentUserId
                                                 ? async () => {
@@ -638,8 +683,25 @@ function TeamCard({
     );
 }
 
-function PlayerRow({ participant, adminUserIds, organizerId, onKick }: { participant: Participant; adminUserIds?: string[]; organizerId?: string; onKick?: () => void }) {
+function PlayerRow({
+    participant,
+    adminUserIds,
+    organizerId,
+    onKick,
+    showPaid,
+    isPaid,
+    onTogglePaid,
+}: {
+    participant: Participant;
+    adminUserIds?: string[];
+    organizerId?: string;
+    onKick?: () => void;
+    showPaid?: boolean;
+    isPaid?: boolean;
+    onTogglePaid?: () => Promise<void>;
+}) {
     const [kicking, setKicking] = useState(false);
+    const [toggling, setToggling] = useState(false);
     const profile = participant.profiles;
     const avatarUrl = getAvatarUrl(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -683,6 +745,43 @@ function PlayerRow({ participant, adminUserIds, organizerId, onKick }: { partici
                     )}
                 </div>
             </div>
+            {showPaid && (
+                onTogglePaid ? (
+                    <button
+                        onClick={async () => {
+                            setToggling(true);
+                            await onTogglePaid();
+                            setToggling(false);
+                        }}
+                        disabled={toggling}
+                        title={isPaid ? "Marcar como no pagado" : "Marcar como pagado"}
+                        className={`flex h-6 items-center gap-1 rounded-full border px-1.5 transition-all disabled:opacity-50 ${
+                            isPaid
+                                ? "border-[#ccff00]/30 bg-[#ccff00]/10 text-[#ccff00] hover:bg-[#ccff00]/20"
+                                : "border-border bg-surface-hover text-muted hover:border-[#ccff00]/40 hover:text-[#ccff00]/70"
+                        }`}
+                    >
+                        {isPaid
+                            ? <CheckCircle2 size={12} />
+                            : <CircleDashed size={12} />
+                        }
+                    </button>
+                ) : (
+                    <div
+                        title={isPaid ? "Pagado" : "Pendiente de pago"}
+                        className={`flex h-6 items-center gap-1 rounded-full border px-1.5 ${
+                            isPaid
+                                ? "border-[#ccff00]/30 bg-[#ccff00]/10 text-[#ccff00]"
+                                : "border-border bg-surface-hover text-muted"
+                        }`}
+                    >
+                        {isPaid
+                            ? <CheckCircle2 size={12} />
+                            : <CircleDashed size={12} />
+                        }
+                    </div>
+                )
+            )}
             {participant.goals > 0 && (
                 <div className="flex flex-col items-center justify-center h-6 min-w-[24px] rounded-full bg-accent/10 border border-accent/20 px-1.5">
                     <span className="text-[10px] font-bold text-accent">
