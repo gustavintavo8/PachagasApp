@@ -47,7 +47,7 @@ export async function createMatch(formData: FormData): Promise<ActionResult> {
 
     if (!user) return { success: false, error: "No autenticado" };
 
-    const { allowed } = await rateLimit(`create-match:${user.id}`, 5, 60_000);
+    const { allowed } = await rateLimit(`create-match:${user.id}`, 10, 60_000);
     if (!allowed) return { success: false, error: "Demasiadas acciones. Espera un momento." };
 
     const date = formData.get("date") as string;
