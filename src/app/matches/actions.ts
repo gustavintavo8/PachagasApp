@@ -1036,3 +1036,51 @@ export async function voteForMvp(
     revalidatePath(`/matches/${matchId}`);
     return { success: true };
 }
+
+export async function markAsPaid(
+    matchId: string,
+    targetUserId: string,
+    paid: boolean
+): Promise<ActionResult> {
+    const supabase = await createClient();
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) return { success: false, error: "No autenticado" };
+
+    const MarkPaidSchema = z.object({
+        matchId: z.string().uuid("ID de partido inválido"),
+        targetUserId: z.string().uuid("ID de usuario inválido"),
+    });
+    const parsed = MarkPaidSchema.safeParse({ matchId, targetUserId });
+    if (!parsed.success) return { success: false, error: parsed.error.issues[0].message };
+
+    const { allowed } = await rateLimit(`mark-paid:${user.id}`, 20, 60_000);
+    if (!allowed) return { success: false, error: "Demasiadas acciones. Espera un momento." };
+
+    const { data: match } = await supabase
+        .from("matches")
+        .select("status, created_by")
+        .eq("id", parsed.data.matchId)
+        .single();
+
+    if (!match) return { success: false, error: "Partido no encontrado" };
+    if (match.status !== "open") return { success: false, error: "Solo se puede marcar pagos en partidos abiertos" };
+
+    const admin = await isAdmin(user.id);
+    if (match.created_by !== user.id && !admin)
+        return { success: false, error: "Solo el organizador puede marcar pagos" };
+
+    const adminClient = createAdminClient();
+    const { error } = await adminClient
+        .from("match_participants")
+        .update({ has_paid: paid })
+        .eq("match_id", parsed.data.matchId)
+        .eq("user_id", parsed.data.targetUserId);
+
+    if (error) return { success: false, error: error.message };
+
+    revalidatePath(`/matches/${parsed.data.matchId}`);
+    return { success: true };
+}
