@@ -46,6 +46,7 @@ export type MatchParticipant = {
     team: "A" | "B" | null;
     goals: number;
     is_mvp: boolean;
+    has_paid: boolean;
 };
 
 export type MatchWithParticipants = Match & {
