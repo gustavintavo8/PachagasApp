@@ -24,8 +24,8 @@ export default function LoginPage() {
             const result = await action(formData);
             if (result && !result.success) {
                 setError(result.error ?? "Algo salió mal");
-            } else if (result?.message) {
-                setSuccessMessage(result.message);
+            } else if (result?.success && result.data) {
+                setSuccessMessage(result.data);
                 setIsSignUp(false);
             }
         } catch {

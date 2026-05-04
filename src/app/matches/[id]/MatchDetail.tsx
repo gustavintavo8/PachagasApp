@@ -147,7 +147,7 @@ export function MatchDetail({
         const current = paidState[userId] ?? false;
         setPaidState((prev) => ({ ...prev, [userId]: !current }));
         const result = await markAsPaid(match.id, userId, !current);
-        if (result?.error) {
+        if (!result.success) {
             setPaidState((prev) => ({ ...prev, [userId]: current }));
             toast(result.error, "error");
         }
@@ -188,7 +188,7 @@ export function MatchDetail({
             finalB,
             scorers.length > 0 ? scorers : undefined
         );
-        if (result?.error) {
+        if (!result.success) {
             toast(result.error, "error");
         } else {
             toast("¡Partido finalizado! Resultado guardado.", "success");
@@ -426,7 +426,7 @@ export function MatchDetail({
                                                     isAdmin && match.status === "open" && p.user_id !== currentUserId
                                                         ? async () => {
                                                             const result = await kickPlayer(match.id, p.user_id);
-                                                            if (result?.error) toast(result.error, "error");
+                                                            if (!result.success) toast(result.error, "error");
                                                             else toast(`${p.profiles?.username || "Jugador"} expulsado`, "success");
                                                         }
                                                         : undefined
@@ -463,7 +463,7 @@ export function MatchDetail({
                                             isAdmin && match.status === "open" && p.user_id !== currentUserId
                                                 ? async () => {
                                                     const result = await kickPlayer(match.id, p.user_id);
-                                                    if (result?.error) toast(result.error, "error");
+                                                    if (!result.success) toast(result.error, "error");
                                                     else toast(`${p.profiles?.username || "Jugador"} expulsado`, "success");
                                                 }
                                                 : undefined
@@ -617,7 +617,7 @@ export function MatchDetail({
                             setLoading("reschedule");
                             const isoString = new Date(newDate).toISOString();
                             const result = await rescheduleMatch(match.id, isoString);
-                            if (result?.error) toast(result.error, "error");
+                            if (!result.success) toast(result.error, "error");
                             else toast("¡Fecha actualizada!", "success");
                             setRescheduleDialogOpen(false);
                             setLoading(null);
@@ -645,7 +645,7 @@ export function MatchDetail({
                             onClick={async () => {
                                 setLoading("cancel");
                                 const result = await cancelMatch(match.id);
-                                if (result?.error) toast(result.error, "error");
+                                if (!result.success) toast(result.error, "error");
                                 else toast("Partido cancelado", "success");
                                 setCancelDialogOpen(false);
                                 setLoading(null);

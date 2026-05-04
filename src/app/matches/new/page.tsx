@@ -49,7 +49,7 @@ function NewMatchForm() {
 
         const result = await createMatch(formData);
 
-        if (result?.error) {
+        if (!result.success) {
             setError(result.error);
             setLoading(false);
         }

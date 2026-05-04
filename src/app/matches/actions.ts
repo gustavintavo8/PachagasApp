@@ -11,9 +11,7 @@ import { isAdmin } from "@/lib/permissions";
 import { MVP_VOTING_WINDOW_MS } from "@/lib/constantes";
 import { z } from "zod";
 import { sendNotification } from "@/lib/notifications";
-import type { ParticipantProfile } from "@/lib/types";
-
-type ActionResult = { success: boolean; error?: string; data?: unknown };
+import type { ActionResult, ParticipantProfile } from "@/lib/types";
 
 export async function createMatch(formData: FormData): Promise<ActionResult> {
     const supabase = await createClient();
@@ -145,7 +143,7 @@ export async function joinMatch(matchId: string): Promise<ActionResult> {
     revalidatePath("/");
     revalidatePath("/matches");
 
-    return { success: true };
+    return { success: true, data: undefined };
 }
 
 export async function leaveMatch(matchId: string): Promise<ActionResult> {
@@ -180,7 +178,7 @@ export async function leaveMatch(matchId: string): Promise<ActionResult> {
     revalidatePath("/");
     revalidatePath("/matches");
 
-    return { success: true };
+    return { success: true, data: undefined };
 }
 
 export async function closeMatch(matchId: string): Promise<ActionResult> {
@@ -215,7 +213,7 @@ export async function closeMatch(matchId: string): Promise<ActionResult> {
     revalidatePath("/");
     revalidatePath("/matches");
 
-    return { success: true };
+    return { success: true, data: undefined };
 }
 
 async function applyEloUpdates(
@@ -523,7 +521,7 @@ export async function setScore(
     revalidateTag("leaderboard", "max");
     revalidateTag("players", "max");
 
-    return { success: true };
+    return { success: true, data: undefined };
 }
 
 export async function generateTeams(matchId: string): Promise<ActionResult> {
@@ -612,7 +610,7 @@ export async function generateTeams(matchId: string): Promise<ActionResult> {
 
     revalidatePath(`/matches/${matchId}`);
 
-    return { success: true };
+    return { success: true, data: undefined };
 }
 
 export async function cancelMatch(matchId: string): Promise<ActionResult> {
@@ -669,7 +667,7 @@ export async function cancelMatch(matchId: string): Promise<ActionResult> {
     revalidatePath("/");
     revalidatePath("/matches");
 
-    return { success: true };
+    return { success: true, data: undefined };
 }
 
 export async function rescheduleMatch(
@@ -747,7 +745,7 @@ export async function rescheduleMatch(
     revalidatePath("/");
     revalidatePath("/matches");
 
-    return { success: true };
+    return { success: true, data: undefined };
 }
 
 export async function kickPlayer(
@@ -813,7 +811,7 @@ export async function kickPlayer(
     revalidatePath("/");
     revalidatePath("/matches");
 
-    return { success: true };
+    return { success: true, data: undefined };
 }
 
 // ─── MVP Voting ───────────────────────────────────────────────────
@@ -928,7 +926,7 @@ export async function forceResolveMvp(matchId: string): Promise<ActionResult> {
 
     await resolveMvp(matchId);
     revalidatePath(`/matches/${matchId}`);
-    return { success: true };
+    return { success: true, data: undefined };
 }
 
 export async function checkAndResolveExpiredMvp(matchId: string): Promise<ActionResult> {
@@ -957,7 +955,7 @@ export async function checkAndResolveExpiredMvp(matchId: string): Promise<Action
         if (!isResolved) {
             await resolveMvp(matchId);
             revalidatePath(`/matches/${matchId}`);
-            return { success: true };
+            return { success: true, data: undefined };
         }
     }
     return { success: false, error: "No expirado o ya resuelto" };
@@ -1063,7 +1061,7 @@ export async function voteForMvp(
     }
 
     revalidatePath(`/matches/${matchId}`);
-    return { success: true };
+    return { success: true, data: undefined };
 }
 
 export async function markAsPaid(
@@ -1112,5 +1110,5 @@ export async function markAsPaid(
     if (error) return { success: false, error: error.message };
 
     revalidatePath(`/matches/${parsed.data.matchId}`);
-    return { success: true };
+    return { success: true, data: undefined };
 }

@@ -5,8 +5,7 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { rateLimit } from "@/lib/rate-limit";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
-
-type ActionResult = { success: boolean; error?: string; message?: string };
+import type { ActionResult } from "@/lib/types";
 
 export async function login(formData: FormData): Promise<ActionResult> {
     const supabase = await createClient();
@@ -33,7 +32,7 @@ export async function login(formData: FormData): Promise<ActionResult> {
     redirect("/");
 }
 
-export async function signup(formData: FormData): Promise<ActionResult> {
+export async function signup(formData: FormData): Promise<ActionResult<string>> {
     const supabase = await createClient();
     const headersList = await headers();
     const protocol = headersList.get("x-forwarded-proto") || "http";
@@ -88,7 +87,7 @@ export async function signup(formData: FormData): Promise<ActionResult> {
 
     return {
         success: true,
-        message: "¡Cuenta creada! Revisa tu email y haz click en el enlace de confirmación para activar tu cuenta.",
+        data: "¡Cuenta creada! Revisa tu email y haz click en el enlace de confirmación para activar tu cuenta.",
     };
 }
 

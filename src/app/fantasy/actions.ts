@@ -8,8 +8,7 @@ import {
     FANTASY_MAX_SQUAD_SIZE,
     FANTASY_INITIAL_BUDGET,
 } from "@/lib/constantes";
-
-type ActionResult = { success: boolean; error?: string };
+import type { ActionResult } from "@/lib/types";
 
 const nameSchema = z
     .string()
@@ -43,7 +42,7 @@ export async function createFantasyTeam(name: string): Promise<ActionResult> {
     if (error) return { success: false, error: error.message };
 
     revalidatePath("/fantasy");
-    return { success: true };
+    return { success: true, data: undefined };
 }
 
 export async function buyPlayer(teamId: string, playerId: string): Promise<ActionResult> {
@@ -131,7 +130,7 @@ export async function buyPlayer(teamId: string, playerId: string): Promise<Actio
 
     revalidatePath("/fantasy");
     revalidatePath("/fantasy/mercado");
-    return { success: true };
+    return { success: true, data: undefined };
 }
 
 export async function sellPlayer(teamId: string, playerId: string): Promise<ActionResult> {
@@ -190,7 +189,7 @@ export async function sellPlayer(teamId: string, playerId: string): Promise<Acti
 
     revalidatePath("/fantasy");
     revalidatePath("/fantasy/mercado");
-    return { success: true };
+    return { success: true, data: undefined };
 }
 
 export async function setCaptain(teamId: string, playerId: string): Promise<ActionResult> {
@@ -257,7 +256,7 @@ export async function setCaptain(teamId: string, playerId: string): Promise<Acti
     if (setCaptainError) return { success: false, error: setCaptainError.message };
 
     revalidatePath("/fantasy");
-    return { success: true };
+    return { success: true, data: undefined };
 }
 
 export async function saveLineup(teamId: string, starterIds: string[]): Promise<ActionResult> {
@@ -359,5 +358,5 @@ export async function saveLineup(teamId: string, starterIds: string[]): Promise<
     if (setError) return { success: false, error: setError.message };
 
     revalidatePath("/fantasy");
-    return { success: true };
+    return { success: true, data: undefined };
 }

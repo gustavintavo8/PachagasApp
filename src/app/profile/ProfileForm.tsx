@@ -42,7 +42,7 @@ export function ProfileForm({ userId, profile }: ProfileFormProps) {
         const formData = new FormData(e.currentTarget);
         const result = await updateProfile(formData);
 
-        if (result?.error) {
+        if (!result.success) {
             setUiState({ loading: false, success: false, error: result.error });
         } else {
             setUiState({ loading: false, success: true, error: null });

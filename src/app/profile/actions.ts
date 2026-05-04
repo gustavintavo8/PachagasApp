@@ -4,8 +4,7 @@ import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { rateLimit } from '@/lib/rate-limit'
 import { z } from 'zod'
-
-type ActionResult = { success: boolean; error?: string };
+import type { ActionResult } from "@/lib/types";
 
 const UpdateProfileSchema = z.object({
     username: z.string().min(2, "El nombre debe tener al menos 2 caracteres").max(30, "Máximo 30 caracteres"),
@@ -53,7 +52,7 @@ export async function updateProfile(formData: FormData): Promise<ActionResult> {
     revalidatePath('/profile')
     revalidatePath('/')
 
-    return { success: true }
+    return { success: true, data: undefined }
 }
 
 export async function updateAvatar(path: string): Promise<ActionResult> {
@@ -78,5 +77,5 @@ export async function updateAvatar(path: string): Promise<ActionResult> {
 
     revalidatePath("/profile");
     revalidatePath("/");
-    return { success: true };
+    return { success: true, data: undefined };
 }
