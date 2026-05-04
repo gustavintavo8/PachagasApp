@@ -1,7 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
 import { LeaderboardTabs } from "./LeaderboardTabs";
 import { getAdminUserIds } from "@/lib/permissions";
+import { cacheLife, cacheTag } from "next/cache";
 import type { Metadata } from "next";
 import Link from "next/link";
 
@@ -26,11 +28,52 @@ export default async function LeaderboardPage({
 
     const { page: pageParam } = await searchParams;
     const page = Math.max(1, parseInt(pageParam ?? "1", 10));
+
+    const { leaderboardData, totalPages, adminUserIds } = await getLeaderboardData(page);
+
+    return (
+        <div className="mx-auto max-w-5xl px-4 py-8">
+            <div className="mb-8">
+                <h1 className="text-2xl font-bold text-foreground">Ranking</h1>
+                <p className="text-muted">Los mejores jugadores de la comunidad</p>
+            </div>
+            <LeaderboardTabs data={leaderboardData} currentUserId={user.id} adminUserIds={adminUserIds} />
+            {totalPages > 1 && (
+                <div className="mt-8 flex items-center justify-center gap-2">
+                    {page > 1 && (
+                        <Link
+                            href={`/leaderboard?page=${page - 1}`}
+                            className="rounded-lg border border-border px-4 py-2 text-sm text-muted transition-colors hover:border-accent/30 hover:text-foreground"
+                        >
+                            ← Anterior
+                        </Link>
+                    )}
+                    <span className="text-sm text-muted">{page} / {totalPages}</span>
+                    {page < totalPages && (
+                        <Link
+                            href={`/leaderboard?page=${page + 1}`}
+                            className="rounded-lg border border-border px-4 py-2 text-sm text-muted transition-colors hover:border-accent/30 hover:text-foreground"
+                        >
+                            Siguiente →
+                        </Link>
+                    )}
+                </div>
+            )}
+        </div>
+    );
+}
+
+async function getLeaderboardData(page: number) {
+    "use cache";
+    cacheLife("hours");
+    cacheTag("leaderboard");
+
+    const admin = createAdminClient();
     const from = (page - 1) * PAGE_SIZE;
     const to = from + PAGE_SIZE - 1;
 
     const [{ data: profiles, count }, adminUserIds] = await Promise.all([
-        supabase
+        admin
             .from("profiles")
             .select("*", { count: "exact" })
             .order("elo_rating", { ascending: false })
@@ -42,7 +85,7 @@ export default async function LeaderboardPage({
     const profileIds = (profiles || []).map((p) => p.id);
 
     const { data: allParticipations } = profileIds.length > 0
-        ? await supabase
+        ? await admin
             .from("match_participants")
             .select("user_id, team, goals, is_mvp, matches(status, team_a_score, team_b_score)")
             .in("user_id", profileIds)
@@ -92,34 +135,5 @@ export default async function LeaderboardPage({
         mvps: statsMap[p.id]?.mvps ?? 0,
     }));
 
-    return (
-        <div className="mx-auto max-w-5xl px-4 py-8">
-            <div className="mb-8">
-                <h1 className="text-2xl font-bold text-foreground">Ranking</h1>
-                <p className="text-muted">Los mejores jugadores de la comunidad</p>
-            </div>
-            <LeaderboardTabs data={leaderboardData} currentUserId={user.id} adminUserIds={adminUserIds} />
-            {totalPages > 1 && (
-                <div className="mt-8 flex items-center justify-center gap-2">
-                    {page > 1 && (
-                        <Link
-                            href={`/leaderboard?page=${page - 1}`}
-                            className="rounded-lg border border-border px-4 py-2 text-sm text-muted transition-colors hover:border-accent/30 hover:text-foreground"
-                        >
-                            ← Anterior
-                        </Link>
-                    )}
-                    <span className="text-sm text-muted">{page} / {totalPages}</span>
-                    {page < totalPages && (
-                        <Link
-                            href={`/leaderboard?page=${page + 1}`}
-                            className="rounded-lg border border-border px-4 py-2 text-sm text-muted transition-colors hover:border-accent/30 hover:text-foreground"
-                        >
-                            Siguiente →
-                        </Link>
-                    )}
-                </div>
-            )}
-        </div>
-    );
+    return { leaderboardData, totalPages, adminUserIds };
 }
