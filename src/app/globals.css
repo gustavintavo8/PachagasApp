@@ -107,3 +107,32 @@ input[type="range"] {
 .animate-toast-in {
   animation: toast-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
+
+/* ─── Accesibilidad: movimiento reducido ──────────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* ─── Rendimiento: virtualización CSS en listas largas ───────────────────── */
+.leaderboard-row {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 56px;
+}
+
+.match-history-item {
+  content-visibility: auto;
+  contain-intrinsic-size: 0 80px;
+}
+
+/* ─── Focus: scroll-margin para compensar el BottomNav fijo ─────────────── */
+:focus-visible {
+  scroll-margin-bottom: 80px;
+  scroll-margin-top: 72px;
+}
