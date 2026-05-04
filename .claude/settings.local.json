@@ -1,0 +1,29 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(npx tsc *)",
+      "Bash(npm run *)",
+      "Bash(git branch *)",
+      "Bash(git worktree *)",
+      "Bash(python3 -c \"import sys,json; d=json.load\\(sys.stdin\\); print\\('DEPS:', list\\(d.get\\('dependencies',{}\\).keys\\(\\)\\)\\); print\\('DEVDEPS:', list\\(d.get\\('devDependencies',{}\\).keys\\(\\)\\)\\)\")",
+      "Bash(node *)",
+      "Bash(C:/Users/gustavo/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.7/skills/brainstorming/scripts/start-server.sh *)",
+      "Bash(npx supabase *)",
+      "Bash(git *)",
+      "Bash(Get-ChildItem -Path \"C:\\\\Users\\\\gustavo\\\\Documents\\\\pachanga-app\" -Recurse -Force)",
+      "Bash(Select-Object FullName)",
+      "Bash(Head -100)",
+      "PowerShell(Head *)",
+      "Bash(C:\\\\Users\\\\gustavo\\\\.claude\\\\plugins\\\\cache\\\\claude-plugins-official\\\\superpowers\\\\5.0.7\\\\scripts\\\\start-server.sh *)",
+      "Read(//mnt/c/Users/gustavo/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.7/**)",
+      "Read(//c/Users/gustavo/.claude/plugins/cache/claude-plugins-official/superpowers/5.0.7/scripts/**)",
+      "Read(//c/Users/gustavo/.claude/plugins/cache/**)",
+      "Bash(dir \"C:\\\\Users\\\\gustavo\\\\.claude\\\\plugins\\\\cache\")",
+      "PowerShell(cd \"C:\\\\Users\\\\gustavo\\\\Documents\\\\pachanga-app\"; npx tsc --noEmit 2>&1; Write-Host \"TSC exit code: $LASTEXITCODE\")",
+      "Bash(npx playwright *)",
+      "Bash(npm install *)"
+    ]
+  }
+}
