@@ -20,8 +20,6 @@ export const metadata: Metadata = {
 export const viewport = {
   width: "device-width",
   initialScale: 1,
-  maximumScale: 1,
-  userScalable: false,
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
@@ -34,12 +32,19 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
       </head>
       <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+        {/* Skip link para usuarios de teclado/lectores de pantalla */}
+        <a
+          href="#main-content"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-accent focus:px-4 focus:py-2 focus:text-black focus:outline-none"
+        >
+          Saltar al contenido principal
+        </a>
         <ToastProvider>
           <Suspense fallback={<NavbarSkeleton />}>
             <Navbar />
           </Suspense>
           {/* pb-20 on mobile to clear the fixed BottomNav */}
-          <main className="min-h-[calc(100vh-4rem)] pb-20 md:pb-0">{children}</main>
+          <main id="main-content" className="min-h-[calc(100vh-4rem)] pb-20 md:pb-0">{children}</main>
           <BottomNav />
         </ToastProvider>
         <SpeedInsights />
