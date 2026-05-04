@@ -4,8 +4,18 @@ import Link from "next/link";
 import Image from "next/image";
 import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
 import { Avatar } from "@/components/ui/Avatar";
-import { PlayerCharts } from "@/components/PlayerCharts";
+import dynamic from "next/dynamic";
 import { formatDate, getAvatarUrl } from "@/lib/utils";
+
+const PlayerCharts = dynamic(
+    () => import("@/components/PlayerCharts").then((m) => ({ default: m.PlayerCharts })),
+    {
+        ssr: false,
+        loading: () => (
+            <div className="h-48 w-full animate-pulse rounded-lg bg-surface" />
+        ),
+    }
+);
 import { getAdminUserIds } from "@/lib/permissions";
 import {
     Calendar,

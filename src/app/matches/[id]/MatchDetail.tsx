@@ -23,8 +23,17 @@ const SoccerPitch = dynamic(() => import("@/components/SoccerPitch").then((mod) 
     ssr: false,
     loading: () => <div className="mx-auto w-full max-w-xl h-[600px] animate-pulse rounded-2xl bg-surface/50 border border-border"></div>
 });
-import { WeatherWidget } from "@/components/WeatherWidget";
 import { formatDate, getAvatarUrl } from "@/lib/utils";
+
+const WeatherWidget = dynamic(
+    () => import("@/components/WeatherWidget").then((m) => ({ default: m.WeatherWidget })),
+    {
+        ssr: false,
+        loading: () => (
+            <div className="h-20 w-full animate-pulse rounded-lg bg-surface" />
+        ),
+    }
+);
 
 const MatchChat = dynamic(() => import("@/components/MatchChat").then((mod) => ({ default: mod.MatchChat })), {
     loading: () => <div className="py-12 text-center text-sm text-muted">Cargando...</div>,
