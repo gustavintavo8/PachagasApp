@@ -52,3 +52,17 @@ export type MatchParticipant = {
 export type MatchWithParticipants = Match & {
     participants: (MatchParticipant & { profiles: Profile })[];
 };
+
+// ─── Server Action Results ────────────────────────────────────────────────────
+
+export type ActionResult<T = void> =
+    | { success: true; data: T }
+    | { success: false; error: string };
+
+// ─── Tipos internos de actions ────────────────────────────────────────────────
+
+export type ParticipantProfile = {
+    elo_rating: number | null;
+    matches_played: number | null;
+    position: string | null;
+};
