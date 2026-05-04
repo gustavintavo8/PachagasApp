@@ -10,6 +10,7 @@ import { rateLimit } from "@/lib/rate-limit";
 import { isAdmin } from "@/lib/permissions";
 import { MVP_VOTING_WINDOW_MS } from "@/lib/constantes";
 import { z } from "zod";
+import { sendNotification } from "@/lib/notifications";
 
 interface ParticipantProfile {
     elo_rating: number | null;
@@ -18,26 +19,6 @@ interface ParticipantProfile {
 }
 
 type ActionResult = { success: boolean; error?: string; data?: unknown };
-
-async function sendNotification(
-    userIds: string[],
-    type: string,
-    title: string,
-    message: string,
-    matchId?: string
-) {
-    if (userIds.length === 0) return;
-    const admin = createAdminClient();
-    const rows = userIds.map((uid) => ({
-        user_id: uid,
-        type,
-        title,
-        message,
-        match_id: matchId ?? null,
-    }));
-    const { error } = await admin.from("notifications").insert(rows);
-    if (error) return;
-}
 
 export async function createMatch(formData: FormData): Promise<ActionResult> {
     const supabase = await createClient();
