@@ -39,15 +39,15 @@ test.afterAll(async () => {
     await deleteDummyUsers(dummyUserIds);
 });
 
-test.describe("Poner resultado", () => {
-    test("botón de resultado es visible para el organizador", async ({ page }) => {
+test.describe("Poner resultado @smoke", () => {
+    test("botón de resultado es visible para el organizador @smoke", async ({ page }) => {
         await page.goto(`/matches/${matchId}`);
         await expect(
             page.locator("text=Poner resultado").or(page.locator("text=Resultado"))
         ).toBeVisible({ timeout: 5_000 });
     });
 
-    test("poner resultado 2-1 marca el partido como finalizado", async ({ page }) => {
+    test("poner resultado 2-1 marca el partido como finalizado @critical", async ({ page }) => {
         await page.goto(`/matches/${matchId}`);
 
         await page.locator("text=Poner resultado").or(page.locator("text=Resultado")).click();

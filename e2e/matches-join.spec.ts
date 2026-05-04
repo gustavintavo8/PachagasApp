@@ -13,8 +13,8 @@ test.afterAll(async () => {
     await deleteMatch(matchId);
 });
 
-test.describe("Unirse a un partido", () => {
-    test("el organizador ve botón Abandonar (ya está unido)", async ({ page }) => {
+test.describe("Unirse a un partido @smoke", () => {
+    test("el organizador ve botón Abandonar (ya está unido) @smoke", async ({ page }) => {
         await page.goto(`/matches/${matchId}`);
         await expect(page.locator("text=Abandonar")).toBeVisible({ timeout: 5_000 });
     });
@@ -29,7 +29,7 @@ test.describe("Unirse a un partido", () => {
         await expect(page.locator("text=Abandonar")).toBeVisible();
     });
 
-    test("abandonar partido muestra botón Unirse", async ({ page }) => {
+    test("abandonar partido muestra botón Unirse @critical", async ({ page }) => {
         await page.goto(`/matches/${matchId}`);
         await page.locator("text=Abandonar").click();
         await expect(page.locator("text=Unirse")).toBeVisible({ timeout: 5_000 });

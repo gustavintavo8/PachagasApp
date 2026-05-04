@@ -27,15 +27,15 @@ test.afterAll(async () => {
     await deleteDummyUsers(dummyUserIds);
 });
 
-test.describe("Generar equipos", () => {
-    test("botón Generar equipos es visible para el organizador", async ({ page }) => {
+test.describe("Generar equipos @smoke", () => {
+    test("botón Generar equipos es visible para el organizador @smoke", async ({ page }) => {
         await page.goto(`/matches/${matchId}`);
         await expect(
             page.locator("text=Generar equipos").or(page.locator("text=Barajar equipos"))
         ).toBeVisible({ timeout: 5_000 });
     });
 
-    test("generar equipos asigna participantes a Equipo A y Equipo B", async ({ page }) => {
+    test("generar equipos asigna participantes a Equipo A y Equipo B @critical", async ({ page }) => {
         await page.goto(`/matches/${matchId}`);
         await page.locator("text=Generar equipos").or(page.locator("text=Barajar equipos")).click();
 

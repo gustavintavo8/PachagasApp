@@ -10,8 +10,8 @@ test.afterAll(async () => {
     }
 });
 
-test.describe("Crear partido", () => {
-    test("formulario de nuevo partido es accesible desde el home", async ({ page }) => {
+test.describe("Crear partido @smoke", () => {
+    test("formulario de nuevo partido es accesible desde el home @smoke", async ({ page }) => {
         await page.goto("/");
         const newMatchButton = page.locator("text=Nuevo partido").or(
             page.locator("text=Crear partido")
@@ -19,7 +19,7 @@ test.describe("Crear partido", () => {
         await expect(newMatchButton).toBeVisible();
     });
 
-    test("crear partido con datos válidos redirige a la página del partido", async ({ page }) => {
+    test("crear partido con datos válidos redirige a la página del partido @critical", async ({ page }) => {
         await page.goto("/");
         await page.locator("text=Nuevo partido").or(page.locator("text=Crear partido")).click();
 
