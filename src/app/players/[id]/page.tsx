@@ -32,10 +32,49 @@ import { POSITION_FULL, POSITION_ICONS, POSITION_COLORS } from "@/lib/positions"
 
 import type { Metadata } from "next";
 
-export const metadata: Metadata = {
-    title: "Perfil de Jugador — Pachanga",
-    description: "Estadísticas y partidos recientes de un jugador.",
+const POSITION_LABELS: Record<string, string> = {
+    GK: "Portero",
+    DEF: "Defensa",
+    MID: "Centrocampista",
+    FWD: "Delantero",
 };
+
+const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://pachanga.app";
+
+export async function generateMetadata({
+    params,
+}: {
+    params: Promise<{ id: string }>;
+}): Promise<Metadata> {
+    const { id } = await params;
+    const supabase = await createClient();
+
+    const { data: profile } = await supabase
+        .from("profiles")
+        .select("username, elo_rating, matches_played, position")
+        .eq("id", id)
+        .single();
+
+    if (!profile) {
+        return { title: "Jugador — Pachanga" };
+    }
+
+    const posLabel = POSITION_LABELS[profile.position ?? ""] ?? "Jugador";
+    const title = `${profile.username ?? "Jugador"} — ${posLabel} · Pachanga`;
+    const description = `ELO ${profile.elo_rating ?? 1000} · ${profile.matches_played ?? 0} partidos jugados`;
+
+    return {
+        title,
+        description,
+        alternates: { canonical: `${BASE_URL}/players/${id}` },
+        openGraph: {
+            title,
+            description,
+            type: "profile",
+            url: `${BASE_URL}/players/${id}`,
+        },
+    };
+}
 
 export default async function PlayerProfilePage({
     params,
@@ -174,6 +213,20 @@ export default async function PlayerProfilePage({
 
     return (
         <div className="mx-auto max-w-3xl px-4 py-8">
+            {profile && (
+                <script
+                    type="application/ld+json"
+                    dangerouslySetInnerHTML={{
+                        __html: JSON.stringify({
+                            "@context": "https://schema.org",
+                            "@type": "Person",
+                            name: profile.username ?? "",
+                            url: `${BASE_URL}/players/${id}`,
+                            description: `${POSITION_LABELS[profile.position ?? ""] ?? "Jugador"} con ELO ${profile.elo_rating ?? 1000}`,
+                        }),
+                    }}
+                />
+            )}
             {/* Back Link */}
             <Link
                 href="/players"
