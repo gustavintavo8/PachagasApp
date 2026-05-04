@@ -104,7 +104,7 @@ export function LeaderboardTabs({ data, currentUserId, adminUserIds }: Leaderboa
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
     return (
-        <div>
+        <div data-testid="leaderboard">
             {/* Tab Switcher */}
             <div className="mb-6 flex gap-2 overflow-x-auto">
                 {tabs.map((tab) => {
