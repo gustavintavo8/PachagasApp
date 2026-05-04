@@ -1,6 +1,8 @@
 import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
+import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
+import { cacheLife, cacheTag } from "next/cache";
 import { PlayersList } from "./PlayersList";
 import { getAdminUserIds } from "@/lib/permissions";
 import type { Profile } from "@/lib/types";
@@ -27,19 +29,8 @@ export default async function PlayersPage({
 
     const { page: pageParam } = await searchParams;
     const page = Math.max(1, parseInt(pageParam ?? "1", 10));
-    const from = (page - 1) * PAGE_SIZE;
-    const to = from + PAGE_SIZE - 1;
 
-    const [{ data: profiles, count }, adminUserIds] = await Promise.all([
-        supabase
-            .from("profiles")
-            .select("*", { count: "exact" })
-            .order("matches_played", { ascending: false })
-            .range(from, to),
-        getAdminUserIds(),
-    ]);
-
-    const totalPages = Math.ceil((count ?? 0) / PAGE_SIZE);
+    const { profiles, adminUserIds, totalPages } = await getPlayersData(page);
 
     return (
         <div className="mx-auto max-w-5xl px-4 py-8">
@@ -75,4 +66,29 @@ export default async function PlayersPage({
             )}
         </div>
     );
+}
+
+async function getPlayersData(page: number) {
+    "use cache";
+    cacheLife("hours");
+    cacheTag("players");
+
+    const admin = createAdminClient();
+    const from = (page - 1) * PAGE_SIZE;
+    const to = from + PAGE_SIZE - 1;
+
+    const [{ data: profiles, count }, adminUserIds] = await Promise.all([
+        admin
+            .from("profiles")
+            .select("*", { count: "exact" })
+            .order("matches_played", { ascending: false })
+            .range(from, to),
+        getAdminUserIds(),
+    ]);
+
+    return {
+        profiles: profiles ?? [],
+        adminUserIds,
+        totalPages: Math.ceil((count ?? 0) / PAGE_SIZE),
+    };
 }
