@@ -45,7 +45,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           </Suspense>
           {/* pb-20 on mobile to clear the fixed BottomNav */}
           <main id="main-content" className="min-h-[calc(100vh-4rem)] pb-20 md:pb-0">{children}</main>
-          <BottomNav />
+          <Suspense fallback={null}>
+            <BottomNav />
+          </Suspense>
         </ToastProvider>
         <SpeedInsights />
       </body>
