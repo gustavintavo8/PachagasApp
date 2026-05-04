@@ -2,7 +2,7 @@
 
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { revalidatePath } from "next/cache";
+import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
 import { balanceTeams } from "@/lib/team-balancer";
 import { computeMatchEloUpdates, ELO_BASE } from "@/lib/elo";
@@ -351,24 +351,29 @@ export async function setScore(
             );
 
             // Bulk update ELO ratings and history
-            for (const update of eloUpdates) {
-                const { error: updateError } = await adminSupabase
-                    .from("profiles")
-                    .update({ elo_rating: update.newRating, market_value: Math.max(1_000_000, (update.newRating - 800) * 50_000) })
-                    .eq("id", update.userId);
+            await Promise.all(
+                eloUpdates.map(async (update) => {
+                    const { error: updateError } = await adminSupabase
+                        .from("profiles")
+                        .update({
+                            elo_rating: update.newRating,
+                            market_value: Math.max(1_000_000, (update.newRating - 800) * 50_000),
+                        })
+                        .eq("id", update.userId);
 
-                if (!updateError) {
-                    await adminSupabase
-                        .from("rp_history")
-                        .insert({
-                            user_id: update.userId,
-                            match_id: validData.matchId,
-                            rp_change: update.delta,
-                            new_rp: update.newRating,
-                            created_at: new Date().toISOString()
-                        });
-                }
-            }
+                    if (!updateError) {
+                        await adminSupabase
+                            .from("rp_history")
+                            .insert({
+                                user_id: update.userId,
+                                match_id: validData.matchId,
+                                rp_change: update.delta,
+                                new_rp: update.newRating,
+                                created_at: new Date().toISOString(),
+                            });
+                    }
+                })
+            );
 
             // ── FANTASY: Puntuación del partido ──────────────────────────────────
             // Reglas: +2 jugar, +3 victoria, +1 empate, +3/gol, +4 portería a cero (GK/DEF)
@@ -495,6 +500,8 @@ export async function setScore(
     revalidatePath(`/matches/${validData.matchId}`);
     revalidatePath("/");
     revalidatePath("/matches");
+    revalidateTag("leaderboard", "max");
+    revalidateTag("players", "max");
 
     return { success: true };
 }
@@ -558,13 +565,15 @@ export async function generateTeams(matchId: string): Promise<ActionResult> {
     const { assignments } = balanceTeams(playersWithPosition);
 
     // Update each participant's team
-    for (const assignment of assignments) {
-        await supabase
-            .from("match_participants")
-            .update({ team: assignment.team })
-            .eq("match_id", matchId)
-            .eq("user_id", assignment.user_id);
-    }
+    await Promise.all(
+        assignments.map((assignment) =>
+            supabase
+                .from("match_participants")
+                .update({ team: assignment.team })
+                .eq("match_id", matchId)
+                .eq("user_id", assignment.user_id)
+        )
+    );
 
     // Notify all participants that teams have been generated
     const { data: matchForNotif } = await supabase
