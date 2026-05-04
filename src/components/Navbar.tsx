@@ -28,7 +28,7 @@ async function DesktopUserMenu() {
   return (
     <>
       <NotificationBell userId={user.id} />
-      <Link href="/profile" className="transition-transform hover:scale-105" title="Mi Perfil">
+      <Link href="/profile" className="transition-transform hover:scale-105" title="Mi Perfil" aria-label="Mi Perfil">
         <Avatar
           src={avatarUrl}
           fallback={profile?.username || user.email || "U"}
@@ -40,8 +40,9 @@ async function DesktopUserMenu() {
           type="submit"
           className="rounded-lg p-2 text-muted transition-colors hover:bg-surface-hover hover:text-foreground"
           title="Cerrar Sesión"
+          aria-label="Cerrar Sesión"
         >
-          <LogOut size={16} />
+          <LogOut size={16} aria-hidden="true" />
         </button>
       </form>
     </>

@@ -24,7 +24,7 @@ export function NavbarClient({ desktopUserMenu, mobileRight }: NavbarClientProps
   const pathname = usePathname();
 
   return (
-    <nav className="sticky top-0 z-50 border-b border-border bg-surface/80 backdrop-blur-xl">
+    <nav aria-label="Navegación principal" className="sticky top-0 z-50 border-b border-border bg-surface/80 backdrop-blur-xl">
       <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-4">
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2">
@@ -43,6 +43,7 @@ export function NavbarClient({ desktopUserMenu, mobileRight }: NavbarClientProps
               <Link
                 key={link.href}
                 href={link.href}
+                aria-current={active ? "page" : undefined}
                 className={cn(
                   "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                   active
@@ -50,7 +51,7 @@ export function NavbarClient({ desktopUserMenu, mobileRight }: NavbarClientProps
                     : "text-muted hover:bg-surface-hover hover:text-foreground"
                 )}
               >
-                <Icon size={16} />
+                <Icon size={16} aria-hidden="true" />
                 {link.label}
               </Link>
             );
