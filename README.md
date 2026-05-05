@@ -134,7 +134,7 @@ Deploy         Vercel (recomendado)
 ```bash
 # 1. Clonar el repositorio
 git clone https://github.com/gustavintavo8/PachagasApp
-cd pachanga-app
+cd PachagasApp
 
 # 2. Instalar dependencias
 npm install
