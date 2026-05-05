@@ -20,6 +20,8 @@
 
 ## 📸 Demo
 
+> 👥 **31 jugadores registrados** · ⚽ **101 goles marcados** · 🏟️ **9 partidos organizados** — datos reales de producción.
+
 > Lanza `npm run dev` y accede a `http://localhost:3000` para explorar la app.
 
 <table>
