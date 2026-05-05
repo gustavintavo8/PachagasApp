@@ -2,7 +2,9 @@
 
 <img src="public/banner.png" alt="Pachangas App Banner" width="100%">
 
-**La app definitiva para organizar tus pachangas de fútbol.**
+**Plataforma full-stack para organizar partidos de fútbol con equipos balanceados por ELO, chat en tiempo real, estadísticas de jugadores y PWA instalable.**
+
+> **[→ Ver demo en vivo](https://pachagas-app.vercel.app)**
 
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/)
 [![Supabase](https://img.shields.io/badge/Supabase-Database%20%26%20Auth-3fcf8e?logo=supabase)](https://supabase.com/)
@@ -10,7 +12,7 @@
 [![Playwright](https://img.shields.io/badge/Playwright-E2E%20Tests-45ba4b?logo=playwright)](https://playwright.dev/)
 [![PWA](https://img.shields.io/badge/PWA-Installable-5a0fc8?logo=pwa)](https://web.dev/progressive-web-apps/)
 
-[Demo](#-demo) · [Características](#-características) · [Tech Stack](#️-tech-stack) · [Instalación](#-instalación) · [Variables de Entorno](#-variables-de-entorno) · [Deploy](#-deploy)
+[Demo](#-demo) · [Highlights](#-highlights-técnicos) · [Características](#-características) · [Tech Stack](#️-tech-stack) · [Decisiones Técnicas](#-decisiones-técnicas) · [Instalación](#-instalación) · [Deploy](#-deploy)
 
 </div>
 
@@ -19,6 +21,40 @@
 ## 📸 Demo
 
 > Lanza `npm run dev` y accede a `http://localhost:3000` para explorar la app.
+
+<table>
+  <tr>
+    <td align="center" width="50%">
+      <img src="public/screenshots/inicio.png" alt="Pantalla principal" height="340"><br>
+      <sub><b>Pantalla principal</b></sub>
+    </td>
+    <td align="center" width="50%">
+      <img src="public/screenshots/ranking.png" alt="Ranking global" height="340"><br>
+      <sub><b>Ranking global</b></sub>
+    </td>
+  </tr>
+  <tr>
+    <td align="center" width="50%">
+      <img src="public/screenshots/detalle_partido.png" alt="Detalle de partido" height="340"><br>
+      <sub><b>Detalle de partido con cancha visual</b></sub>
+    </td>
+    <td align="center" width="50%">
+      <img src="public/screenshots/perfil_jugador.png" alt="Perfil de jugador" height="340"><br>
+      <sub><b>Perfil de jugador con estadísticas</b></sub>
+    </td>
+  </tr>
+</table>
+
+---
+
+## ⚡ Highlights técnicos
+
+- **ELO + balanceo en 3 fases** — Draft posicional → igualación de tamaño → swap-optimisation iterativo. Converge en óptimo local en 2-3 pasadas.
+- **Server Components + Server Actions** — Las páginas de lectura pesada (perfil, ranking) no envían JS al cliente. Solo se hidratan los componentes interactivos (chat, notificaciones, gráficas).
+- **Realtime sobre CDC de PostgreSQL** — Chat y notificaciones via Supabase Realtime, sin polling. La misma conexión que la base de datos.
+- **RLS como capa de autorización** — Todas las reglas de acceso viven en PostgreSQL como políticas declarativas, no en la capa de aplicación.
+- **Rate limiting por token bucket** — Protección contra spam en server actions críticos implementada desde cero, sin librerías externas.
+- **PWA installable** — Manifest + service worker. Funciona como app nativa en Android/iOS desde el navegador.
 
 ---
 
@@ -70,7 +106,7 @@
 
 ```
 Frontend       Next.js 16 (App Router) + React 19 + TypeScript
-Styling        Vanilla CSS (design tokens + utilidades propias)
+Styling        Tailwind CSS 4 (via @tailwindcss/postcss)
 Database       Supabase (PostgreSQL) + Row Level Security
 Auth           Supabase Auth (Email + Google OAuth)
 Storage        Supabase Storage (avatars + match photos)
@@ -95,7 +131,7 @@ Deploy         Vercel (recomendado)
 
 ```bash
 # 1. Clonar el repositorio
-git clone https://github.com/tu-usuario/pachanga-app.git
+git clone https://github.com/gustavintavo8/PachagasApp
 cd pachanga-app
 
 # 2. Instalar dependencias
@@ -210,6 +246,30 @@ src/
 │   └── utils.ts             # Utilidades compartidas
 └── middleware.ts             # Auth middleware
 ```
+
+---
+
+## 🧠 Decisiones Técnicas
+
+### Por qué Supabase en vez de Firebase
+
+Firebase fue descartado por dos razones concretas: su modelo de datos (documentos anidados en Firestore) no encaja bien con relaciones muchos-a-muchos como `match_participants` o `player_ratings`, donde las queries relacionales son frecuentes. Supabase ofrece PostgreSQL real — se pueden hacer JOINs, agregaciones y Row Level Security con políticas declarativas en SQL, sin necesidad de duplicar datos ni mantener contadores manualmente. El Realtime de Supabase (basado en CDC de PostgreSQL) cubre el chat y las notificaciones con un modelo pub/sub sencillo desde el mismo cliente.
+
+### Por qué Next.js App Router
+
+El App Router permite mezclar Server Components y Client Components en el mismo árbol. Las páginas de perfil, ranking y detalle de partido son mayoritariamente lecturas: se renderizan en servidor (sin JavaScript en cliente, sin spinner de carga), y solo los componentes interactivos — chat, campana de notificaciones, gráficas — se hidratan como Client Components. Esto da tiempos de carga percibidos bajos sin sacrificar interactividad. Los Server Actions eliminan la necesidad de una API REST propia para las mutaciones.
+
+### Algoritmo de balanceo de equipos
+
+El balanceo se resuelve en tres fases sobre los ratings ELO de cada jugador:
+
+**Fase 1 — Draft posicional:** Los jugadores se agrupan por posición (GK → DEF → MID → FWD) y dentro de cada grupo se ordenan por ELO descendente. Se asignan en zigzag al equipo con menos jugadores en esa posición; en caso de empate, al equipo con menor ELO promedio. Así se garantiza paridad posicional antes de optimizar.
+
+**Fase 2 — Igualación de tamaño:** Si los equipos quedan desiguales en número (partidos con número impar de jugadores), se mueve el jugador cuyo traspaso minimiza la diferencia de ELO promedio resultante — no simplemente el último de la lista.
+
+**Fase 3 — Optimización por intercambio:** Se prueban todos los pares A↔B posibles; si un intercambio reduce la diferencia de ELO promedio en más de 0.5 puntos, se confirma y se reinicia el paso. El algoritmo converge en 2-3 iteraciones hacia un óptimo local. El umbral de 0.5 evita micro-swaps infinitos por ruido de punto flotante.
+
+El resultado es equipos con diferencia de ELO promedio cercana a cero, respetando la distribución posicional del partido.
 
 ---
 
