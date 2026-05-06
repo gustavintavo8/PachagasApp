@@ -52,7 +52,7 @@ zod                 ← Validación de parámetros de tools (actualmente transit
 
 ```
 Usuario escribe mensaje
-  → useChat → POST /api/asistente (body: { messages, userId })
+  → useChat → POST /api/asistente (body: { messages })
     → Verificar sesión Supabase (cookies)
     → Rate limiting (15 req/min por usuario)
     → streamText(gemini-2.0-flash, system, tools, messages)
