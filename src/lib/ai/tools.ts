@@ -125,8 +125,10 @@ export function buildTools(userId: string) {
                 const { data: player, error } = await admin
                     .from("profiles")
                     .select("username, position, skill_level, elo_rating, matches_played, goals_scored, market_value")
-                    .ilike("username", input.username)
-                    .single();
+                    .ilike("username", `%${input.username}%`)
+                    .order("elo_rating", { ascending: false })
+                    .limit(1)
+                    .maybeSingle();
 
                 if (error || !player)
                     return { error: `No se encontró al jugador "${input.username}"` };
@@ -276,10 +278,12 @@ export function buildTools(userId: string) {
             }),
             execute: async (input) => {
                 const { player_a, player_b } = input;
-                const { data: profiles, error: profilesError } = await admin
-                    .from("profiles")
-                    .select("id, username")
-                    .in("username", [player_a, player_b]);
+                const { data: profilesA } = await admin
+                    .from("profiles").select("id, username").ilike("username", `%${player_a}%`).limit(1).maybeSingle();
+                const { data: profilesB } = await admin
+                    .from("profiles").select("id, username").ilike("username", `%${player_b}%`).limit(1).maybeSingle();
+                const profiles = [profilesA, profilesB].filter(Boolean) as { id: string; username: string }[];
+                const profilesError = null;
 
                 if (profilesError || !profiles || profiles.length < 2)
                     return { error: `No se encontraron ambos jugadores: "${player_a}" y "${player_b}"` };
