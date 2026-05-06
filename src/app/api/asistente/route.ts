@@ -1,4 +1,4 @@
-import { streamText, stepCountIs } from "ai";
+import { streamText, stepCountIs, convertToModelMessages } from "ai";
 import { google } from "@ai-sdk/google";
 import { createClient } from "@/lib/supabase/server";
 import { rateLimit } from "@/lib/rate-limit";
@@ -48,7 +48,7 @@ export async function POST(request: Request) {
     const result = streamText({
         model: google("gemini-2.0-flash"),
         system: SYSTEM_PROMPT,
-        messages,
+        messages: convertToModelMessages(messages),
         tools: buildTools(user.id),
         stopWhen: stepCountIs(5),
     });
