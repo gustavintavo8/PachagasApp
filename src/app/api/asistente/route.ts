@@ -50,7 +50,7 @@ export async function POST(request: Request) {
         system: SYSTEM_PROMPT,
         messages: await convertToModelMessages(messages),
         tools: buildTools(user.id),
-        stopWhen: stepCountIs(5),
+        stopWhen: stepCountIs(3),
         onError: (event) => {
             console.error("[asistente] streamText error:", JSON.stringify(event.error));
         },
