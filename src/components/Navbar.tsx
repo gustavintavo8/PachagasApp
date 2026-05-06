@@ -6,7 +6,7 @@ import { Suspense } from "react";
 import { Avatar } from "@/components/ui/Avatar";
 import { getAvatarUrl } from "@/lib/utils";
 import Link from "next/link";
-import { LogOut } from "lucide-react";
+import { LogOut, Bot } from "lucide-react";
 import { signOut } from "@/app/login/actions";
 
 async function DesktopUserMenu() {
@@ -65,9 +65,18 @@ export function Navbar() {
         </Suspense>
       }
       mobileRight={
-        <Suspense fallback={<div className="h-6 w-6 rounded-full bg-surface-hover animate-pulse" />}>
-          <MobileNotificationBell />
-        </Suspense>
+        <div className="flex items-center gap-1">
+          <Link
+            href="/asistente"
+            aria-label="Panenka — Asistente IA"
+            className="rounded-lg p-2 text-muted transition-colors hover:bg-surface-hover hover:text-foreground"
+          >
+            <Bot size={20} aria-hidden="true" />
+          </Link>
+          <Suspense fallback={<div className="h-6 w-6 rounded-full bg-surface-hover animate-pulse" />}>
+            <MobileNotificationBell />
+          </Suspense>
+        </div>
       }
     />
   );
