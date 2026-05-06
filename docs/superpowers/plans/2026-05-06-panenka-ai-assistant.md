@@ -51,7 +51,7 @@ Salida esperada: `OK`
 Abre `.env.local` y añade esta línea al final:
 
 ```
-GOOGLE_GENERATIVE_AI_API_KEY=AIzaSyCndEH_2MOqGYSqv_YHw3vsrNplZ_Q2QwA
+GOOGLE_GENERATIVE_AI_API_KEY=tu_clave_de_google_aqui
 ```
 
 > **Nota:** `@ai-sdk/google` lee esta variable de entorno automáticamente. No es necesario pasarla explícitamente en el código.
