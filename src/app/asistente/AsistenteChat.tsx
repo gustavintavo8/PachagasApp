@@ -129,13 +129,13 @@ export function AsistenteChat() {
                                             li: ({ children }) => <li>{children}</li>,
                                             code: ({ children }) => <code className="rounded bg-zinc-700 px-1 py-0.5 font-mono text-xs">{children}</code>,
                                             table: ({ children }) => (
-                                                <div className="my-2 overflow-x-auto">
+                                                <div className="my-2 overflow-x-auto rounded-lg border border-border">
                                                     <table className="w-full border-collapse text-xs">{children}</table>
                                                 </div>
                                             ),
-                                            thead: ({ children }) => <thead className="border-b border-border">{children}</thead>,
-                                            th: ({ children }) => <th className="px-3 py-1.5 text-left font-semibold text-accent">{children}</th>,
-                                            td: ({ children }) => <td className="px-3 py-1.5 border-b border-border/40">{children}</td>,
+                                            thead: ({ children }) => <thead className="bg-zinc-800">{children}</thead>,
+                                            th: ({ children }) => <th className="px-3 py-2 text-left font-semibold text-accent border-b border-r last:border-r-0 border-border">{children}</th>,
+                                            td: ({ children }) => <td className="px-3 py-1.5 border-b last:border-b-0 border-r last:border-r-0 border-border/40">{children}</td>,
                                         }}
                                     >
                                         {text}
