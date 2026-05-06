@@ -83,6 +83,16 @@
 | 🔔 **Notificaciones** | Alertas en tiempo real: uniones, equipos, resultados |
 | 📤 **Compartir Partido** | Enlace directo, WhatsApp y Telegram |
 
+### AI Assistant
+
+| Feature | Descripción |
+|---------|-------------|
+| 🤖 **Panenka** | Asistente conversacional con acceso a datos reales de la app |
+| 📊 **11 herramientas** | Ranking, goleadores, estadísticas propias, historial, fantasy, comparativas entre jugadores |
+| 📈 **Análisis temporal** | Calcula ritmo de goles por mes, progresión y tendencias desde el historial real |
+| 💬 **Markdown enriquecido** | Respuestas con tablas, negrita y listas renderizadas en el chat |
+| ⚡ **~1.400 tokens/petición** | Eficiencia alta gracias al modelo y schemas compactos |
+
 ### Analytics & Discovery
 
 | Feature | Descripción |
@@ -113,6 +123,7 @@ Database       Supabase (PostgreSQL) + Row Level Security
 Auth           Supabase Auth (Email + Google OAuth)
 Storage        Supabase Storage (avatars + match photos)
 Realtime       Supabase Realtime (chat + notificaciones)
+AI             Vercel AI SDK v6 · @ai-sdk/groq · openai/gpt-oss-20b
 Charts         Recharts 3
 Icons          Lucide React
 Testing        Playwright (Chromium)
@@ -180,6 +191,7 @@ SUPABASE_SERVICE_ROLE_KEY=eyJ...
 | `NEXT_PUBLIC_SUPABASE_URL` | URL de tu proyecto Supabase |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Clave anónima pública |
 | `SUPABASE_SERVICE_ROLE_KEY` | Clave de servicio (solo server-side, para admin ops) |
+| `GROQ_API_KEY` | API key de [GroqCloud](https://console.groq.com/) para el asistente Panenka |
 
 ---
 
@@ -272,6 +284,45 @@ El balanceo se resuelve en tres fases sobre los ratings ELO de cada jugador:
 **Fase 3 — Optimización por intercambio:** Se prueban todos los pares A↔B posibles; si un intercambio reduce la diferencia de ELO promedio en más de 0.5 puntos, se confirma y se reinicia el paso. El algoritmo converge en 2-3 iteraciones hacia un óptimo local. El umbral de 0.5 evita micro-swaps infinitos por ruido de punto flotante.
 
 El resultado es equipos con diferencia de ELO promedio cercana a cero, respetando la distribución posicional del partido.
+
+---
+
+### Asistente Panenka — arquitectura y decisiones de modelo
+
+Panenka es un asistente conversacional integrado en la app que responde preguntas sobre jugadores, partidos, estadísticas y fantasy consultando la base de datos en tiempo real. La implementación usa **Vercel AI SDK v6** con un sistema de herramientas (_tool use_ / function calling) que permite al modelo razonar sobre cuándo y qué datos consultar.
+
+**Elección de proveedor y modelo — `openai/gpt-oss-20b` vía Groq**
+
+El proceso de selección pasó por varias iteraciones:
+
+- **Google Gemini** (inicial): descartado por cuotas de RPM extremadamente bajas en el free tier y errores frecuentes de "high demand" con los modelos 2.5.
+- **Groq + Llama 3.3 70B**: mejor disponibilidad, pero el modelo generaba JSON inválido en los tool calls de forma impredecible (`Failed to call a function`), lo que hacía el asistente poco fiable.
+- **Groq + Llama 3.1 8B Instant**: más rápido y con mayor TPM en free tier, pero demasiado pequeño para function calling consistente — inventaba respuestas sin llamar a las herramientas.
+- **Groq + `openai/gpt-oss-20b`** ✅: arquitectura OpenAI con function calling fiable, corriendo en hardware Groq a ~1.000 t/s. Consume ~1.400 tokens por petición (frente a los 7.000 del 70B), con 250.000 TPM en Developer Plan.
+
+**`jsonSchema()` en lugar de `zodSchema()`**
+
+Zod v4 convierte los campos `.optional()` en `anyOf: [{type: "X"}, {type: "null"}]` al generar el JSON Schema. Groq no soporta este patrón en function calling y devuelve error. La solución fue reemplazar `zodSchema()` por `jsonSchema()` de `"ai"` con schemas manuales explícitos donde los campos opcionales simplemente no aparecen en el array `required`, sin unions con null.
+
+**Herramientas disponibles (11)**
+
+| Tool | Descripción |
+|------|-------------|
+| `get_my_stats` | ELO, goles, partidos y posición en el ranking del usuario autenticado |
+| `get_my_matches` | Historial de partidos con fecha, goles y MVP — para análisis temporal |
+| `get_my_fantasy_team` | Plantilla completa del equipo fantasy del usuario |
+| `get_player_detail` | Perfil y ranking de cualquier jugador (búsqueda por username con wildcards) |
+| `get_players` | Lista de jugadores con filtros de posición y rango ELO |
+| `get_matches` | Partidos con filtros de estado y rango de fechas |
+| `get_match_detail` | Resultado, participantes, goles y MVP de un partido concreto |
+| `get_leaderboard` | Ranking ELO global (mínimo 3 partidos) |
+| `get_top_scorers` | Ranking de máximos goleadores |
+| `get_fantasy_standings` | Clasificación de equipos fantasy |
+| `get_players_history_together` | Partidos en los que dos jugadores han coincidido |
+
+**Rendering de respuestas**
+
+Las respuestas del modelo se renderizan como Markdown mediante `react-markdown` + `remark-gfm`, lo que permite tablas comparativas, texto en negrita y listas estructuradas directamente en el chat.
 
 ---
 
