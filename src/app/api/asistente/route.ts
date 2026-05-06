@@ -51,6 +51,9 @@ export async function POST(request: Request) {
         messages: await convertToModelMessages(messages),
         tools: buildTools(user.id),
         stopWhen: stepCountIs(5),
+        onError: (event) => {
+            console.error("[asistente] streamText error:", JSON.stringify(event.error));
+        },
     });
 
     return result.toUIMessageStreamResponse();
