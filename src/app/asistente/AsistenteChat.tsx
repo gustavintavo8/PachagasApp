@@ -5,6 +5,7 @@ import { DefaultChatTransport } from "ai";
 import { useRef, useEffect, useState } from "react";
 import { Send } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
+import ReactMarkdown from "react-markdown";
 
 const SUGERENCIAS = [
     "¿Quién lidera el ranking?",
@@ -113,7 +114,23 @@ export function AsistenteChat() {
                                         : "rounded-tl-sm bg-surface-hover text-foreground"
                                 }`}
                             >
-                                <p className="whitespace-pre-wrap break-words">{text}</p>
+                                {isUser ? (
+                                    <p className="whitespace-pre-wrap break-words">{text}</p>
+                                ) : (
+                                    <ReactMarkdown
+                                        components={{
+                                            p: ({ children }) => <p className="mb-1 last:mb-0 whitespace-pre-wrap break-words">{children}</p>,
+                                            strong: ({ children }) => <strong className="font-bold text-accent">{children}</strong>,
+                                            em: ({ children }) => <em className="italic">{children}</em>,
+                                            ul: ({ children }) => <ul className="ml-4 mt-1 list-disc space-y-0.5">{children}</ul>,
+                                            ol: ({ children }) => <ol className="ml-4 mt-1 list-decimal space-y-0.5">{children}</ol>,
+                                            li: ({ children }) => <li>{children}</li>,
+                                            code: ({ children }) => <code className="rounded bg-zinc-700 px-1 py-0.5 font-mono text-xs">{children}</code>,
+                                        }}
+                                    >
+                                        {text}
+                                    </ReactMarkdown>
+                                )}
                             </div>
                         </div>
                     );
