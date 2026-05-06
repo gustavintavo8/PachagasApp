@@ -278,20 +278,12 @@ export function buildTools(userId: string) {
             }),
             execute: async (input) => {
                 const { player_a, player_b } = input;
-                const { data: profilesA } = await admin
+                const { data: profileA, error: errA } = await admin
                     .from("profiles").select("id, username").ilike("username", `%${player_a}%`).limit(1).maybeSingle();
-                const { data: profilesB } = await admin
+                const { data: profileB, error: errB } = await admin
                     .from("profiles").select("id, username").ilike("username", `%${player_b}%`).limit(1).maybeSingle();
-                const profiles = [profilesA, profilesB].filter(Boolean) as { id: string; username: string }[];
-                const profilesError = null;
 
-                if (profilesError || !profiles || profiles.length < 2)
-                    return { error: `No se encontraron ambos jugadores: "${player_a}" y "${player_b}"` };
-
-                const profileA = profiles.find((p) => p.username?.toLowerCase() === player_a.toLowerCase());
-                const profileB = profiles.find((p) => p.username?.toLowerCase() === player_b.toLowerCase());
-
-                if (!profileA || !profileB)
+                if (errA || errB || !profileA || !profileB)
                     return { error: `No se encontraron ambos jugadores: "${player_a}" y "${player_b}"` };
 
                 const { data: matchesA } = await admin
