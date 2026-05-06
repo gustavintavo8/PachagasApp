@@ -6,6 +6,7 @@ import { useRef, useEffect, useState } from "react";
 import { Send } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 
 const SUGERENCIAS = [
     "¿Quién lidera el ranking?",
@@ -118,6 +119,7 @@ export function AsistenteChat() {
                                     <p className="whitespace-pre-wrap break-words">{text}</p>
                                 ) : (
                                     <ReactMarkdown
+                                        remarkPlugins={[remarkGfm]}
                                         components={{
                                             p: ({ children }) => <p className="mb-1 last:mb-0 whitespace-pre-wrap break-words">{children}</p>,
                                             strong: ({ children }) => <strong className="font-bold text-accent">{children}</strong>,
@@ -126,6 +128,14 @@ export function AsistenteChat() {
                                             ol: ({ children }) => <ol className="ml-4 mt-1 list-decimal space-y-0.5">{children}</ol>,
                                             li: ({ children }) => <li>{children}</li>,
                                             code: ({ children }) => <code className="rounded bg-zinc-700 px-1 py-0.5 font-mono text-xs">{children}</code>,
+                                            table: ({ children }) => (
+                                                <div className="my-2 overflow-x-auto">
+                                                    <table className="w-full border-collapse text-xs">{children}</table>
+                                                </div>
+                                            ),
+                                            thead: ({ children }) => <thead className="border-b border-border">{children}</thead>,
+                                            th: ({ children }) => <th className="px-3 py-1.5 text-left font-semibold text-accent">{children}</th>,
+                                            td: ({ children }) => <td className="px-3 py-1.5 border-b border-border/40">{children}</td>,
                                         }}
                                     >
                                         {text}
