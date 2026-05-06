@@ -14,6 +14,12 @@ const FALLBACK_MODELS = [
     "gemini-3.1-flash-lite-preview",
 ] as const;
 
+type ModelId = (typeof FALLBACK_MODELS)[number];
+
+// Cache del modelo elegido para evitar probar en cada petición
+let modelCache: { id: ModelId; expiresAt: number } | null = null;
+const MODEL_CACHE_TTL = 30_000;
+
 function isOverloadOrQuota(err: unknown): boolean {
     const e = err as any;
     const status = e?.statusCode ?? e?.lastError?.statusCode;
@@ -21,7 +27,14 @@ function isOverloadOrQuota(err: unknown): boolean {
     return status === 429 || msg.includes("high demand") || msg.includes("resource_exhausted");
 }
 
-async function pickModel(): Promise<string | null> {
+function invalidateModelCache() {
+    modelCache = null;
+}
+
+async function pickModel(): Promise<ModelId | null> {
+    if (modelCache && modelCache.expiresAt > Date.now()) {
+        return modelCache.id;
+    }
     for (const modelId of FALLBACK_MODELS) {
         try {
             await generateText({
@@ -30,12 +43,14 @@ async function pickModel(): Promise<string | null> {
                 maxOutputTokens: 1,
                 maxRetries: 0,
             });
+            modelCache = { id: modelId, expiresAt: Date.now() + MODEL_CACHE_TTL };
             return modelId;
         } catch (err) {
             if (isOverloadOrQuota(err)) {
                 console.warn(`[asistente] ${modelId} no disponible, probando siguiente`);
                 continue;
             }
+            modelCache = { id: modelId, expiresAt: Date.now() + MODEL_CACHE_TTL };
             return modelId;
         }
     }
@@ -94,10 +109,13 @@ export async function POST(request: Request) {
         system: SYSTEM_PROMPT,
         messages: await convertToModelMessages(messages),
         tools: buildTools(user.id),
-        stopWhen: stepCountIs(3),
+        stopWhen: stepCountIs(7),
         maxRetries: 0,
         onError: ({ error }) => {
             console.error(`[asistente] error en ${modelId}:`, (error as any)?.message ?? error);
+            if (isOverloadOrQuota(error)) {
+                invalidateModelCache();
+            }
         },
     });
 
