@@ -235,9 +235,11 @@ npm start
 ```
 src/
 ├── app/
-│   ├── auth/callback/      # OAuth callback handler
-│   ├── calendar/            # Vista de calendario
-│   ├── history/             # Historial (legacy, integrado en /matches)
+│   ├── api/asistente/       # API route del asistente Panenka (streamText)
+│   ├── asistente/           # Chat con Panenka (UI)
+│   ├── auth/callback/       # OAuth callback handler
+│   ├── fantasy/             # Clasificación y mercado fantasy
+│   ├── history/             # Historial de partidos
 │   ├── leaderboard/         # Ranking global
 │   ├── login/               # Autenticación
 │   ├── matches/             # Partidos (activos + historial)
@@ -254,7 +256,9 @@ src/
 │   ├── PlayerCharts.tsx     # Gráficas de rendimiento
 │   └── PlayerRating.tsx     # Sistema de valoraciones
 ├── lib/
+│   ├── ai/                  # Herramientas del asistente (tools.ts)
 │   ├── supabase/            # Clientes Supabase (server, client, admin)
+│   ├── elo.ts               # Lógica de cálculo ELO
 │   ├── rate-limit.ts        # Rate limiter (token bucket)
 │   ├── team-balancer.ts     # Algoritmo de balanceo de equipos
 │   └── utils.ts             # Utilidades compartidas
