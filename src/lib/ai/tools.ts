@@ -7,26 +7,20 @@ export function buildTools(userId: string) {
 
     return {
         get_players: tool({
-            description:
-                "Busca jugadores con filtros opcionales de posición y rango ELO. Devuelve lista con estadísticas.",
+            description: "Lista jugadores. Filtros opcionales: posición (GK/DEF/MID/FWD), rango ELO, límite.",
             inputSchema: zodSchema(
                 z.object({
-                    position: z
-                        .enum(["GK", "DEF", "MID", "FWD"])
-                        .optional()
-                        .describe("Posición del jugador"),
-                    min_elo: z.number().optional().describe("ELO mínimo"),
-                    max_elo: z.number().optional().describe("ELO máximo"),
-                    limit: z.number().default(20).describe("Número máximo de resultados"),
+                    position: z.enum(["GK", "DEF", "MID", "FWD"]).optional(),
+                    min_elo: z.number().optional(),
+                    max_elo: z.number().optional(),
+                    limit: z.number().default(20),
                 })
             ),
             execute: async (input) => {
                 const { position, min_elo, max_elo, limit } = input;
                 let query = admin
                     .from("profiles")
-                    .select(
-                        "username, position, elo_rating, matches_played, goals_scored, market_value"
-                    )
+                    .select("username, position, elo_rating, matches_played, goals_scored, market_value")
                     .order("elo_rating", { ascending: false })
                     .limit(limit);
 
@@ -41,26 +35,20 @@ export function buildTools(userId: string) {
         }),
 
         get_matches: tool({
-            description:
-                "Busca partidos con filtros opcionales de estado y rango de fechas (ISO 8601).",
+            description: "Lista partidos. Filtros opcionales: estado (open/closed/finished/cancelled), fechas ISO 8601, límite.",
             inputSchema: zodSchema(
                 z.object({
-                    status: z
-                        .enum(["open", "closed", "finished", "cancelled"])
-                        .optional()
-                        .describe("Estado del partido"),
-                    from_date: z.string().optional().describe("Fecha de inicio (ISO 8601)"),
-                    to_date: z.string().optional().describe("Fecha de fin (ISO 8601)"),
-                    limit: z.number().default(10).describe("Número máximo de resultados"),
+                    status: z.enum(["open", "closed", "finished", "cancelled"]).optional(),
+                    from_date: z.string().optional(),
+                    to_date: z.string().optional(),
+                    limit: z.number().default(10),
                 })
             ),
             execute: async (input) => {
                 const { status, from_date, to_date, limit } = input;
                 let query = admin
                     .from("matches")
-                    .select(
-                        "id, date, location, status, max_players, team_a_score, team_b_score"
-                    )
+                    .select("id, date, location, status, max_players, team_a_score, team_b_score")
                     .order("date", { ascending: false })
                     .limit(limit);
 
@@ -75,65 +63,46 @@ export function buildTools(userId: string) {
         }),
 
         get_top_scorers: tool({
-            description: "Devuelve el ranking de máximos goleadores de la app.",
-            inputSchema: zodSchema(
-                z.object({
-                    limit: z.number().default(10).describe("Número de goleadores a devolver"),
-                })
-            ),
+            description: "Ranking de máximos goleadores.",
+            inputSchema: zodSchema(z.object({ limit: z.number().default(10) })),
             execute: async (input) => {
-                const { limit } = input;
                 const { data, error } = await admin
                     .from("profiles")
                     .select("username, goals_scored, matches_played, position")
                     .order("goals_scored", { ascending: false })
-                    .limit(limit);
+                    .limit(input.limit);
                 if (error) return { error: "No se pudo obtener el ranking de goleadores" };
                 return { goleadores: data ?? [] };
             },
         }),
 
         get_leaderboard: tool({
-            description:
-                "Devuelve el ranking ELO de jugadores con al menos 3 partidos jugados.",
-            inputSchema: zodSchema(
-                z.object({
-                    limit: z.number().default(10).describe("Número de jugadores a devolver"),
-                })
-            ),
+            description: "Ranking ELO de jugadores con al menos 3 partidos.",
+            inputSchema: zodSchema(z.object({ limit: z.number().default(10) })),
             execute: async (input) => {
-                const { limit } = input;
                 const { data, error } = await admin
                     .from("profiles")
                     .select("username, elo_rating, matches_played, goals_scored, position")
                     .gte("matches_played", 3)
                     .order("elo_rating", { ascending: false })
-                    .limit(limit);
+                    .limit(input.limit);
                 if (error) return { error: "No se pudo obtener el ranking" };
                 return { ranking: data ?? [] };
             },
         }),
 
         get_player_detail: tool({
-            description:
-                "Obtiene el perfil completo y posición en el ranking de un jugador por su nombre de usuario.",
-            inputSchema: zodSchema(
-                z.object({
-                    username: z.string().describe("Nombre de usuario del jugador"),
-                })
-            ),
+            description: "Perfil completo y posición en el ranking de un jugador por username.",
+            inputSchema: zodSchema(z.object({ username: z.string() })),
             execute: async (input) => {
-                const { username } = input;
                 const { data: player, error } = await admin
                     .from("profiles")
-                    .select(
-                        "username, position, skill_level, elo_rating, matches_played, goals_scored, market_value"
-                    )
-                    .ilike("username", username)
+                    .select("username, position, skill_level, elo_rating, matches_played, goals_scored, market_value")
+                    .ilike("username", input.username)
                     .single();
 
                 if (error || !player)
-                    return { error: `No se encontró al jugador "${username}"` };
+                    return { error: `No se encontró al jugador "${input.username}"` };
 
                 const { count } = await admin
                     .from("profiles")
@@ -146,21 +115,13 @@ export function buildTools(userId: string) {
         }),
 
         get_match_detail: tool({
-            description:
-                "Obtiene los detalles completos de un partido: resultado, participantes, goles y MVP.",
-            inputSchema: zodSchema(
-                z.object({
-                    match_id: z.string().describe("ID del partido"),
-                })
-            ),
+            description: "Detalles completos de un partido: resultado, participantes, goles y MVP.",
+            inputSchema: zodSchema(z.object({ match_id: z.string() })),
             execute: async (input) => {
-                const { match_id } = input;
                 const { data, error } = await admin
                     .from("matches")
-                    .select(
-                        "*, match_participants(user_id, team, goals, is_mvp, has_paid, profiles(username, position))"
-                    )
-                    .eq("id", match_id)
+                    .select("*, match_participants(user_id, team, goals, is_mvp, has_paid, profiles(username, position))")
+                    .eq("id", input.match_id)
                     .single();
                 if (error || !data) return { error: "No se encontró el partido" };
                 return { partido: data };
@@ -168,15 +129,12 @@ export function buildTools(userId: string) {
         }),
 
         get_my_stats: tool({
-            description:
-                "Devuelve las estadísticas del usuario autenticado: ELO, goles, partidos jugados y posición en el ranking.",
+            description: "Estadísticas del usuario autenticado: ELO, goles, partidos y posición en el ranking.",
             inputSchema: zodSchema(z.object({})),
             execute: async () => {
                 const { data: profile, error } = await admin
                     .from("profiles")
-                    .select(
-                        "username, position, elo_rating, matches_played, goals_scored, market_value"
-                    )
+                    .select("username, position, elo_rating, matches_played, goals_scored, market_value")
                     .eq("id", userId)
                     .single();
 
@@ -196,29 +154,21 @@ export function buildTools(userId: string) {
         }),
 
         get_fantasy_standings: tool({
-            description:
-                "Devuelve la clasificación de equipos fantasy ordenada por puntos totales.",
-            inputSchema: zodSchema(
-                z.object({
-                    limit: z.number().default(10).describe("Número de equipos a devolver"),
-                })
-            ),
+            description: "Clasificación de equipos fantasy por puntos.",
+            inputSchema: zodSchema(z.object({ limit: z.number().default(10) })),
             execute: async (input) => {
-                const { limit } = input;
                 const { data, error } = await admin
                     .from("fantasy_teams")
                     .select("name, total_points, budget, profiles(username)")
                     .order("total_points", { ascending: false })
-                    .limit(limit);
-                if (error)
-                    return { error: "No se pudo obtener la clasificación fantasy" };
+                    .limit(input.limit);
+                if (error) return { error: "No se pudo obtener la clasificación fantasy" };
                 return { clasificacion: data ?? [] };
             },
         }),
 
         get_my_fantasy_team: tool({
-            description:
-                "Devuelve el equipo fantasy del usuario autenticado con su plantilla completa (titulares, suplentes, capitán).",
+            description: "Equipo fantasy del usuario autenticado con plantilla completa.",
             inputSchema: zodSchema(z.object({})),
             execute: async () => {
                 const { data: team, error: teamError } = await admin
@@ -228,30 +178,24 @@ export function buildTools(userId: string) {
                     .single();
 
                 if (teamError || !team)
-                    return {
-                        error: "No tienes un equipo fantasy o no se pudo obtener",
-                    };
+                    return { error: "No tienes un equipo fantasy o no se pudo obtener" };
 
                 const { data: roster, error: rosterError } = await admin
                     .from("fantasy_rosters")
-                    .select(
-                        "is_captain, is_starter, profiles(username, position, elo_rating)"
-                    )
+                    .select("is_captain, is_starter, profiles(username, position, elo_rating)")
                     .eq("team_id", team.id);
 
                 if (rosterError) return { error: "No se pudo obtener la plantilla" };
-
                 return { equipo: { ...team, plantilla: roster ?? [] } };
             },
         }),
 
         get_players_history_together: tool({
-            description:
-                "Devuelve los partidos en los que dos jugadores coincidieron, con el equipo y goles de cada uno.",
+            description: "Partidos en los que dos jugadores coincidieron.",
             inputSchema: zodSchema(
                 z.object({
-                    player_a: z.string().describe("Nombre de usuario del primer jugador"),
-                    player_b: z.string().describe("Nombre de usuario del segundo jugador"),
+                    player_a: z.string(),
+                    player_b: z.string(),
                 })
             ),
             execute: async (input) => {
@@ -262,29 +206,20 @@ export function buildTools(userId: string) {
                     .in("username", [player_a, player_b]);
 
                 if (profilesError || !profiles || profiles.length < 2)
-                    return {
-                        error: `No se encontraron ambos jugadores: "${player_a}" y "${player_b}"`,
-                    };
+                    return { error: `No se encontraron ambos jugadores: "${player_a}" y "${player_b}"` };
 
-                const profileA = profiles.find(
-                    (p) => p.username?.toLowerCase() === player_a.toLowerCase()
-                );
-                const profileB = profiles.find(
-                    (p) => p.username?.toLowerCase() === player_b.toLowerCase()
-                );
+                const profileA = profiles.find((p) => p.username?.toLowerCase() === player_a.toLowerCase());
+                const profileB = profiles.find((p) => p.username?.toLowerCase() === player_b.toLowerCase());
 
                 if (!profileA || !profileB)
-                    return {
-                        error: `No se encontraron ambos jugadores: "${player_a}" y "${player_b}"`,
-                    };
+                    return { error: `No se encontraron ambos jugadores: "${player_a}" y "${player_b}"` };
 
                 const { data: matchesA } = await admin
                     .from("match_participants")
                     .select("match_id, team, goals, is_mvp")
                     .eq("user_id", profileA.id);
 
-                if (!matchesA || matchesA.length === 0)
-                    return { partidos_juntos: [] };
+                if (!matchesA || matchesA.length === 0) return { partidos_juntos: [] };
 
                 const matchIds = matchesA.map((m) => m.match_id);
 
@@ -294,8 +229,7 @@ export function buildTools(userId: string) {
                     .eq("user_id", profileB.id)
                     .in("match_id", matchIds);
 
-                if (!matchesB || matchesB.length === 0)
-                    return { partidos_juntos: [] };
+                if (!matchesB || matchesB.length === 0) return { partidos_juntos: [] };
 
                 const sharedIds = matchesB.map((m) => m.match_id);
 
@@ -310,16 +244,8 @@ export function buildTools(userId: string) {
                     const partB = matchesB.find((m) => m.match_id === match.id);
                     return {
                         ...match,
-                        [player_a]: {
-                            equipo: partA?.team,
-                            goles: partA?.goals,
-                            mvp: partA?.is_mvp,
-                        },
-                        [player_b]: {
-                            equipo: partB?.team,
-                            goles: partB?.goals,
-                            mvp: partB?.is_mvp,
-                        },
+                        [player_a]: { equipo: partA?.team, goles: partA?.goals, mvp: partA?.is_mvp },
+                        [player_b]: { equipo: partB?.team, goles: partB?.goals, mvp: partB?.is_mvp },
                     };
                 });
 
