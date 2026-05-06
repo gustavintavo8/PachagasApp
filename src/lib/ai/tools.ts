@@ -180,8 +180,10 @@ export function buildTools(userId: string) {
                     .eq("id", userId)
                     .single();
 
-                if (error || !profile)
+                if (error || !profile) {
+                    console.error("[tools] get_my_stats error:", error?.code, error?.message, "userId:", userId);
                     return { error: "No se pudieron obtener tus estadísticas" };
+                }
 
                 const { count } = await admin
                     .from("profiles")
