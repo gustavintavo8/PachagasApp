@@ -2,6 +2,7 @@
 
 # Superpowers brainstorm sessions
 .superpowers/
+docs/superpowers/
 
 # dependencies
 /node_modules
