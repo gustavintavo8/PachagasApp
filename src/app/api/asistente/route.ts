@@ -51,8 +51,15 @@ export async function POST(request: Request) {
         messages: await convertToModelMessages(messages),
         tools: buildTools(user.id),
         stopWhen: stepCountIs(3),
+        maxRetries: 0,
         onError: (event) => {
-            console.error("[asistente] streamText error:", JSON.stringify(event.error));
+            const err = event.error as any;
+            const status = err?.statusCode ?? err?.lastError?.statusCode;
+            if (status === 429) {
+                console.warn("[asistente] Gemini rate limit alcanzado");
+            } else {
+                console.error("[asistente] streamText error:", err?.message ?? JSON.stringify(event.error));
+            }
         },
     });
 
