@@ -188,6 +188,37 @@ export function buildTools(userId: string) {
             },
         }),
 
+        get_my_matches: tool({
+            description: "Historial de partidos del usuario autenticado con sus goles, equipo y si fue MVP en cada partido.",
+            inputSchema: jsonSchema<{ limit?: number }>({
+                type: "object",
+                properties: { limit: { type: "number" } },
+                required: [],
+            }),
+            execute: async (input) => {
+                const { data, error } = await admin
+                    .from("match_participants")
+                    .select("goals, team, is_mvp, matches(id, date, location, status, team_a_score, team_b_score)")
+                    .eq("user_id", userId)
+                    .limit(input.limit ?? 20);
+
+                if (error) {
+                    console.error("[tools] get_my_matches error:", error?.code, error?.message);
+                    return { error: "No se pudo obtener el historial de partidos" };
+                }
+
+                const partidos = (data ?? [])
+                    .map((row) => {
+                        const match = Array.isArray(row.matches) ? row.matches[0] : row.matches;
+                        return { ...match, goles: row.goals, equipo: row.team, mvp: row.is_mvp };
+                    })
+                    .filter((p) => p.date)
+                    .sort((a, b) => new Date(b.date as string).getTime() - new Date(a.date as string).getTime());
+
+                return { partidos };
+            },
+        }),
+
         get_fantasy_standings: tool({
             description: "Clasificación de equipos fantasy por puntos.",
             inputSchema: jsonSchema<{ limit?: number }>({
