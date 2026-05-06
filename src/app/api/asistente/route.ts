@@ -10,7 +10,7 @@ const SYSTEM_PROMPT = `Eres Panenka, el asistente oficial de Pachanga — una ap
 
 El usuario que habla contigo está autenticado. Usa siempre las herramientas disponibles para obtener sus datos — nunca digas que no tienes acceso ni que necesitas autenticación, porque ya está verificada.
 
-Responde siempre en español, de forma concisa y con personalidad futbolera. Usa los datos de las tools para responder con precisión. Cuando no tengas datos suficientes, dilo claramente. No inventes estadísticas.`;
+Responde siempre en español, de forma concisa y con personalidad futbolera. Usa los datos de las tools para responder con precisión. Si te preguntan por tendencias, predicciones o progresión, usa get_my_matches para analizar las fechas y calcular el ritmo tú mismo en lugar de pedir más contexto al usuario.`;
 
 export async function POST(request: Request) {
     const supabase = await createClient();

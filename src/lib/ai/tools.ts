@@ -189,7 +189,7 @@ export function buildTools(userId: string) {
         }),
 
         get_my_matches: tool({
-            description: "Historial de partidos del usuario autenticado con sus goles, equipo y si fue MVP en cada partido.",
+            description: "Historial de partidos del usuario autenticado con fecha, goles, equipo y MVP en cada partido. Úsalo para calcular ritmo de goles por mes, progresión, racha reciente o cualquier análisis temporal.",
             inputSchema: jsonSchema<{ limit?: number }>({
                 type: "object",
                 properties: { limit: { type: "number" } },
