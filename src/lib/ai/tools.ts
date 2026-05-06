@@ -202,6 +202,7 @@ export function buildTools(userId: string) {
                     .from("match_participants")
                     .select("goals, team, is_mvp, matches(id, date, location, status, team_a_score, team_b_score)")
                     .eq("user_id", userId)
+                    .order("matches(date)", { ascending: false })
                     .limit(input.limit ?? 20);
 
                 if (error) {
@@ -209,13 +210,10 @@ export function buildTools(userId: string) {
                     return { error: "No se pudo obtener el historial de partidos" };
                 }
 
-                const partidos = (data ?? [])
-                    .map((row) => {
-                        const match = Array.isArray(row.matches) ? row.matches[0] : row.matches;
-                        return { ...match, goles: row.goals, equipo: row.team, mvp: row.is_mvp };
-                    })
-                    .filter((p) => p.date)
-                    .sort((a, b) => new Date(b.date as string).getTime() - new Date(a.date as string).getTime());
+                const partidos = (data ?? []).map((row) => {
+                    const match = Array.isArray(row.matches) ? row.matches[0] : row.matches;
+                    return { ...match, goles: row.goals, equipo: row.team, mvp: row.is_mvp };
+                }).filter((p) => p.date);
 
                 return { partidos };
             },
@@ -278,10 +276,10 @@ export function buildTools(userId: string) {
             }),
             execute: async (input) => {
                 const { player_a, player_b } = input;
-                const { data: profileA, error: errA } = await admin
-                    .from("profiles").select("id, username").ilike("username", `%${player_a}%`).limit(1).maybeSingle();
-                const { data: profileB, error: errB } = await admin
-                    .from("profiles").select("id, username").ilike("username", `%${player_b}%`).limit(1).maybeSingle();
+                const [{ data: profileA, error: errA }, { data: profileB, error: errB }] = await Promise.all([
+                    admin.from("profiles").select("id, username").ilike("username", `%${player_a}%`).order("elo_rating", { ascending: false }).limit(1).maybeSingle(),
+                    admin.from("profiles").select("id, username").ilike("username", `%${player_b}%`).order("elo_rating", { ascending: false }).limit(1).maybeSingle(),
+                ]);
 
                 if (errA || errB || !profileA || !profileB)
                     return { error: `No se encontraron ambos jugadores: "${player_a}" y "${player_b}"` };

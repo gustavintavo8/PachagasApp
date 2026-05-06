@@ -7,6 +7,26 @@ import { Send } from "lucide-react";
 import { Avatar } from "@/components/ui/Avatar";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
+import type { Components } from "react-markdown";
+
+const MD_PLUGINS = [remarkGfm];
+const MD_COMPONENTS: Components = {
+    p: ({ children }) => <p className="mb-1 last:mb-0 whitespace-pre-wrap break-words">{children}</p>,
+    strong: ({ children }) => <strong className="font-bold text-accent">{children}</strong>,
+    em: ({ children }) => <em className="italic">{children}</em>,
+    ul: ({ children }) => <ul className="ml-4 mt-1 list-disc space-y-0.5">{children}</ul>,
+    ol: ({ children }) => <ol className="ml-4 mt-1 list-decimal space-y-0.5">{children}</ol>,
+    li: ({ children }) => <li>{children}</li>,
+    code: ({ children }) => <code className="rounded bg-zinc-700 px-1 py-0.5 font-mono text-xs">{children}</code>,
+    table: ({ children }) => (
+        <div className="my-2 overflow-x-auto">
+            <table className="w-full text-xs" style={{ borderCollapse: "collapse" }}>{children}</table>
+        </div>
+    ),
+    thead: ({ children }) => <thead>{children}</thead>,
+    th: ({ children }) => <th className="px-3 py-2 text-left font-semibold text-accent bg-zinc-800" style={{ border: "1px solid #3f3f46" }}>{children}</th>,
+    td: ({ children }) => <td className="px-3 py-1.5" style={{ border: "1px solid #3f3f46" }}>{children}</td>,
+};
 
 const SUGERENCIAS = [
     "¿Quién lidera el ranking?",
@@ -118,26 +138,7 @@ export function AsistenteChat() {
                                 {isUser ? (
                                     <p className="whitespace-pre-wrap break-words">{text}</p>
                                 ) : (
-                                    <ReactMarkdown
-                                        remarkPlugins={[remarkGfm]}
-                                        components={{
-                                            p: ({ children }) => <p className="mb-1 last:mb-0 whitespace-pre-wrap break-words">{children}</p>,
-                                            strong: ({ children }) => <strong className="font-bold text-accent">{children}</strong>,
-                                            em: ({ children }) => <em className="italic">{children}</em>,
-                                            ul: ({ children }) => <ul className="ml-4 mt-1 list-disc space-y-0.5">{children}</ul>,
-                                            ol: ({ children }) => <ol className="ml-4 mt-1 list-decimal space-y-0.5">{children}</ol>,
-                                            li: ({ children }) => <li>{children}</li>,
-                                            code: ({ children }) => <code className="rounded bg-zinc-700 px-1 py-0.5 font-mono text-xs">{children}</code>,
-                                            table: ({ children }) => (
-                                                <div className="my-2 overflow-x-auto">
-                                                    <table className="w-full text-xs" style={{ borderCollapse: "collapse" }}>{children}</table>
-                                                </div>
-                                            ),
-                                            thead: ({ children }) => <thead>{children}</thead>,
-                                            th: ({ children }) => <th className="px-3 py-2 text-left font-semibold text-accent bg-zinc-800" style={{ border: "1px solid #3f3f46" }}>{children}</th>,
-                                            td: ({ children }) => <td className="px-3 py-1.5" style={{ border: "1px solid #3f3f46" }}>{children}</td>,
-                                        }}
-                                    >
+                                    <ReactMarkdown remarkPlugins={MD_PLUGINS} components={MD_COMPONENTS}>
                                         {text}
                                     </ReactMarkdown>
                                 )}

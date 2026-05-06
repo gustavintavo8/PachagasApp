@@ -1,4 +1,4 @@
-import { streamText, stepCountIs, convertToModelMessages } from "ai";
+import { streamText, stepCountIs, convertToModelMessages, UIMessage } from "ai";
 import { createGroq } from "@ai-sdk/groq";
 import { createClient } from "@/lib/supabase/server";
 import { rateLimit } from "@/lib/rate-limit";
@@ -32,7 +32,7 @@ export async function POST(request: Request) {
         );
     }
 
-    let messages: any[];
+    let messages: UIMessage[];
     try {
         const body = await request.json();
         if (!Array.isArray(body?.messages) || body.messages.length === 0) {
