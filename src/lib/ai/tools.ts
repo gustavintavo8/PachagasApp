@@ -1,5 +1,4 @@
-import { tool, zodSchema } from "ai";
-import { z } from "zod";
+import { tool, jsonSchema } from "ai";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 export function buildTools(userId: string) {
@@ -8,16 +7,24 @@ export function buildTools(userId: string) {
     return {
         get_players: tool({
             description: "Lista jugadores. Filtros opcionales: posición (GK/DEF/MID/FWD), rango ELO, límite.",
-            inputSchema: zodSchema(
-                z.object({
-                    position: z.enum(["GK", "DEF", "MID", "FWD"]).optional(),
-                    min_elo: z.number().optional(),
-                    max_elo: z.number().optional(),
-                    limit: z.number().default(20),
-                })
-            ),
+            inputSchema: jsonSchema<{
+                position?: "GK" | "DEF" | "MID" | "FWD";
+                min_elo?: number;
+                max_elo?: number;
+                limit?: number;
+            }>({
+                type: "object",
+                properties: {
+                    position: { type: "string", enum: ["GK", "DEF", "MID", "FWD"] },
+                    min_elo: { type: "number" },
+                    max_elo: { type: "number" },
+                    limit: { type: "number" },
+                },
+                required: [],
+            }),
             execute: async (input) => {
-                const { position, min_elo, max_elo, limit } = input;
+                const { position, min_elo, max_elo } = input;
+                const limit = input.limit ?? 20;
                 let query = admin
                     .from("profiles")
                     .select("username, position, elo_rating, matches_played, goals_scored, market_value")
@@ -36,16 +43,24 @@ export function buildTools(userId: string) {
 
         get_matches: tool({
             description: "Lista partidos. Filtros opcionales: estado (open/closed/finished/cancelled), fechas ISO 8601, límite.",
-            inputSchema: zodSchema(
-                z.object({
-                    status: z.enum(["open", "closed", "finished", "cancelled"]).optional(),
-                    from_date: z.string().optional(),
-                    to_date: z.string().optional(),
-                    limit: z.number().default(10),
-                })
-            ),
+            inputSchema: jsonSchema<{
+                status?: "open" | "closed" | "finished" | "cancelled";
+                from_date?: string;
+                to_date?: string;
+                limit?: number;
+            }>({
+                type: "object",
+                properties: {
+                    status: { type: "string", enum: ["open", "closed", "finished", "cancelled"] },
+                    from_date: { type: "string" },
+                    to_date: { type: "string" },
+                    limit: { type: "number" },
+                },
+                required: [],
+            }),
             execute: async (input) => {
-                const { status, from_date, to_date, limit } = input;
+                const { status, from_date, to_date } = input;
+                const limit = input.limit ?? 10;
                 let query = admin
                     .from("matches")
                     .select("id, date, location, status, max_players, team_a_score, team_b_score")
@@ -64,13 +79,17 @@ export function buildTools(userId: string) {
 
         get_top_scorers: tool({
             description: "Ranking de máximos goleadores.",
-            inputSchema: zodSchema(z.object({ limit: z.number().default(10) })),
+            inputSchema: jsonSchema<{ limit?: number }>({
+                type: "object",
+                properties: { limit: { type: "number" } },
+                required: [],
+            }),
             execute: async (input) => {
                 const { data, error } = await admin
                     .from("profiles")
                     .select("username, goals_scored, matches_played, position")
                     .order("goals_scored", { ascending: false })
-                    .limit(input.limit);
+                    .limit(input.limit ?? 10);
                 if (error) return { error: "No se pudo obtener el ranking de goleadores" };
                 return { goleadores: data ?? [] };
             },
@@ -78,14 +97,18 @@ export function buildTools(userId: string) {
 
         get_leaderboard: tool({
             description: "Ranking ELO de jugadores con al menos 3 partidos.",
-            inputSchema: zodSchema(z.object({ limit: z.number().default(10) })),
+            inputSchema: jsonSchema<{ limit?: number }>({
+                type: "object",
+                properties: { limit: { type: "number" } },
+                required: [],
+            }),
             execute: async (input) => {
                 const { data, error } = await admin
                     .from("profiles")
                     .select("username, elo_rating, matches_played, goals_scored, position")
                     .gte("matches_played", 3)
                     .order("elo_rating", { ascending: false })
-                    .limit(input.limit);
+                    .limit(input.limit ?? 10);
                 if (error) return { error: "No se pudo obtener el ranking" };
                 return { ranking: data ?? [] };
             },
@@ -93,7 +116,11 @@ export function buildTools(userId: string) {
 
         get_player_detail: tool({
             description: "Perfil completo y posición en el ranking de un jugador por username.",
-            inputSchema: zodSchema(z.object({ username: z.string() })),
+            inputSchema: jsonSchema<{ username: string }>({
+                type: "object",
+                properties: { username: { type: "string" } },
+                required: ["username"],
+            }),
             execute: async (input) => {
                 const { data: player, error } = await admin
                     .from("profiles")
@@ -116,7 +143,11 @@ export function buildTools(userId: string) {
 
         get_match_detail: tool({
             description: "Detalles completos de un partido: resultado, participantes, goles y MVP.",
-            inputSchema: zodSchema(z.object({ match_id: z.string() })),
+            inputSchema: jsonSchema<{ match_id: string }>({
+                type: "object",
+                properties: { match_id: { type: "string" } },
+                required: ["match_id"],
+            }),
             execute: async (input) => {
                 const { data, error } = await admin
                     .from("matches")
@@ -130,7 +161,11 @@ export function buildTools(userId: string) {
 
         get_my_stats: tool({
             description: "Estadísticas del usuario autenticado: ELO, goles, partidos y posición en el ranking.",
-            inputSchema: zodSchema(z.object({})),
+            inputSchema: jsonSchema<Record<string, never>>({
+                type: "object",
+                properties: {},
+                required: [],
+            }),
             execute: async () => {
                 const { data: profile, error } = await admin
                     .from("profiles")
@@ -155,13 +190,17 @@ export function buildTools(userId: string) {
 
         get_fantasy_standings: tool({
             description: "Clasificación de equipos fantasy por puntos.",
-            inputSchema: zodSchema(z.object({ limit: z.number().default(10) })),
+            inputSchema: jsonSchema<{ limit?: number }>({
+                type: "object",
+                properties: { limit: { type: "number" } },
+                required: [],
+            }),
             execute: async (input) => {
                 const { data, error } = await admin
                     .from("fantasy_teams")
                     .select("name, total_points, budget, profiles(username)")
                     .order("total_points", { ascending: false })
-                    .limit(input.limit);
+                    .limit(input.limit ?? 10);
                 if (error) return { error: "No se pudo obtener la clasificación fantasy" };
                 return { clasificacion: data ?? [] };
             },
@@ -169,7 +208,11 @@ export function buildTools(userId: string) {
 
         get_my_fantasy_team: tool({
             description: "Equipo fantasy del usuario autenticado con plantilla completa.",
-            inputSchema: zodSchema(z.object({})),
+            inputSchema: jsonSchema<Record<string, never>>({
+                type: "object",
+                properties: {},
+                required: [],
+            }),
             execute: async () => {
                 const { data: team, error: teamError } = await admin
                     .from("fantasy_teams")
@@ -192,12 +235,14 @@ export function buildTools(userId: string) {
 
         get_players_history_together: tool({
             description: "Partidos en los que dos jugadores coincidieron.",
-            inputSchema: zodSchema(
-                z.object({
-                    player_a: z.string(),
-                    player_b: z.string(),
-                })
-            ),
+            inputSchema: jsonSchema<{ player_a: string; player_b: string }>({
+                type: "object",
+                properties: {
+                    player_a: { type: "string" },
+                    player_b: { type: "string" },
+                },
+                required: ["player_a", "player_b"],
+            }),
             execute: async (input) => {
                 const { player_a, player_b } = input;
                 const { data: profiles, error: profilesError } = await admin
