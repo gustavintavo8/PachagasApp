@@ -50,7 +50,7 @@ export async function POST(request: Request) {
     }
 
     const result = streamText({
-        model: groq("llama-3.1-8b-instant"),
+        model: groq("llama3-groq-70b-8192-tool-use-preview"),
         system: SYSTEM_PROMPT,
         messages: await convertToModelMessages(messages),
         tools: buildTools(user.id),
