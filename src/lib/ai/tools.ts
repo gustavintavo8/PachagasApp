@@ -241,9 +241,7 @@ export function buildTools(userId: string) {
                 const { data: profiles, error: profilesError } = await admin
                     .from("profiles")
                     .select("id, username")
-                    .or(
-                        `username.ilike.${player_a},username.ilike.${player_b}`
-                    );
+                    .in("username", [player_a, player_b]);
 
                 if (profilesError || !profiles || profiles.length < 2)
                     return {
