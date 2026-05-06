@@ -28,7 +28,22 @@ export async function POST(request: Request) {
         );
     }
 
-    const { messages } = await request.json();
+    let messages: any[];
+    try {
+        const body = await request.json();
+        if (!Array.isArray(body?.messages) || body.messages.length === 0) {
+            return new Response(
+                JSON.stringify({ error: "Mensajes inválidos" }),
+                { status: 400, headers: { "Content-Type": "application/json" } }
+            );
+        }
+        messages = body.messages;
+    } catch {
+        return new Response(
+            JSON.stringify({ error: "Cuerpo de la request inválido" }),
+            { status: 400, headers: { "Content-Type": "application/json" } }
+        );
+    }
 
     const result = streamText({
         model: google("gemini-2.0-flash"),
