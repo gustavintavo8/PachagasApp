@@ -25,9 +25,10 @@ interface Photo {
 interface MatchPhotosProps {
     matchId: string;
     currentUserId: string;
+    isGuest?: boolean;
 }
 
-export function MatchPhotos({ matchId, currentUserId }: MatchPhotosProps) {
+export function MatchPhotos({ matchId, currentUserId, isGuest = false }: MatchPhotosProps) {
     const [photos, setPhotos] = useState<Photo[]>([]);
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
@@ -129,32 +130,34 @@ export function MatchPhotos({ matchId, currentUserId }: MatchPhotosProps) {
             </div>
 
             {/* Upload Button */}
-            <div className="border-b border-border px-4 py-3">
-                <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    onChange={handleUpload}
-                    className="hidden"
-                />
-                <button
-                    onClick={() => fileInputRef.current?.click()}
-                    disabled={uploading}
-                    className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border py-4 text-sm font-medium text-muted transition-all hover:border-accent hover:bg-accent/5 hover:text-accent disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                    {uploading ? (
-                        <>
-                            <Loader2 size={18} className="animate-spin" />
-                            Subiendo...
-                        </>
-                    ) : (
-                        <>
-                            <Plus size={18} />
-                            Subir Foto
-                        </>
-                    )}
-                </button>
-            </div>
+            {!isGuest && (
+                <div className="border-b border-border px-4 py-3">
+                    <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        onChange={handleUpload}
+                        className="hidden"
+                    />
+                    <button
+                        onClick={() => fileInputRef.current?.click()}
+                        disabled={uploading}
+                        className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border py-4 text-sm font-medium text-muted transition-all hover:border-accent hover:bg-accent/5 hover:text-accent disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                        {uploading ? (
+                            <>
+                                <Loader2 size={18} className="animate-spin" />
+                                Subiendo...
+                            </>
+                        ) : (
+                            <>
+                                <Plus size={18} />
+                                Subir Foto
+                            </>
+                        )}
+                    </button>
+                </div>
+            )}
 
             {/* Photos Grid */}
             <div className="p-4">

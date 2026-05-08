@@ -25,12 +25,14 @@ interface MatchChatProps {
         username: string | null;
         avatar_url: string | null;
     };
+    isGuest?: boolean;
 }
 
 export function MatchChat({
     matchId,
     currentUserId,
     currentUserProfile,
+    isGuest = false,
 }: MatchChatProps) {
     const [comments, setComments] = useState<Comment[]>([]);
     const [loading, setLoading] = useState(true);
@@ -207,27 +209,29 @@ export function MatchChat({
             </div>
 
             {/* Input */}
-            <form
-                onSubmit={handleSend}
-                className="flex items-center gap-2 border-t border-border px-4 py-3"
-            >
-                <input
-                    type="text"
-                    value={message}
-                    onChange={(e) => setMessage(e.target.value)}
-                    placeholder="Escribe un mensaje..."
-                    maxLength={500}
-                    className="flex-1 rounded-xl border border-border bg-zinc-800 px-4 py-2.5 text-sm text-foreground placeholder:text-muted/60 transition-colors focus:border-accent focus:outline-none"
-                />
-                <button
-                    type="submit"
-                    aria-label="Enviar mensaje"
-                    disabled={!message.trim() || sending}
-                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent text-zinc-950 transition-all hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
+            {!isGuest && (
+                <form
+                    onSubmit={handleSend}
+                    className="flex items-center gap-2 border-t border-border px-4 py-3"
                 >
-                    <Send size={16} />
-                </button>
-            </form>
+                    <input
+                        type="text"
+                        value={message}
+                        onChange={(e) => setMessage(e.target.value)}
+                        placeholder="Escribe un mensaje..."
+                        maxLength={500}
+                        className="flex-1 rounded-xl border border-border bg-zinc-800 px-4 py-2.5 text-sm text-foreground placeholder:text-muted/60 transition-colors focus:border-accent focus:outline-none"
+                    />
+                    <button
+                        type="submit"
+                        aria-label="Enviar mensaje"
+                        disabled={!message.trim() || sending}
+                        className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-accent text-zinc-950 transition-all hover:bg-accent-hover disabled:opacity-40 disabled:cursor-not-allowed active:scale-95"
+                    >
+                        <Send size={16} />
+                    </button>
+                </form>
+            )}
         </div>
     );
 }

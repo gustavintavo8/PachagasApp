@@ -62,6 +62,8 @@ export default async function MatchPage({
 
     if (!user) redirect("/login");
 
+    const isGuest = user.is_anonymous === true;
+
     const { data: match } = await supabase
         .from("matches")
         .select("*")
@@ -110,6 +112,7 @@ export default async function MatchPage({
                 }}
                 isAdmin={userIsAdmin}
                 adminUserIds={adminUserIds}
+                isGuest={isGuest}
             />
         </>
     );

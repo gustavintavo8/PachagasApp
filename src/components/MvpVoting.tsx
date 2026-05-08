@@ -30,6 +30,7 @@ interface MvpVotingProps {
     matchFinishedAt: string | null;
     matchDate: string;
     canManage?: boolean;
+    isGuest?: boolean;
 }
 
 function getTimeRemaining(finishedAt: string): {
@@ -58,6 +59,7 @@ export function MvpVoting({
     matchFinishedAt,
     matchDate,
     canManage,
+    isGuest = false,
 }: MvpVotingProps) {
     // If finished_at is null (pre-migration match), use the match date as fallback
     const effectiveFinishedAt = matchFinishedAt || matchDate;
@@ -232,7 +234,7 @@ export function MvpVoting({
             </div>
 
             {/* Status banner */}
-            {!votingClosed && !myVote && (
+            {!votingClosed && !myVote && !isGuest && (
                 <div className="border-b border-border bg-accent/5 px-4 py-2.5 flex items-center justify-between">
                     <p className="text-xs text-accent">
                         Elige al jugador que mejor lo hizo. Tienes 24h para votar.
@@ -323,7 +325,7 @@ export function MvpVoting({
                                 </div>
 
                                 {/* Action / State */}
-                                {!votingClosed && !myVote && (
+                                {!votingClosed && !myVote && !isGuest && (
                                     <button
                                         onClick={() => handleVote(p.user_id)}
                                         disabled={voting}
