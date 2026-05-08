@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { login, signup, signInWithOAuth } from "./actions";
+import { login, signup, signInWithOAuth, loginAsGuest } from "./actions";
 
 export default function LoginPage() {
     const [isSignUp, setIsSignUp] = useState(false);
@@ -10,6 +10,7 @@ export default function LoginPage() {
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const [loading, setLoading] = useState(false);
     const [oauthLoading, setOauthLoading] = useState<string | null>(null);
+    const [guestLoading, setGuestLoading] = useState(false);
 
     async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
@@ -53,6 +54,16 @@ export default function LoginPage() {
             setOauthLoading(null);
         } else if (result.url) {
             window.location.href = result.url;
+        }
+    }
+
+    async function handleGuestLogin() {
+        setGuestLoading(true);
+        try {
+            await loginAsGuest();
+        } catch {
+            setError("Error al entrar en modo demo");
+            setGuestLoading(false);
         }
     }
 
@@ -230,6 +241,32 @@ export default function LoginPage() {
                                 : "¿No tienes cuenta? Regístrate"}
                         </button>
                     </div>
+                </div>
+
+                {/* Guest Demo */}
+                <div className="mt-4">
+                    <div className="relative mb-4">
+                        <div className="absolute inset-0 flex items-center">
+                            <div className="w-full border-t border-zinc-800" />
+                        </div>
+                        <div className="relative flex justify-center text-xs">
+                            <span className="bg-zinc-950 px-3 text-zinc-600">o sin cuenta</span>
+                        </div>
+                    </div>
+                    <button
+                        type="button"
+                        onClick={handleGuestLogin}
+                        disabled={guestLoading || loading || !!oauthLoading}
+                        className="flex w-full items-center justify-center gap-2 rounded-xl border border-zinc-700 bg-transparent px-4 py-3 text-sm font-medium text-zinc-400 transition-all hover:border-zinc-500 hover:text-zinc-200 disabled:cursor-not-allowed disabled:opacity-50 active:scale-[0.98]"
+                    >
+                        {guestLoading ? <Spinner /> : (
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.964-7.178z" />
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                        )}
+                        {guestLoading ? "Entrando..." : "Ver demo como invitado"}
+                    </button>
                 </div>
             </div>
         </div>
