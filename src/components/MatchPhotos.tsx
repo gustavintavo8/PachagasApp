@@ -171,7 +171,7 @@ export function MatchPhotos({ matchId, currentUserId, isGuest = false }: MatchPh
                     <div className="flex flex-col items-center justify-center py-8 text-center">
                         <ImageIcon size={32} className="mb-2 text-muted/30" />
                         <p className="text-sm text-muted">
-                            Aún no hay fotos. ¡Sube la primera!
+                            {isGuest ? "Aún no hay fotos." : "Aún no hay fotos. ¡Sube la primera!"}
                         </p>
                     </div>
                 ) : (
