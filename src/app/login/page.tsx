@@ -58,6 +58,8 @@ export default function LoginPage() {
     }
 
     async function handleGuestLogin() {
+        setError(null);
+        setSuccessMessage(null);
         setGuestLoading(true);
         try {
             await loginAsGuest();
