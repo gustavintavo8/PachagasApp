@@ -49,3 +49,11 @@ export async function getAdminUserIds(): Promise<string[]> {
     if (error || !data) return [];
     return data.map((p) => p.id);
 }
+
+/**
+ * Returns true if the user is an anonymous (guest) session.
+ * Anonymous users have is_anonymous: true in their JWT.
+ */
+export function isGuestUser(user: { is_anonymous?: boolean } | null): boolean {
+    return user?.is_anonymous === true;
+}

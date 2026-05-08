@@ -3,6 +3,7 @@
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { rateLimit } from '@/lib/rate-limit'
+import { isGuestUser } from '@/lib/permissions'
 import { z } from 'zod'
 import type { ActionResult } from "@/lib/types";
 
@@ -19,6 +20,7 @@ export async function updateProfile(formData: FormData): Promise<ActionResult> {
     if (authError || !user) {
         return { success: false, error: 'No estás autenticado' }
     }
+    if (isGuestUser(user)) return { success: false, error: "Esta acción no está disponible en modo demo" };
 
     const { allowed } = await rateLimit(`update-profile:${user.id}`, 5, 60_000);
     if (!allowed) return { success: false, error: "Demasiadas actualizaciones. Espera un momento." };
@@ -62,6 +64,7 @@ export async function updateAvatar(path: string): Promise<ActionResult> {
     if (!user) {
         return { success: false, error: "No autenticado" };
     }
+    if (isGuestUser(user)) return { success: false, error: "Esta acción no está disponible en modo demo" };
 
     const { allowed } = await rateLimit(`update-avatar:${user.id}`, 10, 60_000);
     if (!allowed) return { success: false, error: "Demasiadas subidas. Espera un momento." };

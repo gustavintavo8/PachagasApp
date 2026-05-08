@@ -7,7 +7,7 @@ import { redirect } from "next/navigation";
 import { balanceTeams } from "@/lib/team-balancer";
 import { computeMatchEloUpdates, ELO_BASE } from "@/lib/elo";
 import { rateLimit } from "@/lib/rate-limit";
-import { isAdmin } from "@/lib/permissions";
+import { isAdmin, isGuestUser } from "@/lib/permissions";
 import { MVP_VOTING_WINDOW_MS } from "@/lib/constantes";
 import { z } from "zod";
 import { sendNotification } from "@/lib/notifications";
@@ -20,6 +20,7 @@ export async function createMatch(formData: FormData): Promise<ActionResult> {
     } = await supabase.auth.getUser();
 
     if (!user) return { success: false, error: "No autenticado" };
+    if (isGuestUser(user)) return { success: false, error: "Esta acción no está disponible en modo demo" };
 
     const { allowed } = await rateLimit(`create-match:${user.id}`, 10, 60_000);
     if (!allowed) return { success: false, error: "Demasiadas acciones. Espera un momento." };
@@ -81,6 +82,7 @@ export async function joinMatch(matchId: string): Promise<ActionResult> {
     } = await supabase.auth.getUser();
 
     if (!user) return { success: false, error: "No autenticado" };
+    if (isGuestUser(user)) return { success: false, error: "Esta acción no está disponible en modo demo" };
 
     const { allowed } = await rateLimit(`join-match:${user.id}`, 10, 60_000);
     if (!allowed) return { success: false, error: "Demasiadas peticiones. Espera un momento." };
@@ -153,6 +155,7 @@ export async function leaveMatch(matchId: string): Promise<ActionResult> {
     } = await supabase.auth.getUser();
 
     if (!user) return { success: false, error: "No autenticado" };
+    if (isGuestUser(user)) return { success: false, error: "Esta acción no está disponible en modo demo" };
 
     const { allowed } = await rateLimit(`leave-match:${user.id}`, 10, 60_000);
     if (!allowed) return { success: false, error: "Demasiadas peticiones. Espera un momento." };
@@ -971,6 +974,7 @@ export async function voteForMvp(
     } = await supabase.auth.getUser();
 
     if (!user) return { success: false, error: "No autenticado" };
+    if (isGuestUser(user)) return { success: false, error: "Esta acción no está disponible en modo demo" };
 
     const { allowed } = await rateLimit(`vote-mvp:${user.id}`, 5, 60_000);
     if (!allowed) return { success: false, error: "Demasiadas peticiones. Espera un momento." };
