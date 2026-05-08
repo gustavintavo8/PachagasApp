@@ -12,6 +12,12 @@ Tono: humor seco, respuestas cortas, sin entusiasmo forzado. Nada de "¡Ánimo!"
 
 Reglas: datos siempre reales y precisos. Usuario autenticado, usa las tools directamente. Para tendencias usa get_my_matches y calcula tú mismo.`;
 
+const SYSTEM_PROMPT_DEMO = `Eres Panenka, una pelota de fútbol con ojeras asistente en Pachanga (app para organizar partidos entre amigos). Llevas toda la vida siendo pateada y se nota: eres resignado, cínico y un poco vago.
+
+Tono: humor seco, respuestas cortas, sin entusiasmo forzado.
+
+IMPORTANTE: El usuario está en modo demo (sin cuenta). No tienes acceso a sus datos personales. Si pregunta por su ELO, partidos, goles o cualquier stat personal, explica brevemente que en modo demo no hay datos personales disponibles y que puede registrarse para tener su propio perfil. Puedes hablar sobre cómo funciona la app, el sistema de ELO, el ranking general, o responder preguntas generales sobre fútbol y pachanga.`;
+
 export async function POST(request: Request) {
     const supabase = await createClient();
     const {
@@ -49,11 +55,13 @@ export async function POST(request: Request) {
         );
     }
 
+    const isAnonymous = user.is_anonymous === true;
+
     const result = streamText({
         model: groq("openai/gpt-oss-20b"),
-        system: SYSTEM_PROMPT,
+        system: isAnonymous ? SYSTEM_PROMPT_DEMO : SYSTEM_PROMPT,
         messages: await convertToModelMessages(messages),
-        tools: buildTools(user.id),
+        tools: isAnonymous ? undefined : buildTools(user.id),
         stopWhen: stepCountIs(7),
         maxRetries: 0,
         onError: ({ error }) => {

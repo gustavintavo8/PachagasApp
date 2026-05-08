@@ -16,6 +16,8 @@ export default async function MatchesPage() {
 
     if (!user) redirect("/login");
 
+    const isGuest = user.is_anonymous === true;
+
     const { data: matches } = await supabase
         .from("matches")
         .select("*, match_participants(user_id, team, goals, is_mvp)")
@@ -26,6 +28,7 @@ export default async function MatchesPage() {
         <MatchesTabs
             matches={matches || []}
             userId={user.id}
+            isGuest={isGuest}
         />
     );
 }

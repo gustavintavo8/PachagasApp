@@ -77,7 +77,7 @@ function HeroCardSkeleton() {
 
 // --- Próximo partido destacado ---
 
-async function NextMatchCard({ userId }: { userId: string }) {
+async function NextMatchCard({ userId, isGuest }: { userId: string; isGuest: boolean }) {
   const supabase = await createClient();
 
   const { data: openMatches } = await supabase
@@ -92,12 +92,14 @@ async function NextMatchCard({ userId }: { userId: string }) {
     return (
       <Card className="border-border/50 text-center">
         <p className="text-sm text-muted">No hay partidos abiertos ahora mismo.</p>
-        <Link href="/matches/new" className="mt-2 inline-block">
-          <Button variant="outline" size="sm">
-            <PlusCircle size={14} />
-            Crear partido
-          </Button>
-        </Link>
+        {!isGuest && (
+          <Link href="/matches/new" className="mt-2 inline-block">
+            <Button variant="outline" size="sm">
+              <PlusCircle size={14} />
+              Crear partido
+            </Button>
+          </Link>
+        )}
       </Card>
     );
   }
@@ -209,6 +211,8 @@ async function DashboardContent() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
+  const isGuest = user.is_anonymous === true;
+
   return (
     <div className="mx-auto max-w-2xl space-y-4 px-4 py-6">
       <Suspense fallback={<HeroCardSkeleton />}>
@@ -216,7 +220,7 @@ async function DashboardContent() {
       </Suspense>
 
       <Suspense fallback={<NextMatchCardSkeleton />}>
-        <NextMatchCard userId={user.id} />
+        <NextMatchCard userId={user.id} isGuest={isGuest} />
       </Suspense>
 
       <Suspense fallback={<MoreOpenMatchesSkeleton />}>
