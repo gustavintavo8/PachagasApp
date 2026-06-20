@@ -4,6 +4,7 @@ import { Suspense } from "react";
 import { Geist, Geist_Mono } from "next/font/google";
 import { Navbar } from "@/components/Navbar";
 import { NavbarSkeleton } from "@/components/NavbarSkeleton";
+import { Footer } from "@/components/Footer";
 import { BottomNav } from "@/components/BottomNav";
 import { ToastProvider } from "@/components/ui/Toast";
 import { SpeedInsights } from "@vercel/speed-insights/next";
@@ -45,6 +46,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           </Suspense>
           {/* pb-20 on mobile to clear the fixed BottomNav */}
           <main id="main-content" className="min-h-[calc(100vh-4rem)] pb-20 md:pb-0">{children}</main>
+          <Footer />
           <Suspense fallback={null}>
             <BottomNav />
           </Suspense>

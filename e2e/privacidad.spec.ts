@@ -50,3 +50,12 @@ test.describe("Bloque 1 — exportacion de datos", () => {
         expect(download.suggestedFilename()).toMatch(/\.json$/);
     });
 });
+
+test.describe("Bloque 2 — enlaces legales", () => {
+    test("el footer enlaza las paginas legales", async ({ page }) => {
+        await page.goto("/");
+        await expect(page.getByRole("link", { name: "Privacidad" })).toBeVisible();
+        await expect(page.getByRole("link", { name: "Aviso legal" })).toBeVisible();
+        await expect(page.getByRole("link", { name: "Términos" })).toBeVisible();
+    });
+});
