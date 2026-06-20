@@ -11,6 +11,10 @@ export default function LoginPage() {
     const [loading, setLoading] = useState(false);
     const [oauthLoading, setOauthLoading] = useState<string | null>(null);
     const [guestLoading, setGuestLoading] = useState(false);
+    const [consent, setConsent] = useState(false);
+    const [ageOk, setAgeOk] = useState(false);
+
+    const signupBlocked = isSignUp && (!consent || !ageOk);
 
     async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
@@ -96,6 +100,8 @@ export default function LoginPage() {
                         onClick={() => {
                             setIsSignUp(false);
                             setError(null);
+                            setConsent(false);
+                            setAgeOk(false);
                         }}
                         className={`flex-1 rounded-lg py-2.5 text-sm font-semibold transition-all ${!isSignUp
                             ? "bg-accent text-zinc-950 shadow-md shadow-accent/20"
@@ -110,6 +116,8 @@ export default function LoginPage() {
                             setIsSignUp(true);
                             setError(null);
                             setSuccessMessage(null);
+                            setConsent(false);
+                            setAgeOk(false);
                         }}
                         className={`flex-1 rounded-lg py-2.5 text-sm font-semibold transition-all ${isSignUp
                             ? "bg-accent text-zinc-950 shadow-md shadow-accent/20"
@@ -136,7 +144,7 @@ export default function LoginPage() {
                     <div className="space-y-3 mb-6">
                         <button
                             onClick={() => handleOAuth("google")}
-                            disabled={!!oauthLoading}
+                            disabled={!!oauthLoading || signupBlocked}
                             className="flex w-full items-center justify-center gap-3 rounded-xl border border-zinc-700 bg-zinc-800 px-4 py-3 text-sm font-medium text-white transition-all hover:border-zinc-600 hover:bg-zinc-750 disabled:cursor-not-allowed disabled:opacity-50 active:scale-[0.98]"
                         >
                             {oauthLoading === "google" ? (
@@ -212,9 +220,39 @@ export default function LoginPage() {
                             </div>
                         )}
 
+                        {isSignUp && (
+                            <div className="space-y-3 rounded-xl border border-zinc-800 bg-zinc-950/50 p-3 text-sm text-zinc-300">
+                                <label className="flex items-start gap-2">
+                                    <input
+                                        type="checkbox"
+                                        name="accept_terms"
+                                        checked={consent}
+                                        onChange={(e) => setConsent(e.target.checked)}
+                                        className="mt-0.5"
+                                    />
+                                    <span>
+                                        He leído y acepto la{" "}
+                                        <a href="/privacidad" target="_blank" className="text-accent underline">Política de Privacidad</a>{" "}
+                                        y los{" "}
+                                        <a href="/terminos" target="_blank" className="text-accent underline">Términos</a>.
+                                    </span>
+                                </label>
+                                <label className="flex items-start gap-2">
+                                    <input
+                                        type="checkbox"
+                                        name="confirm_age"
+                                        checked={ageOk}
+                                        onChange={(e) => setAgeOk(e.target.checked)}
+                                        className="mt-0.5"
+                                    />
+                                    <span>Confirmo que tengo 14 años o más.</span>
+                                </label>
+                            </div>
+                        )}
+
                         <button
                             type="submit"
-                            disabled={loading}
+                            disabled={loading || signupBlocked}
                             className={`flex w-full items-center justify-center gap-2 rounded-xl px-6 py-3.5 text-base font-semibold transition-all disabled:cursor-not-allowed disabled:opacity-50 active:scale-[0.98] ${isSignUp
                                 ? "bg-accent text-zinc-950 hover:bg-accent-hover hover:shadow-lg hover:shadow-accent-glow"
                                 : "bg-accent text-zinc-950 hover:bg-accent-hover hover:shadow-lg hover:shadow-accent-glow"
@@ -235,6 +273,8 @@ export default function LoginPage() {
                             onClick={() => {
                                 setIsSignUp(!isSignUp);
                                 setError(null);
+                                setConsent(false);
+                                setAgeOk(false);
                             }}
                             className="text-sm text-zinc-400 transition-colors hover:text-accent"
                         >

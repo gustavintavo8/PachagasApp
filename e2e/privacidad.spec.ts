@@ -82,3 +82,16 @@ test.describe("Bloque 2 — aviso legal y terminos", () => {
         await expect(page.getByText(/derechos de imagen/i)).toBeVisible();
     });
 });
+
+test.describe("Bloque 3 — consentimiento en el registro", () => {
+    test.use({ storageState: { cookies: [], origins: [] } });
+    test("el registro exige aceptar terminos y edad", async ({ page }) => {
+        await page.goto("/login");
+        await page.getByRole("button", { name: "Registrarse" }).click();
+        const submit = page.getByRole("button", { name: "Crear Cuenta" });
+        await expect(submit).toBeDisabled();
+        await page.getByLabel(/acepto la Política de Privacidad/i).check();
+        await page.getByLabel(/14 años/i).check();
+        await expect(submit).toBeEnabled();
+    });
+});
