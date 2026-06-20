@@ -50,6 +50,32 @@ export async function exportMyData(): Promise<ActionResult<string>> {
             admin.from("fantasy_teams").select("*").eq("user_id", uid),
         ]);
 
+    const queryResults = {
+        profile,
+        participations,
+        comments,
+        photos,
+        votes,
+        notifications,
+        rp,
+        fantasy,
+    };
+    const failedQueries = Object.entries(queryResults).filter(([, result]) => result.error);
+
+    if (failedQueries.length > 0) {
+        for (const [name, result] of failedQueries) {
+            console.error(
+                "[data-actions] exportMyData error:",
+                name,
+                result.error?.code,
+                result.error?.message,
+                "userId:",
+                uid,
+            );
+        }
+        return { success: false, error: "No se pudo generar tu exportación de datos. Inténtalo de nuevo." };
+    }
+
     const exportObject = {
         exported_at: new Date().toISOString(),
         account: { id: uid, email: user.email },
