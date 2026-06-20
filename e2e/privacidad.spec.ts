@@ -95,3 +95,11 @@ test.describe("Bloque 3 — consentimiento en el registro", () => {
         await expect(submit).toBeEnabled();
     });
 });
+
+test.describe("Bloque 4 — transparencia de IA", () => {
+    test("el chat avisa de que Panenka es IA y procesa en un tercero", async ({ page }) => {
+        await page.goto("/asistente");
+        await expect(page.getByText(/asistente de IA/i)).toBeVisible();
+        await expect(page.getByText(/Groq/i)).toBeVisible();
+    });
+});

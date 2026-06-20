@@ -103,6 +103,11 @@ export function AsistenteChat() {
                                 </button>
                             ))}
                         </div>
+                        <p className="max-w-xs text-[11px] leading-snug text-muted/70">
+                            Panenka es un asistente de IA: puede equivocarse. Tus consultas se
+                            procesan en un proveedor externo (Groq) y solo se le envían datos de
+                            juego, nunca tu email.
+                        </p>
                     </div>
                 )}
 

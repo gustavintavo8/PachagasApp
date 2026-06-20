@@ -57,6 +57,8 @@ export async function POST(request: Request) {
 
     const isAnonymous = user.is_anonymous === true;
 
+    // INVARIANTE DE PRIVACIDAD: las tools (buildTools) solo deben exponer al modelo
+    // datos de juego (username, stats). NUNCA email ni PII de auth. Ver src/lib/ai/tools.ts.
     const result = streamText({
         model: groq("openai/gpt-oss-20b"),
         system: isAnonymous ? SYSTEM_PROMPT_DEMO : SYSTEM_PROMPT,
