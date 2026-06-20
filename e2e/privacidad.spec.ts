@@ -69,3 +69,16 @@ test.describe("Bloque 2 — pagina de privacidad", () => {
         await expect(page.getByText("Groq")).toBeVisible();
     });
 });
+
+test.describe("Bloque 2 — aviso legal y terminos", () => {
+    test.use({ storageState: { cookies: [], origins: [] } });
+    test("aviso legal carga", async ({ page }) => {
+        await page.goto("/aviso-legal");
+        await expect(page.getByRole("heading", { name: "Aviso Legal" })).toBeVisible();
+    });
+    test("terminos cargan y mencionan las fotos", async ({ page }) => {
+        await page.goto("/terminos");
+        await expect(page.getByRole("heading", { name: "Términos de Uso" })).toBeVisible();
+        await expect(page.getByText(/derechos de imagen/i)).toBeVisible();
+    });
+});
