@@ -39,3 +39,14 @@ test.describe("Bloque 1 — borrado de cuenta (UI)", () => {
         await expect(confirmBtn).toBeEnabled();
     });
 });
+
+test.describe("Bloque 1 — exportacion de datos", () => {
+    test("descargar mis datos genera un JSON", async ({ page }) => {
+        await page.goto("/profile");
+        const [download] = await Promise.all([
+            page.waitForEvent("download"),
+            page.getByRole("button", { name: "Descargar mis datos" }).click(),
+        ]);
+        expect(download.suggestedFilename()).toMatch(/\.json$/);
+    });
+});

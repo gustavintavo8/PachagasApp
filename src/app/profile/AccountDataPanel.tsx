@@ -4,7 +4,7 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Card } from "@/components/ui/Card";
 import { Button } from "@/components/ui/Button";
-import { deleteAccount } from "./data-actions";
+import { deleteAccount, exportMyData } from "./data-actions";
 
 export function AccountDataPanel() {
     const router = useRouter();
@@ -12,6 +12,7 @@ export function AccountDataPanel() {
     const [confirmText, setConfirmText] = useState("");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
+    const [exporting, setExporting] = useState(false);
 
     async function handleDelete() {
         setLoading(true);
@@ -25,6 +26,24 @@ export function AccountDataPanel() {
         router.push("/login");
     }
 
+    async function handleExport() {
+        setExporting(true);
+        setError(null);
+        const result = await exportMyData();
+        setExporting(false);
+        if (!result.success) {
+            setError(result.error);
+            return;
+        }
+        const blob = new Blob([result.data], { type: "application/json" });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = "mis-datos-pachanga.json";
+        a.click();
+        URL.revokeObjectURL(url);
+    }
+
     return (
         <Card className="mt-6 border border-border/80 bg-surface">
             <h2 className="text-lg font-semibold text-foreground">Tus datos y privacidad</h2>
@@ -33,8 +52,7 @@ export function AccountDataPanel() {
             </p>
 
             <div className="mt-4 flex flex-col gap-3">
-                {/* El handler de exportación lo conecta la Task 3 */}
-                <Button id="export-data-btn" variant="secondary" className="w-full">
+                <Button variant="secondary" className="w-full" loading={exporting} onClick={handleExport}>
                     Descargar mis datos
                 </Button>
 
