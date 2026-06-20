@@ -32,10 +32,14 @@ explícita durante el desarrollo, no solo a posteriori.
 - El asistente Panenka muestra un aviso visible de que es un sistema de IA y de que las
   consultas se procesan en un proveedor externo (Groq, EE. UU.), en línea con la
   transparencia exigida a sistemas de IA de riesgo limitado.
-- El alta de usuario exige una aceptación explícita (casilla no premarcada) de Política y
-  Términos, con registro de qué versión se aceptó y cuándo
-  (`accepted_privacy_version` / `accepted_privacy_at`), de modo que el consentimiento es
-  verificable, no presumido.
+- El alta de usuario por email/contraseña exige una aceptación explícita (casilla no
+  premarcada) de Política y Términos y una confirmación de edad mínima, validadas en el
+  servidor antes de crear la cuenta, con registro de qué versión se aceptó y cuándo
+  (`accepted_privacy_version` / `accepted_privacy_at` / `accepted_age_confirmation`), de
+  modo que el consentimiento es verificable, no presumido. **Esto no aplica igual al alta
+  vía Google OAuth:** ahí las casillas solo son una puerta de UI sobre el botón que inicia
+  el flujo, y `src/app/auth/callback/route.ts` no vuelve a verificarlas al crear el
+  perfil; ver la limitación conocida documentada en `bases-juridicas.md` §3.
 - Esta misma documentación interna (RAT, bases jurídicas, procedimiento de brechas,
   retención, riesgo de fotos) existe para que las decisiones de tratamiento sean
   trazables y revisables, no solo implícitas en el código.

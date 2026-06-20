@@ -88,6 +88,7 @@ export async function signup(formData: FormData): Promise<ActionResult<string>> 
             emailRedirectTo: `${origin}/auth/callback`,
             data: {
                 accepted_privacy_version: PRIVACY_POLICY_VERSION,
+                confirmed_age_14: "true",
             },
         },
     });

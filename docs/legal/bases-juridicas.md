@@ -53,11 +53,29 @@ Para cada uno de los tres tratamientos anteriores se ha considerado:
 | Finalidad | Justificación |
 |---|---|
 | Aceptación de Política de Privacidad y Términos en el alta | Es la base jurídica explícita elegida para el acto de registro: casilla no premarcada, con enlaces a ambos textos, cuya aceptación se registra con fecha y versión (`accepted_privacy_version` / `accepted_privacy_at` en `profiles`, ver Tasks 1/7). Permite trazar qué versión de los textos aceptó cada usuario y exigir re-consentimiento si cambian sustancialmente. |
-| Confirmación de edad mínima (14 años, LOPDGDD art. 7) | Recogida en el mismo paso del alta como control de elegibilidad, no como base jurídica de tratamiento en sí, pero documentada aquí porque forma parte del mismo flujo de consentimiento informado. |
+| Confirmación de edad mínima (14 años, LOPDGDD art. 7) | Recogida en el mismo paso del alta como control de elegibilidad, no como base jurídica de tratamiento en sí, pero documentada aquí porque forma parte del mismo flujo de consentimiento informado. Igual que la aceptación de Política/Términos, se registra como evidencia en `profiles.accepted_age_confirmation` (Task de cierre del bloque 3), sembrada por `handle_new_user()` desde `confirmed_age_14` en `raw_user_meta_data`. |
 
 El consentimiento es retirable: el usuario puede eliminar su cuenta en cualquier momento
 desde su perfil (borrado autoservicio), lo que equivale a la retirada del consentimiento
 y cesa el tratamiento de los datos personales asociados.
+
+### Limitación conocida: alta vía Google OAuth
+
+Lo anterior (casillas no premarcadas, registro de versión/fecha) describe con precisión el
+flujo de alta por email/contraseña (`signup()` en `src/app/login/actions.ts`), donde las
+casillas se validan en el servidor antes de crear la cuenta. **El alta vía Google OAuth es
+distinta y tiene una limitación aceptada:** las casillas de consentimiento solo actúan como
+una puerta de UI sobre el botón que inicia la redirección OAuth (`src/app/login/page.tsx`);
+el código que realmente crea el perfil tras volver de Google
+(`src/app/auth/callback/route.ts`) no vuelve a verificar que esas casillas se marcaron, y
+escribe `accepted_privacy_version` / `accepted_privacy_at` de forma incondicional para
+cualquier perfil OAuth nuevo. `accepted_age_confirmation` queda `NULL` en ese flujo (Google
+no pregunta la edad), lo cual es honesto, pero el resto de columnas de "consentimiento" para
+un usuario OAuth deben leerse como **"versión de la política vigente en el momento del
+alta"**, no como prueba irrefutable de que el usuario marcó activamente las casillas. Esto
+se acepta como limitación a la escala de este proyecto: no hay previsto un endurecimiento
+(p. ej. pasar el estado de las casillas como parámetro `state` de OAuth y verificarlo en el
+callback) salvo que la escala o el riesgo del proyecto cambien.
 
 ## 4. Transferencia internacional a Groq (EE. UU.)
 
