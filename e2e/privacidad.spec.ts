@@ -59,3 +59,13 @@ test.describe("Bloque 2 — enlaces legales", () => {
         await expect(page.getByRole("link", { name: "Términos" })).toBeVisible();
     });
 });
+
+test.describe("Bloque 2 — pagina de privacidad", () => {
+    test.use({ storageState: { cookies: [], origins: [] } });
+    test("la pagina de privacidad carga con sus secciones", async ({ page }) => {
+        await page.goto("/privacidad");
+        await expect(page.getByRole("heading", { name: "Política de Privacidad" })).toBeVisible();
+        await expect(page.getByRole("heading", { name: "Cookies" })).toBeVisible();
+        await expect(page.getByText("Groq")).toBeVisible();
+    });
+});
