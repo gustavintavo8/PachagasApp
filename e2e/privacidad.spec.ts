@@ -28,3 +28,14 @@ test.describe("Bloque 0 — el email no es público", () => {
         expect(error).toBeNull();
     });
 });
+
+test.describe("Bloque 1 — borrado de cuenta (UI)", () => {
+    test("el boton de borrar esta deshabilitado hasta escribir ELIMINAR", async ({ page }) => {
+        await page.goto("/profile");
+        await page.getByRole("button", { name: "Eliminar mi cuenta" }).click();
+        const confirmBtn = page.getByRole("button", { name: "Confirmar borrado" });
+        await expect(confirmBtn).toBeDisabled();
+        await page.getByPlaceholder("ELIMINAR").fill("ELIMINAR");
+        await expect(confirmBtn).toBeEnabled();
+    });
+});
