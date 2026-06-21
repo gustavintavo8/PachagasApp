@@ -34,9 +34,16 @@ export async function middleware(request: NextRequest) {
         data: { user },
     } = await supabase.auth.getUser();
 
-    // Public routes that don't require authentication
-    const publicRoutes = ["/login", "/auth/callback"];
+    // Routes accessible without authentication, for both guests and logged-in users
+    // (legal/transparency pages must stay reachable from anywhere, e.g. before signup).
+    const publicRoutes = ["/login", "/auth/callback", "/privacidad", "/aviso-legal", "/terminos"];
     const isPublicRoute = publicRoutes.some((route) =>
+        request.nextUrl.pathname.startsWith(route)
+    );
+
+    // Of those, only the login page should redirect an already-authenticated user away.
+    const guestOnlyRoutes = ["/login"];
+    const isGuestOnlyRoute = guestOnlyRoutes.some((route) =>
         request.nextUrl.pathname.startsWith(route)
     );
 
@@ -47,8 +54,8 @@ export async function middleware(request: NextRequest) {
         return NextResponse.redirect(url);
     }
 
-    // If user is authenticated and trying to access login page
-    if (user && isPublicRoute) {
+    // If user is authenticated and trying to access the login page
+    if (user && isGuestOnlyRoute) {
         const url = request.nextUrl.clone();
         url.pathname = "/";
         return NextResponse.redirect(url);
