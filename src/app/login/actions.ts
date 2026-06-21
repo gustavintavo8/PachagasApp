@@ -3,6 +3,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { rateLimit } from "@/lib/rate-limit";
+import { PRIVACY_POLICY_VERSION } from "@/lib/legal";
 import { redirect } from "next/navigation";
 import { headers } from "next/headers";
 import type { ActionResult } from "@/lib/types";
@@ -50,6 +51,16 @@ export async function signup(formData: FormData): Promise<ActionResult<string>> 
         return { success: false, error: "La contraseña debe tener al menos 6 caracteres" };
     }
 
+    const acceptedTerms = formData.get("accept_terms") === "on";
+    const confirmedAge = formData.get("confirm_age") === "on";
+
+    if (!acceptedTerms) {
+        return { success: false, error: "Debes aceptar la Política de Privacidad y los Términos." };
+    }
+    if (!confirmedAge) {
+        return { success: false, error: "Debes confirmar que tienes 14 años o más." };
+    }
+
     const { allowed } = await rateLimit(`signup:${email}`, 3, 3_600_000);
     if (!allowed) return { success: false, error: "Demasiados intentos de registro. Espera una hora." };
 
@@ -75,6 +86,10 @@ export async function signup(formData: FormData): Promise<ActionResult<string>> 
         password,
         options: {
             emailRedirectTo: `${origin}/auth/callback`,
+            data: {
+                accepted_privacy_version: PRIVACY_POLICY_VERSION,
+                confirmed_age_14: "true",
+            },
         },
     });
 

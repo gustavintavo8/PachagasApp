@@ -1,6 +1,7 @@
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
+import { PRIVACY_POLICY_VERSION } from "@/lib/legal";
 
 export async function GET(request: Request) {
     const url = new URL(request.url);
@@ -30,7 +31,6 @@ export async function GET(request: Request) {
                 data.user.email?.split("@")[0] ||
                 "Jugador";
             const googleAvatarUrl = meta?.avatar_url || meta?.picture || null;
-            const email = data.user.email;
 
             const adminClient = createAdminClient();
 
@@ -40,11 +40,12 @@ export async function GET(request: Request) {
                     id: data.user.id,
                     username: googleUsername,
                     avatar_url: googleAvatarUrl,
-                    email: email,
                     position: "MID",
                     skill_level: 5,
                     matches_played: 0,
                     goals_scored: 0,
+                    accepted_privacy_version: PRIVACY_POLICY_VERSION,
+                    accepted_privacy_at: new Date().toISOString(),
                 });
             } else {
                 // Profile exists. Only update if it's an empty/default profile (e.g. created by DB trigger)
@@ -53,11 +54,7 @@ export async function GET(request: Request) {
                     await adminClient.from("profiles").update({
                         username: existingProfile.username && existingProfile.username !== "Jugador" ? existingProfile.username : googleUsername,
                         avatar_url: googleAvatarUrl,
-                        email: existingProfile.email || email,
                     }).eq("id", data.user.id);
-                } else if (!existingProfile.email && email) {
-                    // Just patch the email if it's missing but everything else is fine
-                    await adminClient.from("profiles").update({ email }).eq("id", data.user.id);
                 }
             }
 

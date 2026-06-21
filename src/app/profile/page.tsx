@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { ProfileForm } from "./ProfileForm";
+import { AccountDataPanel } from "./AccountDataPanel";
 
 export const metadata: Metadata = {
     title: "Perfil — Pachanga",
@@ -29,6 +30,7 @@ export default async function ProfilePage() {
             <h1 className="mb-2 text-2xl font-bold text-foreground">Tu Perfil</h1>
             <p className="mb-8 text-muted">Configura tu info de jugador</p>
             <ProfileForm userId={user.id} profile={profile} isGuest={isGuest} />
+            {!isGuest && <AccountDataPanel />}
         </div>
     );
 }

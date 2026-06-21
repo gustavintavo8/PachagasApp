@@ -156,6 +156,9 @@ export function MatchPhotos({ matchId, currentUserId, isGuest = false }: MatchPh
                             </>
                         )}
                     </button>
+                    <p className="mt-2 text-center text-[11px] text-muted/70">
+                        Sube solo fotos sobre las que tengas derechos y con permiso de quienes aparecen.
+                    </p>
                 </div>
             )}
 
