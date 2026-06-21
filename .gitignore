@@ -54,3 +54,6 @@ CLAUDE.md
 # E2E tests
 e2e/.auth/
 .env.test.local
+
+# DB backups (contienen datos personales reales — nunca a git)
+backups/
