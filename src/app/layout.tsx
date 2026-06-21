@@ -32,7 +32,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
       </head>
-      <body className={`${geistSans.variable} ${geistMono.variable} antialiased`}>
+      <body className={`${geistSans.variable} ${geistMono.variable} flex min-h-screen flex-col antialiased`}>
         {/* Skip link para usuarios de teclado/lectores de pantalla */}
         <a
           href="#main-content"
@@ -44,8 +44,9 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           <Suspense fallback={<NavbarSkeleton />}>
             <Navbar />
           </Suspense>
-          {/* pb-20 on mobile to clear the fixed BottomNav */}
-          <main id="main-content" className="pb-20 md:pb-0">{children}</main>
+          {/* flex-1 empuja el footer al fondo de la pantalla cuando el contenido es corto.
+              pb-20 en móvil para no quedar tapado por el BottomNav fijo. */}
+          <main id="main-content" className="flex-1 pb-20 md:pb-0">{children}</main>
           <Footer />
           <Suspense fallback={null}>
             <BottomNav />
