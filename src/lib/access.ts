@@ -2,7 +2,7 @@ import "server-only";
 
 import { timingSafeEqual } from "node:crypto";
 
-import { hasActiveCommunityAccessGrant, isGuestUser, isAdmin, COMMUNITY_ACCESS_GRANT_SELECT, type CommunityAccessGrant } from "@/lib/permissions";
+import { hasActiveCommunityAccessGrant, isAdmin, COMMUNITY_ACCESS_GRANT_SELECT, type CommunityAccessGrant } from "@/lib/permissions";
 import { ensureSeasonPlayerStats, getActiveSeason, SeasonNotFoundError } from "@/lib/seasons";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -57,10 +57,6 @@ export async function requireCommunityAccess(
         return { success: false, error: "No autenticado" };
     }
 
-    if (isGuestUser(user)) {
-        return { success: false, error: "Acción no disponible en modo demo" };
-    }
-
     if (!(await hasCommunityAccess(user.id))) {
         return { success: false, error: COMMUNITY_ACCESS_REQUIRED_ERROR };
     }
@@ -79,12 +75,19 @@ export async function redeemAccessCode(code: string): Promise<ActionResult> {
         return { success: false, error: "No autenticado" };
     }
 
-    if (isGuestUser(user)) {
-        return { success: false, error: "Acción no disponible en modo demo" };
-    }
-
     if (!accessCodeMatches(code)) {
         return { success: false, error: INVALID_ACCESS_CODE_ERROR };
+    }
+
+    try {
+        const activeSeason = await getActiveSeason();
+        await ensureSeasonPlayerStats(activeSeason.id, user.id);
+    } catch (seasonError) {
+        if (seasonError instanceof SeasonNotFoundError) {
+            return { success: false, error: seasonError.message };
+        }
+
+        return { success: false, error: COMMUNITY_ACCESS_REDEEM_ERROR };
     }
 
     const admin = createAdminClient();
@@ -100,17 +103,6 @@ export async function redeemAccessCode(code: string): Promise<ActionResult> {
     );
 
     if (error) {
-        return { success: false, error: COMMUNITY_ACCESS_REDEEM_ERROR };
-    }
-
-    try {
-        const activeSeason = await getActiveSeason();
-        await ensureSeasonPlayerStats(activeSeason.id, user.id);
-    } catch (seasonError) {
-        if (seasonError instanceof SeasonNotFoundError) {
-            return { success: false, error: seasonError.message };
-        }
-
         return { success: false, error: COMMUNITY_ACCESS_REDEEM_ERROR };
     }
 
