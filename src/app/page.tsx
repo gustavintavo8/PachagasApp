@@ -8,22 +8,32 @@ import { Button } from "@/components/ui/Button";
 import { Avatar } from "@/components/ui/Avatar";
 import { formatDate, getAvatarUrl } from "@/lib/utils";
 import { Calendar, Users, Zap, PlusCircle, ChevronRight } from "lucide-react";
+import { getActiveSeason } from "@/lib/seasons";
 
 // --- Hero Card ---
 
-async function HeroCard({ userId }: { userId: string }) {
+async function HeroCard({ userId, seasonId }: { userId: string; seasonId: string }) {
   const supabase = await createClient();
 
-  const { data: profile } = await supabase
+  const [{ data: profile }, { data: stats }] = await Promise.all([
+    supabase
     .from("profiles")
-    .select("username, avatar_url, elo_rating, matches_played, goals_scored")
+    .select("username, avatar_url")
     .eq("id", userId)
-    .single();
+    .single(),
+    supabase
+      .from("season_player_stats")
+      .select("elo_rating, matches_played, goals_scored")
+      .eq("season_id", seasonId)
+      .eq("user_id", userId)
+      .maybeSingle(),
+  ]);
 
   const { count: rankAbove } = await supabase
-    .from("profiles")
-    .select("id", { count: "exact", head: true })
-    .gt("elo_rating", profile?.elo_rating ?? 1000)
+    .from("season_player_stats")
+    .select("user_id", { count: "exact", head: true })
+    .eq("season_id", seasonId)
+    .gt("elo_rating", stats?.elo_rating ?? 1000)
     .gte("matches_played", 3);
 
   const rank = (rankAbove ?? 0) + 1;
@@ -40,7 +50,7 @@ async function HeroCard({ userId }: { userId: string }) {
           </p>
           <div className="flex items-center gap-1.5 text-accent">
             <Zap size={14} />
-            <span className="text-sm font-semibold">{profile?.elo_rating ?? 1000} RP</span>
+            <span className="text-sm font-semibold">{stats?.elo_rating ?? 1000} RP</span>
           </div>
         </div>
         <span className="shrink-0 rounded-lg border border-accent/20 bg-accent/10 px-2.5 py-1 text-xs font-bold text-accent">
@@ -49,16 +59,16 @@ async function HeroCard({ userId }: { userId: string }) {
       </div>
       <div className="relative z-10 mt-4 grid grid-cols-3 divide-x divide-border border-t border-border pt-4">
         <div className="px-4 text-center first:pl-0 last:pr-0">
-          <p className="text-xl font-bold text-foreground">{profile?.matches_played ?? 0}</p>
+          <p className="text-xl font-bold text-foreground">{stats?.matches_played ?? 0}</p>
           <p className="text-[10px] uppercase tracking-wider text-muted">Partidos</p>
         </div>
         <div className="px-4 text-center">
-          <p className="text-xl font-bold text-foreground">{profile?.goals_scored ?? 0}</p>
+          <p className="text-xl font-bold text-foreground">{stats?.goals_scored ?? 0}</p>
           <p className="text-[10px] uppercase tracking-wider text-muted">Goles</p>
         </div>
         <div className="px-4 text-center first:pl-0 last:pr-0">
           <Link href="/leaderboard" className="block transition-opacity hover:opacity-80">
-            {(profile?.matches_played ?? 0) >= 3 ? (
+            {(stats?.matches_played ?? 0) >= 3 ? (
               <p className="text-xl font-bold text-accent">#{rank}</p>
             ) : (
               <p className="text-sm font-bold text-muted">Prov.</p>
@@ -77,13 +87,14 @@ function HeroCardSkeleton() {
 
 // --- Próximo partido destacado ---
 
-async function NextMatchCard({ userId, isGuest }: { userId: string; isGuest: boolean }) {
+async function NextMatchCard({ userId, isGuest, seasonId }: { userId: string; isGuest: boolean; seasonId: string }) {
   const supabase = await createClient();
 
   const { data: openMatches } = await supabase
     .from("matches")
     .select("*, match_participants(user_id)")
     .eq("status", "open")
+    .eq("season_id", seasonId)
     .gte("date", new Date().toISOString())
     .order("date", { ascending: true })
     .maybeSingle();
@@ -146,13 +157,14 @@ function NextMatchCardSkeleton() {
 
 // --- Lista de partidos abiertos ---
 
-async function MoreOpenMatches({ userId }: { userId: string }) {
+async function MoreOpenMatches({ userId, seasonId }: { userId: string; seasonId: string }) {
   const supabase = await createClient();
 
   const { data: matches } = await supabase
     .from("matches")
     .select("*, match_participants(user_id)")
     .eq("status", "open")
+    .eq("season_id", seasonId)
     .gte("date", new Date().toISOString())
     .order("date", { ascending: true })
     .range(1, 5); // skip the first (shown in NextMatchCard)
@@ -212,19 +224,20 @@ async function DashboardContent() {
   if (!user) redirect("/login");
 
   const isGuest = user.is_anonymous === true;
+  const season = await getActiveSeason();
 
   return (
     <div className="mx-auto max-w-2xl space-y-4 px-4 py-6">
       <Suspense fallback={<HeroCardSkeleton />}>
-        <HeroCard userId={user.id} />
+        <HeroCard userId={user.id} seasonId={season.id} />
       </Suspense>
 
       <Suspense fallback={<NextMatchCardSkeleton />}>
-        <NextMatchCard userId={user.id} isGuest={isGuest} />
+        <NextMatchCard userId={user.id} isGuest={isGuest} seasonId={season.id} />
       </Suspense>
 
       <Suspense fallback={<MoreOpenMatchesSkeleton />}>
-        <MoreOpenMatches userId={user.id} />
+        <MoreOpenMatches userId={user.id} seasonId={season.id} />
       </Suspense>
     </div>
   );

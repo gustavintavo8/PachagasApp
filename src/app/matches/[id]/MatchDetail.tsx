@@ -88,6 +88,7 @@ interface MatchDetailProps {
     currentUserId: string;
     organizerName: string;
     organizerAvatarUrl: string | null;
+    seasonName: string;
     currentUserProfile: {
         username: string | null;
         avatar_url: string | null;
@@ -103,6 +104,7 @@ export function MatchDetail({
     currentUserId,
     organizerName,
     organizerAvatarUrl,
+    seasonName,
     currentUserProfile,
     isAdmin,
     adminUserIds,
@@ -242,6 +244,9 @@ export function MatchDetail({
                                         Admin
                                     </span>
                                 )}
+                                <span className="rounded-full border border-border/50 bg-black/20 px-3 py-1 text-[11px] font-medium text-muted">
+                                    {seasonName}
+                                </span>
                             </div>
                             <div className="flex flex-wrap items-center gap-4 text-lg text-foreground mt-2">
                                 <div className="flex items-center gap-2">
@@ -757,6 +762,7 @@ function PlayerRow({
                             {POSITION_SHORT[profile.position] || profile.position}
                         </span>
                     )}
+                    <span className="text-muted">{profile?.elo_rating ?? 1000} RP</span>
                 </div>
             </div>
             {showPaid && (

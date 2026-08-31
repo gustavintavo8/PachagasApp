@@ -19,6 +19,16 @@ function getLocalAdminClient() {
     );
 }
 
+test("el historial acepta selector de temporada", async ({ page }) => {
+    await page.goto("/history");
+    await expect(page.getByRole("combobox", { name: /temporada/i })).toHaveValue("season-2");
+
+    await page.getByRole("combobox", { name: /temporada/i }).selectOption("season-1");
+
+    await expect(page).toHaveURL(/season=season-1/);
+    await expect(page.getByText(/Temporada 1/i)).toBeVisible();
+});
+
 test("un partido nuevo pertenece a la temporada activa", async ({ page }) => {
     const admin = getLocalAdminClient();
 

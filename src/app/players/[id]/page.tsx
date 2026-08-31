@@ -7,15 +7,13 @@ import { Avatar } from "@/components/ui/Avatar";
 import { PlayerCharts } from "@/components/PlayerCharts";
 import { formatDate, getAvatarUrl } from "@/lib/utils";
 import { getAdminUserIds } from "@/lib/permissions";
+import { getActiveSeason } from "@/lib/seasons";
 import {
     Calendar,
     MapPin,
-    Trophy,
     Target,
     ArrowLeft,
-    User,
     Crown,
-    Medal,
     Swords,
 } from "lucide-react";
 import { POSITION_FULL, POSITION_ICONS, POSITION_COLORS } from "@/lib/positions";
@@ -39,11 +37,20 @@ export async function generateMetadata({
     const { id } = await params;
     const supabase = await createClient();
 
-    const { data: profile } = await supabase
+    const season = await getActiveSeason();
+    const [{ data: profile }, { data: seasonStats }] = await Promise.all([
+        supabase
         .from("profiles")
         .select("username, elo_rating, matches_played, position")
         .eq("id", id)
-        .single();
+        .single(),
+        supabase
+            .from("season_player_stats")
+            .select("elo_rating, matches_played")
+            .eq("season_id", season.id)
+            .eq("user_id", id)
+            .maybeSingle(),
+    ]);
 
     if (!profile) {
         return { title: "Jugador — Pachanga" };
@@ -51,7 +58,7 @@ export async function generateMetadata({
 
     const posLabel = POSITION_LABELS[profile.position ?? ""] ?? "Jugador";
     const title = `${profile.username ?? "Jugador"} — ${posLabel} · Pachanga`;
-    const description = `ELO ${profile.elo_rating ?? 1000} · ${profile.matches_played ?? 0} partidos jugados`;
+    const description = `ELO ${seasonStats?.elo_rating ?? 1000} · ${seasonStats?.matches_played ?? 0} partidos jugados`;
 
     return {
         title,
@@ -88,11 +95,20 @@ export default async function PlayerProfilePage({
 
     if (!profile) notFound();
 
+    const season = await getActiveSeason();
+    const { data: seasonalStats } = await supabase
+        .from("season_player_stats")
+        .select("elo_rating, matches_played, goals_scored, wins, draws, losses, mvps")
+        .eq("season_id", season.id)
+        .eq("user_id", id)
+        .maybeSingle();
+
     // Fetch the player's finished matches
     const { data: participations } = await supabase
         .from("match_participants")
-        .select("match_id, team, goals, is_mvp, matches(id, date, location, status, team_a_score, team_b_score)")
-        .eq("user_id", id);
+        .select("match_id, team, goals, is_mvp, matches!inner(id, season_id, date, location, status, team_a_score, team_b_score)")
+        .eq("user_id", id)
+        .eq("matches.season_id", season.id);
 
     const finishedMatches = participations
         ?.map((p) => {
@@ -115,23 +131,13 @@ export default async function PlayerProfilePage({
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
         ?? [];
 
-    // W/D/L
-    let wins = 0, draws = 0, losses = 0;
-    for (const m of finishedMatches) {
-        if (m.team_a_score === null || m.team_b_score === null || !m.userTeam) continue;
-        const myScore = m.userTeam === "A" ? m.team_a_score : m.team_b_score;
-        const oppScore = m.userTeam === "A" ? m.team_b_score : m.team_a_score;
-        if (myScore > oppScore) wins++;
-        else if (myScore === oppScore) draws++;
-        else losses++;
-    }
-
     // Fetch MVP trophies
     const { data: mvpTrophies } = await supabase
         .from("match_participants")
-        .select("match_id, matches(id, date, location, team_a_score, team_b_score)")
+        .select("match_id, matches!inner(id, season_id, date, location, team_a_score, team_b_score)")
         .eq("user_id", id)
-        .eq("is_mvp", true);
+        .eq("is_mvp", true)
+        .eq("matches.season_id", season.id);
 
     const trophies = (mvpTrophies || [])
         .map((t) => {
@@ -155,18 +161,13 @@ export default async function PlayerProfilePage({
     const positionLabels = POSITION_FULL;
 
     // Head-to-Head (H2H) Logic
-    let h2h = { playedTogether: 0, playedAgainst: 0, viewerWins: 0, profileWins: 0 };
+    const h2h = { playedTogether: 0, playedAgainst: 0, viewerWins: 0, profileWins: 0 };
     if (!isYou) {
-        // Fetch matches where BOTH users participated
-        const { data: commonMatches } = await supabase
-            .rpc("get_common_matches", { user_a: user.id, user_b: id });
-
-        // Since we might not have a clean RPC, let's do it application side for simplicity if RPC fails, 
-        // or just query all finished matches of the viewer and intersect.
         const { data: viewerParticipations } = await supabase
             .from("match_participants")
-            .select("match_id, team")
-            .eq("user_id", user.id);
+            .select("match_id, team, matches!inner(season_id)")
+            .eq("user_id", user.id)
+            .eq("matches.season_id", season.id);
 
         if (viewerParticipations && participations) {
             const viewerMatchMap = new Map(viewerParticipations.map(p => [p.match_id, p.team]));
@@ -199,6 +200,7 @@ export default async function PlayerProfilePage({
         .from("rp_history")
         .select("new_rp, created_at")
         .eq("user_id", id)
+        .eq("season_id", season.id)
         .order("created_at", { ascending: true });
 
     return (
@@ -212,7 +214,7 @@ export default async function PlayerProfilePage({
                             "@type": "Person",
                             name: profile.username ?? "",
                             url: `${BASE_URL}/players/${id}`,
-                            description: `${POSITION_LABELS[profile.position ?? ""] ?? "Jugador"} con ELO ${profile.elo_rating ?? 1000}`,
+                            description: `${POSITION_LABELS[profile.position ?? ""] ?? "Jugador"} con ELO ${seasonalStats?.elo_rating ?? 1000}`,
                         }),
                     }}
                 />
@@ -265,14 +267,17 @@ export default async function PlayerProfilePage({
                                 </span>
                             )}
                             <span className="flex items-center gap-1.5 rounded-full border border-accent/40 bg-accent/10 px-3 py-1 font-bold text-accent shadow-[0_0_10px_rgba(204,255,0,0.1)]">
-                                {profile.elo_rating ?? 1000} RP
+                                {seasonalStats?.elo_rating ?? 1000} RP
+                            </span>
+                            <span className="rounded-full border border-border/50 bg-black/20 px-3 py-1 text-xs font-medium text-muted">
+                                {season.name}
                             </span>
                             {profile.market_value !== null && (
                                 <span className="flex items-center gap-1.5 rounded-full border border-green-500/40 bg-green-500/10 px-3 py-1 text-xs font-semibold text-green-400">
                                     {new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(profile.market_value)}
                                 </span>
                             )}
-                            {(profile.matches_played ?? 0) < 3 && (
+                            {(seasonalStats?.matches_played ?? 0) < 3 && (
                                 <span className="rounded-full border border-yellow-500/30 bg-yellow-500/10 px-3 py-1 text-xs font-medium text-yellow-400">
                                     Provisional
                                 </span>
@@ -322,21 +327,21 @@ export default async function PlayerProfilePage({
             <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
                 <Card className="relative overflow-hidden text-center border-border/80 bg-gradient-to-br from-surface to-surface-hover/30 hover:border-accent/40 transition-colors">
                     <p className="text-sm text-muted">Partidos</p>
-                    <p className="mt-1 text-3xl font-bold text-foreground">{profile.matches_played}</p>
+                    <p className="mt-1 text-3xl font-bold text-foreground">{seasonalStats?.matches_played ?? 0}</p>
                 </Card>
                 <Card className="relative overflow-hidden text-center border-border/80 bg-gradient-to-br from-surface to-surface-hover/30 hover:border-accent/40 transition-colors">
                     <p className="text-sm text-muted">Goles</p>
-                    <p className="mt-1 text-3xl font-bold text-foreground">{profile.goals_scored}</p>
+                    <p className="mt-1 text-3xl font-bold text-foreground">{seasonalStats?.goals_scored ?? 0}</p>
                 </Card>
                 <Card className="relative overflow-hidden text-center border-border/80 bg-gradient-to-br from-surface to-surface-hover/30 hover:border-green-500/40 transition-colors">
                     <div className="absolute top-0 right-1/2 translate-x-1/2 w-4/5 h-px bg-gradient-to-r from-transparent via-green-500/30 to-transparent"></div>
                     <p className="text-sm text-muted">Victorias</p>
-                    <p className="mt-1 text-3xl font-bold text-green-400">{wins}</p>
+                    <p className="mt-1 text-3xl font-bold text-green-400">{seasonalStats?.wins ?? 0}</p>
                 </Card>
                 <Card className="relative overflow-hidden text-center border-border/80 bg-gradient-to-br from-surface to-surface-hover/30 hover:border-red-500/40 transition-colors">
                     <div className="absolute top-0 right-1/2 translate-x-1/2 w-4/5 h-px bg-gradient-to-r from-transparent via-red-500/30 to-transparent"></div>
                     <p className="text-sm text-muted">Derrotas</p>
-                    <p className="mt-1 text-3xl font-bold text-red-500">{losses}</p>
+                    <p className="mt-1 text-3xl font-bold text-red-500">{seasonalStats?.losses ?? 0}</p>
                 </Card>
             </div>
 

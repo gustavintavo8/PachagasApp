@@ -3,6 +3,7 @@ import { requireCommunityAccess } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { MatchesTabs } from "./MatchesTabs";
+import { getActiveSeason } from "@/lib/seasons";
 
 export const metadata: Metadata = {
     title: "Partidos — Pachanga",
@@ -20,10 +21,12 @@ export default async function MatchesPage() {
 
     const access = await requireCommunityAccess(user);
     if (!access.success) redirect("/access");
+    const season = await getActiveSeason();
 
     const { data: matches } = await supabase
         .from("matches")
         .select("*, match_participants(user_id, team, goals, is_mvp)")
+        .eq("season_id", season.id)
         .order("date", { ascending: false })
         .limit(30);
 
