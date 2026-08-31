@@ -9,10 +9,12 @@ import { balanceTeams } from "@/lib/team-balancer";
 import { computeMatchEloUpdates, ELO_BASE } from "@/lib/elo";
 import { rateLimit } from "@/lib/rate-limit";
 import { isAdmin } from "@/lib/permissions";
+import { getStatsForUsers, upsertZeroStats } from "@/lib/season-stats";
+import { getActiveSeason, SeasonNotFoundError } from "@/lib/seasons";
 import { MVP_VOTING_WINDOW_MS } from "@/lib/constantes";
 import { z } from "zod";
 import { sendNotification } from "@/lib/notifications";
-import type { ActionResult, ParticipantProfile } from "@/lib/types";
+import type { ActionResult, ParticipantProfile, SeasonPlayerStats } from "@/lib/types";
 
 async function requireMatchAccess(
     user: { id: string; is_anonymous?: boolean } | null
@@ -22,6 +24,40 @@ async function requireMatchAccess(
     }
 
     return requireCommunityAccess(user);
+}
+
+type ParticipantProfileLike = {
+    elo_rating?: number | null;
+    matches_played?: number | null;
+    position?: string | null;
+} | null;
+
+function getParticipantProfile<T extends ParticipantProfileLike>(
+    profile: T | T[] | null
+): T | null {
+    return Array.isArray(profile) ? (profile[0] as T | undefined) ?? null : profile;
+}
+
+async function syncLegacyProfileStats(
+    adminSupabase: ReturnType<typeof createAdminClient>,
+    seasonId: string,
+    userIds: string[]
+): Promise<void> {
+    const seasonalStats = await getStatsForUsers(seasonId, userIds);
+
+    await Promise.all(
+        seasonalStats.map((stat) =>
+            adminSupabase
+                .from("profiles")
+                .update({
+                    elo_rating: stat.elo_rating,
+                    matches_played: stat.matches_played,
+                    goals_scored: stat.goals_scored,
+                    market_value: Math.max(1_000_000, (stat.elo_rating - 800) * 50_000),
+                })
+                .eq("id", stat.user_id)
+        )
+    );
 }
 
 export async function createMatch(formData: FormData): Promise<ActionResult> {
@@ -53,6 +89,19 @@ export async function createMatch(formData: FormData): Promise<ActionResult> {
     }
 
     const { date: validDate, location: validLocation, max_players } = parsed.data;
+    let seasonId: string;
+
+    try {
+        const season = await getActiveSeason();
+        seasonId = season.id;
+        await upsertZeroStats(seasonId, currentUser.id);
+    } catch (error) {
+        if (error instanceof SeasonNotFoundError) {
+            return { success: false, error: error.message };
+        }
+
+        return { success: false, error: "No se pudo preparar la temporada activa" };
+    }
 
     const { data, error } = await supabase
         .from("matches")
@@ -62,6 +111,7 @@ export async function createMatch(formData: FormData): Promise<ActionResult> {
             max_players,
             status: "open",
             created_by: currentUser.id,
+            season_id: seasonId,
         })
         .select("id")
         .single();
@@ -118,7 +168,7 @@ export async function joinMatch(matchId: string): Promise<ActionResult> {
 
     const { data: match } = await supabase
         .from("matches")
-        .select("max_players, status")
+        .select("max_players, status, season_id")
         .eq("id", matchId)
         .single();
 
@@ -126,6 +176,8 @@ export async function joinMatch(matchId: string): Promise<ActionResult> {
     if (match.status !== "open") return { success: false, error: "El partido no está abierto" };
     if (count !== null && count >= match.max_players)
         return { success: false, error: "El partido está completo" };
+
+    await upsertZeroStats(match.season_id, currentUser.id);
 
     const { error } = await supabase
         .from("match_participants")
@@ -238,6 +290,7 @@ export async function closeMatch(matchId: string): Promise<ActionResult> {
 async function applyEloUpdates(
     adminSupabase: ReturnType<typeof createAdminClient>,
     matchId: string,
+    seasonId: string,
     teamAScore: number,
     teamBScore: number,
     participants: Array<{
@@ -245,17 +298,19 @@ async function applyEloUpdates(
         team: "A" | "B" | null;
         goals: number | null;
         is_mvp: boolean | null;
-        profiles: ParticipantProfile | ParticipantProfile[] | null;
-    }>
+        profiles: ParticipantProfileLike | ParticipantProfileLike[];
+    }>,
+    seasonalStatsByUser: Map<string, SeasonPlayerStats>
 ): Promise<void> {
     const eloInputs = participants
         .filter((p) => p.team === "A" || p.team === "B")
         .map((p) => {
-            const profile = Array.isArray(p.profiles) ? p.profiles[0] as ParticipantProfile : p.profiles as ParticipantProfile | null;
+            const profile = getParticipantProfile(p.profiles);
+            const seasonStats = seasonalStatsByUser.get(p.user_id);
             return {
                 userId: p.user_id,
-                currentRating: profile?.elo_rating ?? ELO_BASE,
-                matchesPlayed: profile?.matches_played ?? 0,
+                currentRating: seasonStats?.elo_rating ?? ELO_BASE,
+                matchesPlayed: seasonStats?.matches_played ?? 0,
                 team: p.team as "A" | "B",
                 position: (profile?.position ?? "MID") as "GK" | "DEF" | "MID" | "FWD",
                 goalsScored: p.goals ?? 0,
@@ -273,12 +328,12 @@ async function applyEloUpdates(
     await Promise.all(
         eloUpdates.map(async (update) => {
             const { error: updateError } = await adminSupabase
-                .from("profiles")
+                .from("season_player_stats")
                 .update({
                     elo_rating: update.newRating,
-                    market_value: Math.max(1_000_000, (update.newRating - 800) * 50_000),
                 })
-                .eq("id", update.userId);
+                .eq("season_id", seasonId)
+                .eq("user_id", update.userId);
 
             if (!updateError) {
                 await adminSupabase
@@ -286,6 +341,7 @@ async function applyEloUpdates(
                     .insert({
                         user_id: update.userId,
                         match_id: matchId,
+                        season_id: seasonId,
                         rp_change: update.delta,
                         new_rp: update.newRating,
                         created_at: new Date().toISOString(),
@@ -304,7 +360,7 @@ async function applyFantasyPoints(
         user_id: string;
         team: "A" | "B" | null;
         goals: number | null;
-        profiles: ParticipantProfile | ParticipantProfile[] | null;
+        profiles: ParticipantProfileLike | ParticipantProfileLike[];
     }>
 ): Promise<void> {
     // ── FANTASY: Puntuación del partido ──────────────────────────────────
@@ -441,7 +497,7 @@ export async function setScore(
 
     const { data: match } = await supabase
         .from("matches")
-        .select("status, created_by")
+        .select("status, created_by, season_id")
         .eq("id", validData.matchId)
         .single();
 
@@ -456,6 +512,13 @@ export async function setScore(
 
     // Use admin client for all participant-level updates (bypasses RLS)
     const adminSupabase = createAdminClient();
+    const { data: participantRows } = await adminSupabase
+        .from("match_participants")
+        .select("user_id")
+        .eq("match_id", validData.matchId);
+    const participantIds = participantRows?.map((participant) => participant.user_id) ?? [];
+
+    await getStatsForUsers(match.season_id, participantIds);
 
     // Update individual goal scorers FIRST so the trigger reads the correct score
     if (validData.goalScorers && validData.goalScorers.length > 0) {
@@ -489,16 +552,32 @@ export async function setScore(
     if (!isAlreadyFinished) {
         const { data: eloParticipants } = await adminSupabase
             .from("match_participants")
-            .select("user_id, team, goals, is_mvp, profiles(elo_rating, matches_played, position)")
+            .select("user_id, team, goals, is_mvp, profiles(position)")
             .eq("match_id", validData.matchId);
 
         if (eloParticipants && eloParticipants.length > 0) {
+            const seasonalStats = await getStatsForUsers(
+                match.season_id,
+                eloParticipants.map((participant) => participant.user_id)
+            );
+            const seasonalStatsByUser = new Map(
+                seasonalStats.map((stat) => [stat.user_id, stat] as const)
+            );
+
             await applyEloUpdates(
                 adminSupabase,
                 validData.matchId,
+                match.season_id,
                 validData.teamAScore,
                 validData.teamBScore,
-                eloParticipants as Parameters<typeof applyEloUpdates>[4]
+                eloParticipants as Parameters<typeof applyEloUpdates>[5],
+                seasonalStatsByUser
+            );
+
+            await syncLegacyProfileStats(
+                adminSupabase,
+                match.season_id,
+                eloParticipants.map((participant) => participant.user_id)
             );
 
             await applyFantasyPoints(
@@ -558,18 +637,20 @@ export async function generateTeams(matchId: string): Promise<ActionResult> {
     // Verify organizer or admin
     const { data: match } = await supabase
         .from("matches")
-        .select("created_by")
+        .select("created_by, season_id")
         .eq("id", matchId)
         .single();
 
+    if (!match) return { success: false, error: "Partido no encontrado" };
+
     const admin = await isAdmin(currentUser.id);
-    if (match?.created_by !== currentUser.id && !admin)
+    if (match.created_by !== currentUser.id && !admin)
         return { success: false, error: "Solo el organizador puede generar equipos" };
 
     // Fetch participants with positions AND elo_rating
     const { data: participants } = await supabase
         .from("match_participants")
-        .select("user_id, profiles(position, elo_rating)")
+        .select("user_id, profiles(position)")
         .eq("match_id", matchId);
 
     if (!participants || participants.length < 2)
@@ -580,18 +661,29 @@ export async function generateTeams(matchId: string): Promise<ActionResult> {
 
     // Update players without a position to MID in the database
     const adminClient = createAdminClient();
+    const seasonalStats = await getStatsForUsers(
+        match.season_id,
+        participants.map((participant) => participant.user_id)
+    );
+    const seasonalStatsByUser = new Map(
+        seasonalStats.map((stat) => [stat.user_id, stat] as const)
+    );
     const playersWithPosition = participants.map((p) => {
-        const prof = Array.isArray(p.profiles) ? p.profiles[0] as ParticipantProfile : p.profiles as ParticipantProfile | null;
+        const prof = getParticipantProfile(p.profiles);
         const rawPos = prof?.position;
         const position: ValidPosition = rawPos && validPositions.includes(rawPos as ValidPosition)
             ? (rawPos as ValidPosition)
             : "MID";
-        return { user_id: p.user_id, position, elo_rating: prof?.elo_rating ?? ELO_BASE };
+        return {
+            user_id: p.user_id,
+            position,
+            elo_rating: seasonalStatsByUser.get(p.user_id)?.elo_rating ?? ELO_BASE,
+        };
     });
 
     // Persist MID default for players who had null position
     const noPositionIds = participants
-        .filter((p) => !(Array.isArray(p.profiles) ? p.profiles[0] as ParticipantProfile : p.profiles as ParticipantProfile | null)?.position)
+        .filter((p) => !getParticipantProfile(p.profiles)?.position)
         .map((p) => p.user_id);
 
     if (noPositionIds.length > 0) {
@@ -847,6 +939,13 @@ export async function kickPlayer(
 
 async function resolveMvp(matchId: string) {
     const adminClient = createAdminClient();
+    const { data: match } = await adminClient
+        .from("matches")
+        .select("season_id, location")
+        .eq("id", matchId)
+        .single();
+
+    if (!match) return;
 
     // Count votes per candidate
     const { data: votes } = await adminClient
@@ -879,31 +978,54 @@ async function resolveMvp(matchId: string) {
     // On tie → no MVP
     if (isTie || !winnerId) return;
 
-    // Reset any existing MVP flags for this match
-    await adminClient
+    const { data: currentMvp } = await adminClient
         .from("match_participants")
-        .update({ is_mvp: false })
-        .eq("match_id", matchId);
-
-    // Set the winner as MVP
-    await adminClient
-        .from("match_participants")
-        .update({ is_mvp: true })
+        .select("user_id")
         .eq("match_id", matchId)
-        .eq("user_id", winnerId);
+        .eq("is_mvp", true)
+        .maybeSingle();
+
+    const previousWinnerId = currentMvp?.user_id ?? null;
+    const isAlreadyResolvedToWinner = previousWinnerId === winnerId;
+
+    if (!isAlreadyResolvedToWinner) {
+        // Reset any existing MVP flags for this match
+        await adminClient
+            .from("match_participants")
+            .update({ is_mvp: false })
+            .eq("match_id", matchId);
+
+        // Set the winner as MVP
+        await adminClient
+            .from("match_participants")
+            .update({ is_mvp: true })
+            .eq("match_id", matchId)
+            .eq("user_id", winnerId);
+    }
+
+    await upsertZeroStats(match.season_id, winnerId);
+
+    const rebuildTargets = previousWinnerId && previousWinnerId !== winnerId
+        ? [previousWinnerId, winnerId]
+        : [winnerId];
+    for (const userId of rebuildTargets) {
+        await upsertZeroStats(match.season_id, userId);
+        await adminClient.rpc("rebuild_season_player_stats", {
+            p_season_id: match.season_id,
+            p_user_id: userId,
+        });
+    }
+
+    if (isAlreadyResolvedToWinner) {
+        return;
+    }
 
     // Notify the winner
-    const { data: matchInfo } = await adminClient
-        .from("matches")
-        .select("location")
-        .eq("id", matchId)
-        .single();
-
     await sendNotification(
         [winnerId],
         "mvp",
         "¡Eres el MVP!",
-        `Has sido elegido MVP del partido en ${matchInfo?.location || "tu partido"}`,
+        `Has sido elegido MVP del partido en ${match.location || "tu partido"}`,
         matchId
     );
 

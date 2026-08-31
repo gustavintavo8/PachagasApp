@@ -1,233 +1,218 @@
 /**
- * Script de retroactivo — Recalcular ELO desde el historial completo
- * Incluye bonus de portero (clean sheet, defensa sólida, goleada en contra)
+ * Script de retroactivo — Recalcular ELO de una temporada concreta
  *
  * Uso (PowerShell):
- *   npx tsx --env-file=.env.local src/scripts/recalculate-elo.ts
+ *   npx tsx --env-file=.env.local src/scripts/recalculate-elo.ts --season season-2
+ *   npx tsx --env-file=.env.local src/scripts/recalculate-elo.ts --season <uuid>
  */
 
 import { createClient } from "@supabase/supabase-js";
+import { ELO_BASE, computeMatchEloUpdates } from "../lib/elo";
 
-// ── ELO lógica inline (evita issues de resolución de módulos) ──
-const ELO_BASE = 1000;
-const K_FACTOR = 30;
-const K_FACTOR_NEW = 60;
-const NEW_PLAYER_THRESHOLD = 5;
-const BLOWOUT_THRESHOLD = 4;
-const MAX_CHANGE_PER_MATCH = 50;
-const MIN_RATING = 100;
+type Season = {
+    id: string;
+    slug: string;
+    name: string;
+    status: "active" | "archived";
+};
 
-// GK bonuses
-const GK_CLEAN_SHEET_BONUS = 8;
-const GK_SOLID_DEFENSE_BONUS = 4;
-const GK_HEAVY_CONCEDE_PENALTY = -3;
-
-function calcExpected(ownAvg: number, oppAvg: number): number {
-    return 1 / (1 + Math.pow(10, (oppAvg - ownAvg) / 400));
-}
-
-function matchResult(myScore: number, oppScore: number): number {
-    if (myScore > oppScore) return 1;
-    if (myScore === oppScore) return 0.5;
-    return 0;
-}
-
-interface EloInput {
-    userId: string;
-    currentRating: number;
-    matchesPlayed: number;
+type Participant = {
+    user_id: string;
     team: "A" | "B";
-    position: "GK" | "DEF" | "MID" | "FWD";
-    goalsScored: number;
-    isMvp: boolean;
-}
+    goals: number | null;
+    is_mvp: boolean | null;
+};
 
-interface EloOutput {
-    userId: string;
-    oldRating: number;
-    newRating: number;
-    delta: number;
-}
-
-function computeMatchEloUpdates(
-    participants: EloInput[],
-    teamAScore: number,
-    teamBScore: number
-): EloOutput[] {
-    const teamA = participants.filter((p) => p.team === "A");
-    const teamB = participants.filter((p) => p.team === "B");
-
-    const avgRatingA =
-        teamA.length > 0
-            ? teamA.reduce((s, p) => s + p.currentRating, 0) / teamA.length
-            : ELO_BASE;
-
-    const avgRatingB =
-        teamB.length > 0
-            ? teamB.reduce((s, p) => s + p.currentRating, 0) / teamB.length
-            : ELO_BASE;
-
-    const goalDiff = Math.abs(teamAScore - teamBScore);
-    const isBlowout = goalDiff >= BLOWOUT_THRESHOLD;
-
-    const results: EloOutput[] = [];
-
-    for (const p of participants) {
-        const isTeamA = p.team === "A";
-        const myTeamScore = isTeamA ? teamAScore : teamBScore;
-        const oppTeamScore = isTeamA ? teamBScore : teamAScore;
-
-        const ownAvg = isTeamA ? avgRatingA : avgRatingB;
-        const oppAvg = isTeamA ? avgRatingB : avgRatingA;
-
-        const K = p.matchesPlayed < NEW_PLAYER_THRESHOLD ? K_FACTOR_NEW : K_FACTOR;
-
-        const expected = calcExpected(ownAvg, oppAvg);
-        const actual = matchResult(myTeamScore, oppTeamScore);
-        let delta = Math.round(K * (actual - expected));
-
-        // Bonus goles
-        delta += p.goalsScored * 3;
-
-        // Bonus MVP
-        if (p.isMvp) delta += 10;
-
-        // Bonus portero
-        if (p.position === "GK") {
-            if (oppTeamScore === 0) {
-                delta += GK_CLEAN_SHEET_BONUS;
-            } else if (oppTeamScore === 1) {
-                delta += GK_SOLID_DEFENSE_BONUS;
-            }
-            if (oppTeamScore >= 5) {
-                delta += GK_HEAVY_CONCEDE_PENALTY;
-            }
-        }
-
-        // Bonus/Penalización por goleada
-        if (isBlowout) {
-            if (myTeamScore > oppTeamScore) delta += 5;
-            else if (myTeamScore < oppTeamScore) delta -= 5;
-        }
-
-        delta = Math.max(-MAX_CHANGE_PER_MATCH, Math.min(MAX_CHANGE_PER_MATCH, delta));
-        const newRating = Math.max(MIN_RATING, p.currentRating + delta);
-
-        results.push({
-            userId: p.userId,
-            oldRating: p.currentRating,
-            newRating,
-            delta: newRating - p.currentRating,
-        });
-    }
-
-    return results;
-}
-
-// ── Main ──
+type Match = {
+    id: string;
+    date: string;
+    team_a_score: number;
+    team_b_score: number;
+};
 
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
 
 if (!supabaseUrl || !serviceKey) {
-    console.error("❌ Faltan variables de entorno NEXT_PUBLIC_SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY");
+    console.error(
+        "❌ Faltan variables de entorno NEXT_PUBLIC_SUPABASE_URL y SUPABASE_SERVICE_ROLE_KEY"
+    );
     process.exit(1);
 }
 
-const supabase = createClient(supabaseUrl, serviceKey);
+const supabase = createClient(supabaseUrl, serviceKey, {
+    auth: { autoRefreshToken: false, persistSession: false },
+});
+
+function parseSeasonSelector(argv: string[]): string {
+    const seasonFlagIndex = argv.findIndex((arg) => arg === "--season");
+    if (seasonFlagIndex >= 0) {
+        const value = argv[seasonFlagIndex + 1];
+        if (value) return value;
+    }
+
+    const inlineSeasonFlag = argv.find((arg) => arg.startsWith("--season="));
+    if (inlineSeasonFlag) {
+        return inlineSeasonFlag.slice("--season=".length);
+    }
+
+    console.error("❌ Debes indicar una temporada explícita con --season <slug|uuid>");
+    process.exit(1);
+}
+
+async function getSeason(selector: string): Promise<Season> {
+    const bySlug = await supabase
+        .from("seasons")
+        .select("id, slug, name, status")
+        .eq("slug", selector)
+        .maybeSingle<Season>();
+
+    if (bySlug.data) {
+        return bySlug.data;
+    }
+
+    const byId = await supabase
+        .from("seasons")
+        .select("id, slug, name, status")
+        .eq("id", selector)
+        .maybeSingle<Season>();
+
+    if (byId.data) {
+        return byId.data;
+    }
+
+    const message = bySlug.error?.message ?? byId.error?.message ?? "Temporada no encontrada";
+    throw new Error(message);
+}
+
+async function ensureSeasonRows(seasonId: string, userIds: string[]) {
+    const uniqueUserIds = Array.from(new Set(userIds));
+    if (uniqueUserIds.length === 0) return;
+
+    const { error } = await supabase.from("season_player_stats").upsert(
+        uniqueUserIds.map((userId) => ({
+            season_id: seasonId,
+            user_id: userId,
+        })),
+        {
+            onConflict: "season_id,user_id",
+        }
+    );
+
+    if (error) {
+        throw new Error(`No se pudieron preparar las filas de temporada: ${error.message}`);
+    }
+}
 
 async function main() {
-    console.log("🔄 Iniciando recálculo retroactivo de ELO (con bonus GK)...\n");
+    const seasonSelector = parseSeasonSelector(process.argv.slice(2));
+    const season = await getSeason(seasonSelector);
 
-    // 0. Cargar posiciones de todos los jugadores
-    const { data: allProfiles } = await supabase
+    console.log(`🔄 Recalculando ELO para ${season.name} (${season.slug})...\n`);
+
+    const { data: allProfiles, error: profileError } = await supabase
         .from("profiles")
-        .select("id, position");
-    const positionMap: Record<string, string> = {};
-    for (const p of allProfiles ?? []) {
-        positionMap[p.id] = p.position ?? "MID";
+        .select("id, username, position");
+
+    if (profileError) {
+        throw new Error(`No se pudieron leer los perfiles: ${profileError.message}`);
     }
 
-    // 1. Resetear todos los ratings a 1000
-    const { error: resetError } = await supabase
-        .from("profiles")
-        .update({ elo_rating: ELO_BASE })
-        .gte("elo_rating", 0);
-
-    if (resetError) {
-        console.error("❌ Error reseteando ratings:", resetError.message);
-        process.exit(1);
+    const positionMap: Record<string, "GK" | "DEF" | "MID" | "FWD"> = {};
+    const usernameMap: Record<string, string> = {};
+    for (const profile of allProfiles ?? []) {
+        positionMap[profile.id] = (profile.position ?? "MID") as "GK" | "DEF" | "MID" | "FWD";
+        usernameMap[profile.id] = profile.username ?? "???";
     }
-    console.log("✅ Todos los jugadores reseteados a", ELO_BASE, "RP");
 
-    // 2. Obtener partidos finalizados en orden cronológico
     const { data: matches, error: matchError } = await supabase
         .from("matches")
         .select("id, date, team_a_score, team_b_score")
+        .eq("season_id", season.id)
         .eq("status", "finished")
         .not("team_a_score", "is", null)
         .not("team_b_score", "is", null)
         .order("date", { ascending: true });
 
     if (matchError) {
-        console.error("❌ Error obteniendo partidos:", matchError.message);
-        process.exit(1);
+        throw new Error(`No se pudieron leer los partidos: ${matchError.message}`);
     }
 
-    console.log(`📅 Procesando ${matches?.length ?? 0} partidos...\n`);
+    console.log(`📅 Procesando ${matches?.length ?? 0} partidos finalizados...\n`);
+
+    const { data: allParticipants, error: participantError } = await supabase
+        .from("match_participants")
+        .select("match_id, user_id")
+        .in(
+            "match_id",
+            (matches ?? []).map((match) => match.id)
+        );
+
+    if (participantError) {
+        throw new Error(`No se pudieron leer los participantes: ${participantError.message}`);
+    }
+
+    await ensureSeasonRows(
+        season.id,
+        (allParticipants ?? []).map((participant) => participant.user_id)
+    );
+
+    const { error: resetError } = await supabase
+        .from("season_player_stats")
+        .update({ elo_rating: ELO_BASE })
+        .eq("season_id", season.id);
+
+    if (resetError) {
+        throw new Error(`No se pudieron resetear los ratings de temporada: ${resetError.message}`);
+    }
 
     const ratingMap: Record<string, number> = {};
     const matchesPlayedMap: Record<string, number> = {};
-    const historyInserts: any[] = [];
+    const historyInserts: Array<{
+        user_id: string;
+        match_id: string;
+        season_id: string;
+        rp_change: number;
+        new_rp: number;
+        created_at: string;
+    }> = [];
 
-    for (const match of matches ?? []) {
-        const { data: participants, error: pError } = await supabase
+    for (const match of (matches ?? []) as Match[]) {
+        const { data: participants, error } = await supabase
             .from("match_participants")
             .select("user_id, team, goals, is_mvp")
             .eq("match_id", match.id)
             .in("team", ["A", "B"]);
 
-        if (pError || !participants || participants.length === 0) continue;
-
-        const eloInputs = participants.map((p) => ({
-            userId: p.user_id,
-            currentRating: ratingMap[p.user_id] ?? ELO_BASE,
-            matchesPlayed: matchesPlayedMap[p.user_id] ?? 0,
-            team: p.team as "A" | "B",
-            position: (positionMap[p.user_id] ?? "MID") as "GK" | "DEF" | "MID" | "FWD",
-            goalsScored: p.goals ?? 0,
-            isMvp: p.is_mvp ?? false,
-        }));
+        if (error) {
+            throw new Error(`No se pudieron leer los participantes de ${match.id}: ${error.message}`);
+        }
+        if (!participants || participants.length === 0) continue;
 
         const updates = computeMatchEloUpdates(
-            eloInputs,
-            match.team_a_score!,
-            match.team_b_score!
+            (participants as Participant[]).map((participant) => ({
+                userId: participant.user_id,
+                currentRating: ratingMap[participant.user_id] ?? ELO_BASE,
+                matchesPlayed: matchesPlayedMap[participant.user_id] ?? 0,
+                team: participant.team,
+                position: positionMap[participant.user_id] ?? "MID",
+                goalsScored: participant.goals ?? 0,
+                isMvp: participant.is_mvp ?? false,
+            })),
+            match.team_a_score,
+            match.team_b_score
         );
 
-        // Log GK bonuses
-        for (const u of updates) {
-            const input = eloInputs.find((i) => i.userId === u.userId);
-            if (input?.position === "GK") {
-                const oppScore = input.team === "A" ? match.team_b_score! : match.team_a_score!;
-                let gkBonus = "";
-                if (oppScore === 0) gkBonus = " 🧤 Clean Sheet +8";
-                else if (oppScore === 1) gkBonus = " 🛡️ Sólida +4";
-                if (oppScore >= 5) gkBonus += " 💀 Goleada -3";
-                if (gkBonus) console.log(`    GK bonus: ${u.delta > 0 ? "+" : ""}${u.delta}${gkBonus}`);
-            }
-        }
-
-        for (const u of updates) {
-            ratingMap[u.userId] = u.newRating;
-            matchesPlayedMap[u.userId] = (matchesPlayedMap[u.userId] ?? 0) + 1;
-            
+        for (const update of updates) {
+            ratingMap[update.userId] = update.newRating;
+            matchesPlayedMap[update.userId] = (matchesPlayedMap[update.userId] ?? 0) + 1;
             historyInserts.push({
-                user_id: u.userId,
+                user_id: update.userId,
                 match_id: match.id,
-                rp_change: u.delta,
-                new_rp: u.newRating,
-                created_at: match.date
+                season_id: season.id,
+                rp_change: update.delta,
+                new_rp: update.newRating,
+                created_at: match.date,
             });
         }
 
@@ -236,63 +221,78 @@ async function main() {
         );
     }
 
-    // 3. Reescalar la dispersión ×2.5 (amplificar diferencias manteniendo rankings)
-    const SCALE_FACTOR = 2.5;
-    console.log(`\n📐 Reescalando dispersión ×${SCALE_FACTOR} desde base 1000...`);
-    for (const userId of Object.keys(ratingMap)) {
-        const raw = ratingMap[userId];
-        const amplified = Math.round(ELO_BASE + (raw - ELO_BASE) * SCALE_FACTOR);
-        ratingMap[userId] = Math.max(100, amplified);
+    console.log(`\n💾 Limpiando rp_history solo para ${season.slug}...`);
+    const { error: deleteError } = await supabase
+        .from("rp_history")
+        .delete()
+        .eq("season_id", season.id);
+    if (deleteError) {
+        throw new Error(`No se pudo limpiar rp_history de la temporada: ${deleteError.message}`);
     }
-
-    // Aplicar el mismo reescalado al historial
-    for (const entry of historyInserts) {
-        entry.new_rp = Math.max(100, Math.round(ELO_BASE + (entry.new_rp - ELO_BASE) * SCALE_FACTOR));
-    }
-
-    // 4. Guardar ratings finales y rellenar historial temporal
-    console.log("\n💾 Limpiando historial previo (rp_history)...");
-    const { error: delError } = await supabase.from("rp_history").delete().neq('id', '00000000-0000-0000-0000-000000000000'); // Delete all
-    if (delError) console.error("Error limpiando rp_history:", delError.message);
 
     console.log("💾 Guardando ratings finales e historial...");
-    let saved = 0;
     for (const [userId, rating] of Object.entries(ratingMap)) {
         const { error } = await supabase
-            .from("profiles")
+            .from("season_player_stats")
             .update({ elo_rating: rating })
-            .eq("id", userId);
+            .eq("season_id", season.id)
+            .eq("user_id", userId);
+
         if (error) {
-            console.error(`  ❌ Error guardando ${userId}:`, error.message);
-        } else {
-            saved++;
+            throw new Error(`No se pudo guardar el rating de ${userId}: ${error.message}`);
         }
     }
 
-    // Insertar en rp_history por chunks (Supabase bulk insert limits)
     for (let i = 0; i < historyInserts.length; i += 500) {
         const chunk = historyInserts.slice(i, i + 500);
         const { error } = await supabase.from("rp_history").insert(chunk);
-        if (error) console.error("  ❌ Error guardando historial:", error.message);
+        if (error) {
+            throw new Error(`No se pudo guardar el historial RP: ${error.message}`);
+        }
     }
 
-    console.log(`\n✅ Listo. ${saved} jugadores actualizados con ${historyInserts.length} eventos históricos.`);
+    if (season.status === "active") {
+        for (const [userId, rating] of Object.entries(ratingMap)) {
+            const { error } = await supabase
+                .from("profiles")
+                .update({
+                    elo_rating: rating,
+                    market_value: Math.max(1_000_000, (rating - 800) * 50_000),
+                })
+                .eq("id", userId);
 
-    // Mostrar resultados con posición
-    const { data: finalProfiles } = await supabase
-        .from("profiles")
-        .select("username, elo_rating, position, matches_played")
-        .order("elo_rating", { ascending: false });
+            if (error) {
+                throw new Error(`No se pudo sincronizar el perfil ${userId}: ${error.message}`);
+            }
+        }
+    }
 
-    if (finalProfiles && finalProfiles.length > 0) {
-        const posEmoji: Record<string, string> = { GK: "🧤", DEF: "🛡️", MID: "🎯", FWD: "⚡" };
-        console.log("\n📊 Rankings finales:");
-        for (const p of finalProfiles) {
-            const prov = (p.matches_played ?? 0) < 3 ? " ⏳ Provisional" : "";
-            const pos = posEmoji[p.position ?? "MID"] || "🎯";
-            console.log(`  ${pos} ${(p.username || "???").padEnd(25)} ${String(p.elo_rating).padStart(4)} RP  (${p.matches_played ?? 0} partidos)${prov}`);
+    console.log(
+        `\n✅ Listo. ${Object.keys(ratingMap).length} jugadores recalculados y ${historyInserts.length} eventos RP reescritos en ${season.slug}.`
+    );
+
+    const finalStats = await supabase
+        .from("season_player_stats")
+        .select("user_id, elo_rating, matches_played")
+        .eq("season_id", season.id)
+        .order("elo_rating", { ascending: false })
+        .limit(10);
+
+    if (finalStats.error) {
+        throw new Error(`No se pudo leer el ranking final: ${finalStats.error.message}`);
+    }
+
+    if (finalStats.data && finalStats.data.length > 0) {
+        console.log("\n📊 Top 10 final:");
+        for (const stat of finalStats.data) {
+            console.log(
+                `  ${(usernameMap[stat.user_id] ?? "???").padEnd(25)} ${String(stat.elo_rating).padStart(4)} RP  (${stat.matches_played} partidos)`
+            );
         }
     }
 }
 
-main().catch(console.error);
+main().catch((error) => {
+    console.error(error instanceof Error ? error.message : error);
+    process.exit(1);
+});

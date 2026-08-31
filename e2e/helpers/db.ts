@@ -29,6 +29,14 @@ export async function createTestMatch(params: {
 }): Promise<string> {
     const db = getLocalAdminClient();
     const date = new Date(Date.now() + 24 * 60 * 60 * 1000).toISOString();
+    const { data: season, error: seasonError } = await db
+        .from("seasons")
+        .select("id")
+        .eq("status", "active")
+        .single();
+    if (seasonError || !season) {
+        throw new Error(`createTestMatch season: ${seasonError?.message ?? "Temporada activa no encontrada"}`);
+    }
     const { data, error } = await db
         .from("matches")
         .insert({
@@ -37,6 +45,7 @@ export async function createTestMatch(params: {
             max_players: params.maxPlayers ?? 10,
             status: "open",
             created_by: params.createdBy,
+            season_id: season.id,
         })
         .select("id")
         .single();
