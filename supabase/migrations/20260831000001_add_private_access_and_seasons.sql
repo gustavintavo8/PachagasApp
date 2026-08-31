@@ -210,9 +210,15 @@ create policy "authenticated users can read seasonal stats"
   to authenticated
   using (true);
 
-grant all on table public.community_access_grants to anon, authenticated, service_role;
-grant all on table public.seasons to anon, authenticated, service_role;
-grant all on table public.season_player_stats to anon, authenticated, service_role;
+revoke all on table public.community_access_grants from public, anon, authenticated;
+revoke all on table public.seasons from public, anon, authenticated;
+revoke all on table public.season_player_stats from public, anon, authenticated;
+grant select on table public.community_access_grants to authenticated;
+grant select on table public.seasons to authenticated;
+grant select on table public.season_player_stats to authenticated;
+grant all on table public.community_access_grants to service_role;
+grant all on table public.seasons to service_role;
+grant all on table public.season_player_stats to service_role;
 
 create or replace function public.rebuild_season_player_stats(
   p_season_id uuid,
@@ -299,3 +305,130 @@ $$;
 
 revoke all on function public.rebuild_season_player_stats(uuid, uuid) from public, anon, authenticated;
 grant execute on function public.rebuild_season_player_stats(uuid, uuid) to service_role;
+
+create or replace function public.verify_season_migration_contract()
+returns jsonb
+language sql
+security definer
+set search_path = pg_catalog, public
+as $$
+with expected_indexes(name) as (
+  values
+    ('seasons_one_active_idx'),
+    ('idx_matches_season_date'),
+    ('idx_rp_history_season_user_created'),
+    ('idx_season_player_stats_season_elo')
+),
+index_checks as (
+  select coalesce(bool_and(indexname is not null), false) as indexes_present
+  from expected_indexes e
+  left join pg_indexes i on i.schemaname = 'public' and i.indexname = e.name
+),
+rls_checks as (
+  select coalesce(bool_and(c.relrowsecurity), false) as rls_enabled
+  from pg_class c
+  join pg_namespace n on n.oid = c.relnamespace
+  where n.nspname = 'public'
+    and c.relname in ('community_access_grants', 'seasons', 'season_player_stats')
+),
+policy_checks as (
+  select
+    exists (
+      select 1 from pg_policies
+      where schemaname = 'public'
+        and tablename = 'community_access_grants'
+        and policyname = 'access grants select own'
+        and cmd = 'SELECT'
+    ) as grants_policy,
+    exists (
+      select 1 from pg_policies
+      where schemaname = 'public'
+        and tablename = 'seasons'
+        and policyname = 'authenticated users can read seasons'
+        and cmd = 'SELECT'
+    ) as seasons_policy,
+    exists (
+      select 1 from pg_policies
+      where schemaname = 'public'
+        and tablename = 'season_player_stats'
+        and policyname = 'authenticated users can read seasonal stats'
+        and cmd = 'SELECT'
+    ) as stats_policy
+), function_checks as (
+  select
+    to_regprocedure('public.rebuild_season_player_stats(uuid,uuid)') is not null as repair_function_present,
+    has_function_privilege('service_role', 'public.rebuild_season_player_stats(uuid,uuid)', 'EXECUTE') as service_role_can_repair,
+    has_function_privilege('authenticated', 'public.rebuild_season_player_stats(uuid,uuid)', 'EXECUTE') as authenticated_can_repair,
+    has_function_privilege('anon', 'public.rebuild_season_player_stats(uuid,uuid)', 'EXECUTE') as anon_can_repair
+), table_privilege_checks as (
+  select
+    has_table_privilege('authenticated', 'public.community_access_grants', 'SELECT') as authenticated_can_read_grants,
+    has_table_privilege('authenticated', 'public.seasons', 'SELECT') as authenticated_can_read_seasons,
+    has_table_privilege('authenticated', 'public.season_player_stats', 'SELECT') as authenticated_can_read_stats,
+    has_table_privilege('anon', 'public.community_access_grants', 'SELECT') as anon_can_read_grants,
+    has_table_privilege('anon', 'public.seasons', 'SELECT') as anon_can_read_seasons,
+    has_table_privilege('anon', 'public.season_player_stats', 'SELECT') as anon_can_read_stats,
+    has_table_privilege('authenticated', 'public.community_access_grants', 'INSERT,UPDATE,DELETE') as authenticated_can_write_grants,
+    has_table_privilege('authenticated', 'public.seasons', 'INSERT,UPDATE,DELETE') as authenticated_can_write_seasons,
+    has_table_privilege('authenticated', 'public.season_player_stats', 'INSERT,UPDATE,DELETE') as authenticated_can_write_stats,
+    has_table_privilege('anon', 'public.community_access_grants', 'INSERT,UPDATE,DELETE') as anon_can_write_grants,
+    has_table_privilege('anon', 'public.seasons', 'INSERT,UPDATE,DELETE') as anon_can_write_seasons,
+    has_table_privilege('anon', 'public.season_player_stats', 'INSERT,UPDATE,DELETE') as anon_can_write_stats,
+    has_table_privilege('service_role', 'public.community_access_grants', 'INSERT,UPDATE,DELETE') as service_role_can_write_grants,
+    has_table_privilege('service_role', 'public.seasons', 'INSERT,UPDATE,DELETE') as service_role_can_write_seasons,
+    has_table_privilege('service_role', 'public.season_player_stats', 'INSERT,UPDATE,DELETE') as service_role_can_write_stats
+), checks as (
+  select * from index_checks cross join rls_checks cross join policy_checks
+    cross join function_checks cross join table_privilege_checks
+)
+select jsonb_build_object(
+  'indexes_present', indexes_present,
+  'rls_enabled', rls_enabled,
+  'policies_present', grants_policy and seasons_policy and stats_policy,
+  'repair_function_present', repair_function_present,
+  'service_role_can_repair', service_role_can_repair,
+  'authenticated_can_repair', authenticated_can_repair,
+  'anon_can_repair', anon_can_repair,
+  'authenticated_can_read_grants', authenticated_can_read_grants,
+  'authenticated_can_read_seasons', authenticated_can_read_seasons,
+  'authenticated_can_read_stats', authenticated_can_read_stats,
+  'anon_can_read_grants', anon_can_read_grants,
+  'anon_can_read_seasons', anon_can_read_seasons,
+  'anon_can_read_stats', anon_can_read_stats,
+  'authenticated_can_write_grants', authenticated_can_write_grants,
+  'authenticated_can_write_seasons', authenticated_can_write_seasons,
+  'authenticated_can_write_stats', authenticated_can_write_stats,
+  'anon_can_write_grants', anon_can_write_grants,
+  'anon_can_write_seasons', anon_can_write_seasons,
+  'anon_can_write_stats', anon_can_write_stats,
+  'service_role_can_write_grants', service_role_can_write_grants,
+  'service_role_can_write_seasons', service_role_can_write_seasons,
+  'service_role_can_write_stats', service_role_can_write_stats,
+  'ok', indexes_present
+    and rls_enabled
+    and grants_policy and seasons_policy and stats_policy
+    and repair_function_present
+    and service_role_can_repair
+    and not authenticated_can_repair
+    and not anon_can_repair
+    and authenticated_can_read_grants
+    and authenticated_can_read_seasons
+    and authenticated_can_read_stats
+    and not anon_can_read_grants
+    and not anon_can_read_seasons
+    and not anon_can_read_stats
+    and not authenticated_can_write_grants
+    and not authenticated_can_write_seasons
+    and not authenticated_can_write_stats
+    and not anon_can_write_grants
+    and not anon_can_write_seasons
+    and not anon_can_write_stats
+    and service_role_can_write_grants
+    and service_role_can_write_seasons
+    and service_role_can_write_stats
+)
+from checks;
+$$;
+
+revoke all on function public.verify_season_migration_contract() from public, anon, authenticated;
+grant execute on function public.verify_season_migration_contract() to service_role;
