@@ -5,7 +5,13 @@
  */
 
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createClient } from "@/lib/supabase/server";
+
+export const COMMUNITY_ACCESS_GRANT_SELECT = "user_id, revoked_at";
+
+export type CommunityAccessGrant = {
+    user_id: string;
+    revoked_at: string | null;
+};
 
 /**
  * Returns true if the currently authenticated user is a super-admin.
@@ -56,4 +62,10 @@ export async function getAdminUserIds(): Promise<string[]> {
  */
 export function isGuestUser(user: { is_anonymous?: boolean } | null): boolean {
     return user?.is_anonymous === true;
+}
+
+export function hasActiveCommunityAccessGrant(
+    grant: Pick<CommunityAccessGrant, "revoked_at"> | null | undefined
+): boolean {
+    return grant?.revoked_at === null;
 }
