@@ -16,6 +16,19 @@ test("una cuenta sin permiso llega a acceso privado", async ({ page }) => {
     await expect(page.getByRole("heading", { name: /acceso privado/i })).toBeVisible();
 });
 
+test("el login no ofrece el demo como invitado", async ({ page }) => {
+    await page.goto("/login");
+    await expect(page.getByRole("button", { name: /demo como invitado/i })).toHaveCount(0);
+});
+
+test("las rutas parecidas a públicas no omiten la protección", async ({ page }) => {
+    await page.goto("/access-anything");
+    await expect(page).toHaveURL(/\/login$/);
+
+    await page.goto("/login-anything");
+    await expect(page).toHaveURL(/\/login$/);
+});
+
 test("el código incorrecto no concede acceso y el correcto sí", async ({ page }) => {
     await loginAsGatedUser(page);
     await page.goto("/access");

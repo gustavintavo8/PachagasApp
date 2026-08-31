@@ -45,15 +45,11 @@ export async function middleware(request: NextRequest) {
     // Routes accessible without authentication, for both guests and logged-in users
     // (legal/transparency pages must stay reachable from anywhere, e.g. before signup).
     const publicRoutes = ["/login", "/auth/callback", "/privacidad", "/aviso-legal", "/terminos", "/access"];
-    const isPublicRoute = publicRoutes.some((route) =>
-        pathname.startsWith(route)
-    );
+    const isPublicRoute = publicRoutes.includes(pathname);
 
     // Of those, only the login page should redirect an already-authenticated user away.
     const guestOnlyRoutes = ["/login"];
-    const isGuestOnlyRoute = guestOnlyRoutes.some((route) =>
-        pathname.startsWith(route)
-    );
+    const isGuestOnlyRoute = guestOnlyRoutes.includes(pathname);
 
     // If user is not authenticated and trying to access a protected route
     if (!user && !isPublicRoute) {
@@ -67,7 +63,7 @@ export async function middleware(request: NextRequest) {
     const shouldCheckAccess = Boolean(
         user &&
         user.is_anonymous !== true &&
-        (!isPublicRoute || pathname.startsWith("/access"))
+        (!isPublicRoute || pathname === "/access")
     );
 
     if (shouldCheckAccess && user) {
@@ -86,7 +82,7 @@ export async function middleware(request: NextRequest) {
         ]);
         const allowed = Boolean(grant || profile?.is_admin === true);
 
-        if (pathname.startsWith("/access") && allowed) {
+        if (pathname === "/access" && allowed) {
             return redirectTo(request, "/");
         }
 
