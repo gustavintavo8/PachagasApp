@@ -171,7 +171,11 @@ select
   0,
   0
 from public.profiles p
-cross join season_two
+cross join (
+  select id
+  from public.seasons
+  where slug = 'season-2'
+) season_two
 on conflict (season_id, user_id) do nothing;
 
 alter table public.matches
