@@ -140,16 +140,18 @@ async function main() {
 
     console.log(`📅 Procesando ${matches?.length ?? 0} partidos finalizados...\n`);
 
-    const { data: allParticipants, error: participantError } = await supabase
-        .from("match_participants")
-        .select("match_id, user_id")
-        .in(
-            "match_id",
-            (matches ?? []).map((match) => match.id)
-        );
+    let allParticipants: { match_id: string; user_id: string }[] = [];
+    if (matches && matches.length > 0) {
+        const { data, error: participantError } = await supabase
+            .from("match_participants")
+            .select("match_id, user_id")
+            .in("match_id", matches.map((match) => match.id));
 
-    if (participantError) {
-        throw new Error(`No se pudieron leer los participantes: ${participantError.message}`);
+        if (participantError) {
+            throw new Error(`No se pudieron leer los participantes: ${participantError.message}`);
+        }
+
+        allParticipants = data ?? [];
     }
 
     await ensureSeasonRows(

@@ -1,5 +1,7 @@
 import { test, expect } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
+import { computeMatchEloUpdates } from "../src/lib/elo";
+import { balanceTeams } from "../src/lib/team-balancer";
 import {
     createDummyUsers,
     createTestMatch,
@@ -50,21 +52,8 @@ test.describe("writes season stats on match finalization", () => {
     let seasonId: string;
     let organizerId: string;
     let dummyUserIds: string[];
-    let organizerSeasonSnapshot: {
-        elo_rating: number;
-        matches_played: number;
-        goals_scored: number;
-        wins: number;
-        draws: number;
-        losses: number;
-        mvps: number;
-    } | null;
-    let organizerProfileSnapshot: {
-        elo_rating: number;
-        matches_played: number;
-        goals_scored: number;
-        market_value: number | null;
-    } | null;
+    let seasonSnapshots: Map<string, Record<string, unknown> | null>;
+    let profileSnapshots: Map<string, Record<string, unknown> | null>;
 
     test.beforeAll(async () => {
         const admin = getLocalAdminClient();
@@ -78,51 +67,90 @@ test.describe("writes season stats on match finalization", () => {
             .single();
 
         seasonId = season!.id;
-        const { data: seasonStat } = await admin
-            .from("season_player_stats")
-            .select("elo_rating, matches_played, goals_scored, wins, draws, losses, mvps")
-            .eq("season_id", seasonId)
-            .eq("user_id", organizerId)
-            .single();
-        const { data: profile } = await admin
-            .from("profiles")
-            .select("elo_rating, matches_played, goals_scored, market_value")
-            .eq("id", organizerId)
-            .single();
-        organizerSeasonSnapshot = seasonStat;
-        organizerProfileSnapshot = profile;
+        const participantIds = [organizerId, ...dummyUserIds];
+        seasonSnapshots = new Map();
+        profileSnapshots = new Map();
+
+        for (const userId of participantIds) {
+            const { data: seasonStat } = await admin
+                .from("season_player_stats")
+                .select("season_id, user_id, elo_rating, matches_played, goals_scored, wins, draws, losses, mvps")
+                .eq("season_id", seasonId)
+                .eq("user_id", userId)
+                .maybeSingle();
+            const { data: profile } = await admin
+                .from("profiles")
+                .select("id, elo_rating, matches_played, goals_scored, market_value")
+                .eq("id", userId)
+                .single();
+            seasonSnapshots.set(userId, seasonStat);
+            profileSnapshots.set(userId, profile);
+        }
+
+        const seasonalRatings = [1600, 1000, 1200, 1400];
+        await admin.from("season_player_stats").upsert(
+            participantIds.map((userId, index) => ({
+                season_id: seasonId,
+                user_id: userId,
+                elo_rating: seasonalRatings[index],
+                matches_played: 0,
+                goals_scored: 0,
+                wins: 0,
+                draws: 0,
+                losses: 0,
+                mvps: 0,
+            })),
+            { onConflict: "season_id,user_id" }
+        );
+        await admin.from("profiles").upsert(
+            participantIds.map((userId) => ({
+                id: userId,
+                elo_rating: 800,
+                matches_played: 0,
+                goals_scored: 0,
+                market_value: 1_000_000,
+            })),
+            { onConflict: "id" }
+        );
+
         matchId = await createTestMatch({
             createdBy: organizerId,
             location: "Campo temporada finalizacion E2E",
             maxPlayers: 10,
         });
 
-        const participantIds = [organizerId, ...dummyUserIds];
         await seedParticipants(
             matchId,
-            participantIds.map((userId, index) => ({
-                userId,
-                team: index % 2 === 0 ? "A" : "B",
-            }))
+            participantIds.map((userId) => ({ userId }))
         );
     });
 
     test.afterAll(async () => {
         const admin = getLocalAdminClient();
         await deleteMatch(matchId);
-        if (organizerSeasonSnapshot) {
-            const { error } = await admin
-                .from("season_player_stats")
-                .update(organizerSeasonSnapshot)
-                .eq("season_id", seasonId)
-                .eq("user_id", organizerId);
-            if (error) throw new Error(`restore season stats: ${error.message}`);
+        for (const [userId, snapshot] of seasonSnapshots) {
+            if (snapshot) {
+                const { error } = await admin
+                    .from("season_player_stats")
+                    .update(snapshot)
+                    .eq("season_id", seasonId)
+                    .eq("user_id", userId);
+                if (error) throw new Error(`restore season stats: ${error.message}`);
+            } else {
+                const { error } = await admin
+                    .from("season_player_stats")
+                    .delete()
+                    .eq("season_id", seasonId)
+                    .eq("user_id", userId);
+                if (error) throw new Error(`delete season stats: ${error.message}`);
+            }
         }
-        if (organizerProfileSnapshot) {
+        for (const [userId, snapshot] of profileSnapshots) {
+            if (!snapshot) continue;
             const { error } = await admin
                 .from("profiles")
-                .update(organizerProfileSnapshot)
-                .eq("id", organizerId);
+                .update(snapshot)
+                .eq("id", userId);
             if (error) throw new Error(`restore profile stats: ${error.message}`);
         }
         await deleteDummyUsers(dummyUserIds);
@@ -130,15 +158,54 @@ test.describe("writes season stats on match finalization", () => {
 
     test("guarda historial RP y contadores en season_player_stats", async ({ page }) => {
         const admin = getLocalAdminClient();
+        const participantIds = [organizerId, ...dummyUserIds];
 
         await page.goto(`/matches/${matchId}`);
-        await page.getByRole("button", { name: "Poner Resultado" }).click();
+        await page.getByRole("button", { name: "Generar Equipos" }).click();
 
-        const scoreInputs = page.locator('input[type="number"]');
-        await scoreInputs.nth(0).fill("2");
-        await scoreInputs.nth(1).fill("1");
+        await expect
+            .poll(
+                async () => {
+                    const { data } = await admin
+                        .from("match_participants")
+                        .select("user_id, team")
+                        .eq("match_id", matchId);
+                    return data?.filter((participant) => participant.team === "A" || participant.team === "B").length ?? 0;
+                },
+                { timeout: 10_000 }
+            )
+            .toBe(participantIds.length);
 
-        await page.getByRole("button", { name: "Guardar Resultado y Finalizar" }).click();
+        const { data: assignments } = await admin
+            .from("match_participants")
+            .select("user_id, team")
+            .eq("match_id", matchId);
+        const { data: profiles } = await admin
+            .from("profiles")
+            .select("id, position")
+            .in("id", participantIds);
+        const expectedAssignments = balanceTeams(
+            participantIds.map((userId, index) => ({
+                user_id: userId,
+                position: (profiles?.find((profile) => profile.id === userId)?.position ?? "MID") as "GK" | "DEF" | "MID" | "FWD",
+                elo_rating: [1600, 1000, 1200, 1400][index],
+            }))
+        ).assignments;
+        expect(assignments?.map(({ user_id, team }) => ({ user_id, team })).sort((a, b) => a.user_id.localeCompare(b.user_id)))
+            .toEqual(expectedAssignments.sort((a, b) => a.user_id.localeCompare(b.user_id)));
+
+        const secondPage = await page.context().newPage();
+        const finalize = async (targetPage: typeof page) => {
+            await targetPage.goto(`/matches/${matchId}`);
+            await targetPage.getByRole("button", { name: "Poner Resultado" }).click();
+            const targetScoreInputs = targetPage.locator('input[type="number"]');
+            await targetScoreInputs.nth(0).fill("2");
+            await targetScoreInputs.nth(1).fill("1");
+            await targetPage.getByRole("button", { name: "Guardar Resultado y Finalizar" }).click();
+        };
+
+        await Promise.all([finalize(page), finalize(secondPage)]);
+        await secondPage.close();
 
         await expect
             .poll(
@@ -154,7 +221,6 @@ test.describe("writes season stats on match finalization", () => {
             )
             .toBe("finished");
 
-        const participantIds = [organizerId, ...dummyUserIds];
         const { data: stats } = await admin
             .from("season_player_stats")
             .select("season_id, user_id, elo_rating, matches_played, wins, draws, losses")
@@ -171,6 +237,24 @@ test.describe("writes season stats on match finalization", () => {
             expect(stat?.season_id).toBe(seasonId);
             expect(stat?.matches_played).toBe(1);
             expect((stat?.wins ?? 0) + (stat?.draws ?? 0) + (stat?.losses ?? 0)).toBe(1);
+        }
+
+        const assignmentMap = new Map(assignments?.map((assignment) => [assignment.user_id, assignment.team]));
+        const expectedElo = computeMatchEloUpdates(
+            participantIds.map((userId, index) => ({
+                userId,
+                currentRating: [1600, 1000, 1200, 1400][index],
+                matchesPlayed: 0,
+                team: assignmentMap.get(userId) as "A" | "B",
+                position: (profiles?.find((profile) => profile.id === userId)?.position ?? "MID") as "GK" | "DEF" | "MID" | "FWD",
+                goalsScored: 0,
+                isMvp: false,
+            })),
+            2,
+            1
+        );
+        for (const update of expectedElo) {
+            expect(stats?.find((stat) => stat.user_id === update.userId)?.elo_rating).toBe(update.newRating);
         }
 
         expect(history?.length).toBe(participantIds.length);

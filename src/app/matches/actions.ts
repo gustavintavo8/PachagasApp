@@ -45,7 +45,7 @@ async function syncLegacyProfileStats(
 ): Promise<void> {
     const seasonalStats = await getStatsForUsers(seasonId, userIds);
 
-    await Promise.all(
+    const results = await Promise.all(
         seasonalStats.map((stat) =>
             adminSupabase
                 .from("profiles")
@@ -58,6 +58,11 @@ async function syncLegacyProfileStats(
                 .eq("id", stat.user_id)
         )
     );
+
+    const failedUpdate = results.find((result) => result.error);
+    if (failedUpdate?.error) {
+        throw new Error(`No se pudo sincronizar el perfil: ${failedUpdate.error.message}`);
+    }
 }
 
 export async function createMatch(formData: FormData): Promise<ActionResult> {
@@ -287,10 +292,7 @@ export async function closeMatch(matchId: string): Promise<ActionResult> {
     return { success: true, data: undefined };
 }
 
-async function applyEloUpdates(
-    adminSupabase: ReturnType<typeof createAdminClient>,
-    matchId: string,
-    seasonId: string,
+function computeEloUpdates(
     teamAScore: number,
     teamBScore: number,
     participants: Array<{
@@ -301,7 +303,7 @@ async function applyEloUpdates(
         profiles: ParticipantProfileLike | ParticipantProfileLike[];
     }>,
     seasonalStatsByUser: Map<string, SeasonPlayerStats>
-): Promise<void> {
+): ReturnType<typeof computeMatchEloUpdates> {
     const eloInputs = participants
         .filter((p) => p.team === "A" || p.team === "B")
         .map((p) => {
@@ -318,36 +320,10 @@ async function applyEloUpdates(
             };
         });
 
-    const eloUpdates = computeMatchEloUpdates(
+    return computeMatchEloUpdates(
         eloInputs,
         teamAScore,
         teamBScore
-    );
-
-    // Bulk update ELO ratings and history
-    await Promise.all(
-        eloUpdates.map(async (update) => {
-            const { error: updateError } = await adminSupabase
-                .from("season_player_stats")
-                .update({
-                    elo_rating: update.newRating,
-                })
-                .eq("season_id", seasonId)
-                .eq("user_id", update.userId);
-
-            if (!updateError) {
-                await adminSupabase
-                    .from("rp_history")
-                    .insert({
-                        user_id: update.userId,
-                        match_id: matchId,
-                        season_id: seasonId,
-                        rp_change: update.delta,
-                        new_rp: update.newRating,
-                        created_at: new Date().toISOString(),
-                    });
-            }
-        })
     );
 }
 
@@ -508,72 +484,75 @@ export async function setScore(
         return { success: false, error: "No tienes permiso para establecer el resultado" };
     }
 
-    const isAlreadyFinished = match.status === "finished";
-
     // Use admin client for all participant-level updates (bypasses RLS)
     const adminSupabase = createAdminClient();
-    const { data: participantRows } = await adminSupabase
+    const { data: participantRows, error: participantError } = await adminSupabase
         .from("match_participants")
         .select("user_id")
         .eq("match_id", validData.matchId);
+    if (participantError) return { success: false, error: participantError.message };
+
     const participantIds = participantRows?.map((participant) => participant.user_id) ?? [];
 
-    await getStatsForUsers(match.season_id, participantIds);
+    try {
+        await getStatsForUsers(match.season_id, participantIds);
 
-    // Update individual goal scorers FIRST so the trigger reads the correct score
-    if (validData.goalScorers && validData.goalScorers.length > 0) {
-        for (const scorer of validData.goalScorers) {
-            if (scorer.goals > 0) {
-                await adminSupabase
-                    .from("match_participants")
-                    .update({ goals: scorer.goals })
-                    .eq("match_id", validData.matchId)
-                    .eq("user_id", scorer.userId);
+        // Update individual goal scorers FIRST so the trigger reads the correct score.
+        if (validData.goalScorers && validData.goalScorers.length > 0) {
+            for (const scorer of validData.goalScorers) {
+                if (scorer.goals > 0) {
+                    const { error: goalError } = await adminSupabase
+                        .from("match_participants")
+                        .update({ goals: scorer.goals })
+                        .eq("match_id", validData.matchId)
+                        .eq("user_id", scorer.userId);
+                    if (goalError) throw new Error(`No se pudieron guardar los goles: ${goalError.message}`);
+                }
             }
         }
-    }
 
-    // Now update match status. This will fire the match_finished_stats_trigger
-    // to update user profiles seamlessly.
-    const client = admin ? createAdminClient() : supabase;
-    const { error } = await client
-        .from("matches")
-        .update({
-            team_a_score: validData.teamAScore,
-            team_b_score: validData.teamBScore,
-            status: "finished",
-            finished_at: new Date().toISOString(),
-        })
-        .eq("id", validData.matchId);
-
-    if (error) return { success: false, error: error.message };
-
-    // ── Recalcular ELO y puntos fantasy de todos los participantes ───────
-    if (!isAlreadyFinished) {
-        const { data: eloParticipants } = await adminSupabase
+        const { data: eloParticipants, error: eloParticipantsError } = await adminSupabase
             .from("match_participants")
             .select("user_id, team, goals, is_mvp, profiles(position)")
             .eq("match_id", validData.matchId);
+        if (eloParticipantsError) throw new Error(`No se pudieron leer los participantes: ${eloParticipantsError.message}`);
+
+        const seasonalStats = await getStatsForUsers(
+            match.season_id,
+            eloParticipants?.map((participant) => participant.user_id) ?? []
+        );
+        const seasonalStatsByUser = new Map(
+            seasonalStats.map((stat) => [stat.user_id, stat] as const)
+        );
+        const eloUpdates = computeEloUpdates(
+            validData.teamAScore,
+            validData.teamBScore,
+            eloParticipants as Parameters<typeof computeEloUpdates>[2],
+            seasonalStatsByUser
+        );
+
+        // The RPC conditionally claims the open/closed -> finished transition and
+        // commits the trigger counters, seasonal ELO, and RP history together.
+        const { data: didFinalize, error: finalizeError } = await adminSupabase.rpc(
+            "finalize_match_with_elo",
+            {
+                p_match_id: validData.matchId,
+                p_team_a_score: validData.teamAScore,
+                p_team_b_score: validData.teamBScore,
+                p_finished_at: new Date().toISOString(),
+                p_elo_updates: eloUpdates.map((update) => ({
+                    user_id: update.userId,
+                    new_rating: update.newRating,
+                    rp_change: update.delta,
+                })),
+            }
+        );
+        if (finalizeError) throw new Error(`No se pudo finalizar el partido: ${finalizeError.message}`);
+        if (!didFinalize) {
+            return { success: false, error: "El partido ya está finalizado o no está disponible" };
+        }
 
         if (eloParticipants && eloParticipants.length > 0) {
-            const seasonalStats = await getStatsForUsers(
-                match.season_id,
-                eloParticipants.map((participant) => participant.user_id)
-            );
-            const seasonalStatsByUser = new Map(
-                seasonalStats.map((stat) => [stat.user_id, stat] as const)
-            );
-
-            await applyEloUpdates(
-                adminSupabase,
-                validData.matchId,
-                match.season_id,
-                validData.teamAScore,
-                validData.teamBScore,
-                eloParticipants as Parameters<typeof applyEloUpdates>[5],
-                seasonalStatsByUser
-            );
-
             await syncLegacyProfileStats(
                 adminSupabase,
                 match.season_id,
@@ -588,6 +567,11 @@ export async function setScore(
                 eloParticipants as Parameters<typeof applyFantasyPoints>[4]
             );
         }
+    } catch (error) {
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : "No se pudo finalizar el partido",
+        };
     }
     // ──────────────────────────────────────────────────────────────────────
 
@@ -937,23 +921,25 @@ export async function kickPlayer(
 
 // ─── MVP Voting ───────────────────────────────────────────────────
 
-async function resolveMvp(matchId: string) {
+async function resolveMvp(matchId: string): Promise<ActionResult> {
     const adminClient = createAdminClient();
-    const { data: match } = await adminClient
+    const { data: match, error: matchError } = await adminClient
         .from("matches")
         .select("season_id, location")
         .eq("id", matchId)
         .single();
 
-    if (!match) return;
+    if (matchError) return { success: false, error: matchError.message };
+    if (!match) return { success: false, error: "Partido no encontrado" };
 
     // Count votes per candidate
-    const { data: votes } = await adminClient
+    const { data: votes, error: votesError } = await adminClient
         .from("mvp_votes")
         .select("voted_for")
         .eq("match_id", matchId);
 
-    if (!votes || votes.length === 0) return;
+    if (votesError) return { success: false, error: votesError.message };
+    if (!votes || votes.length === 0) return { success: true, data: undefined };
 
     const voteCounts: Record<string, number> = {};
     for (const v of votes) {
@@ -976,48 +962,62 @@ async function resolveMvp(matchId: string) {
     }
 
     // On tie → no MVP
-    if (isTie || !winnerId) return;
+    if (isTie || !winnerId) return { success: true, data: undefined };
 
-    const { data: currentMvp } = await adminClient
+    const { data: currentMvp, error: currentMvpError } = await adminClient
         .from("match_participants")
         .select("user_id")
         .eq("match_id", matchId)
         .eq("is_mvp", true)
         .maybeSingle();
+    if (currentMvpError) return { success: false, error: currentMvpError.message };
 
     const previousWinnerId = currentMvp?.user_id ?? null;
     const isAlreadyResolvedToWinner = previousWinnerId === winnerId;
 
     if (!isAlreadyResolvedToWinner) {
         // Reset any existing MVP flags for this match
-        await adminClient
+        const { error: resetError } = await adminClient
             .from("match_participants")
             .update({ is_mvp: false })
             .eq("match_id", matchId);
+        if (resetError) return { success: false, error: `No se pudo resetear el MVP: ${resetError.message}` };
 
         // Set the winner as MVP
-        await adminClient
+        const { data: winnerParticipant, error: winnerError } = await adminClient
             .from("match_participants")
             .update({ is_mvp: true })
             .eq("match_id", matchId)
-            .eq("user_id", winnerId);
+            .eq("user_id", winnerId)
+            .select("user_id")
+            .maybeSingle();
+        if (winnerError) return { success: false, error: `No se pudo asignar el MVP: ${winnerError.message}` };
+        if (!winnerParticipant) return { success: false, error: "El ganador del MVP no participa en el partido" };
     }
 
-    await upsertZeroStats(match.season_id, winnerId);
+    try {
+        await upsertZeroStats(match.season_id, winnerId);
 
-    const rebuildTargets = previousWinnerId && previousWinnerId !== winnerId
-        ? [previousWinnerId, winnerId]
-        : [winnerId];
-    for (const userId of rebuildTargets) {
-        await upsertZeroStats(match.season_id, userId);
-        await adminClient.rpc("rebuild_season_player_stats", {
-            p_season_id: match.season_id,
-            p_user_id: userId,
-        });
+        const rebuildTargets = previousWinnerId && previousWinnerId !== winnerId
+            ? [previousWinnerId, winnerId]
+            : [winnerId];
+        for (const userId of rebuildTargets) {
+            await upsertZeroStats(match.season_id, userId);
+            const { error: rebuildError } = await adminClient.rpc("rebuild_season_player_stats", {
+                p_season_id: match.season_id,
+                p_user_id: userId,
+            });
+            if (rebuildError) throw new Error(`No se pudo recalcular el MVP de temporada: ${rebuildError.message}`);
+        }
+    } catch (error) {
+        return {
+            success: false,
+            error: error instanceof Error ? error.message : "No se pudieron actualizar las estadísticas MVP",
+        };
     }
 
     if (isAlreadyResolvedToWinner) {
-        return;
+        return { success: true, data: undefined };
     }
 
     // Notify the winner
@@ -1052,6 +1052,8 @@ async function resolveMvp(matchId: string) {
         }
     }
     // ─────────────────────────────────────────────────────────────────────
+
+    return { success: true, data: undefined };
 }
 
 export async function forceResolveMvp(matchId: string): Promise<ActionResult> {
@@ -1077,7 +1079,8 @@ export async function forceResolveMvp(matchId: string): Promise<ActionResult> {
         return { success: false, error: "No tienes permiso para finalizar la votación" };
     }
 
-    await resolveMvp(matchId);
+    const result = await resolveMvp(matchId);
+    if (!result.success) return result;
     revalidatePath(`/matches/${matchId}`);
     return { success: true, data: undefined };
 }
@@ -1112,7 +1115,8 @@ export async function checkAndResolveExpiredMvp(matchId: string): Promise<Action
 
         const isResolved = participants?.some((p) => p.is_mvp);
         if (!isResolved) {
-            await resolveMvp(matchId);
+            const result = await resolveMvp(matchId);
+            if (!result.success) return result;
             revalidatePath(`/matches/${matchId}`);
             return { success: true, data: undefined };
         }
@@ -1218,7 +1222,8 @@ export async function voteForMvp(
     // All participants voted (minus the person being voted for — they can't vote for themselves,
     // so max votes = totalParticipants). But we resolve when everyone has cast their vote.
     if (totalParticipants !== null && totalVotes !== null && totalVotes >= totalParticipants) {
-        await resolveMvp(matchId);
+        const result = await resolveMvp(matchId);
+        if (!result.success) return result;
     }
 
     revalidatePath(`/matches/${matchId}`);
