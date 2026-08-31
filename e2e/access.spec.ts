@@ -21,6 +21,27 @@ test("el login no ofrece el demo como invitado", async ({ page }) => {
     await expect(page.getByRole("button", { name: /demo como invitado/i })).toHaveCount(0);
 });
 
+test("la API de Panenka no acepta una cuenta sin permiso", async ({ page }) => {
+    await loginAsGatedUser(page);
+    const response = await page.evaluate(async () => {
+        const request = await fetch("/api/asistente", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                messages: [{ role: "user", parts: [{ type: "text", text: "hola" }] }],
+            }),
+        });
+
+        return {
+            status: request.status,
+            body: await request.json(),
+        };
+    });
+
+    expect(response.status).toBe(403);
+    expect(response.body).toEqual({ error: "Acceso no autorizado" });
+});
+
 test("las rutas parecidas a públicas no omiten la protección", async ({ page }) => {
     await page.goto("/access-anything");
     await expect(page).toHaveURL(/\/login$/);

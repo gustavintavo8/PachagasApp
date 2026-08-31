@@ -41,6 +41,7 @@ export async function middleware(request: NextRequest) {
     } = await supabase.auth.getUser();
 
     const pathname = request.nextUrl.pathname;
+    const isApiRoute = pathname.startsWith("/api/");
 
     // Routes accessible without authentication, for both guests and logged-in users
     // (legal/transparency pages must stay reachable from anywhere, e.g. before signup).
@@ -52,11 +53,11 @@ export async function middleware(request: NextRequest) {
     const isGuestOnlyRoute = guestOnlyRoutes.includes(pathname);
 
     // If user is not authenticated and trying to access a protected route
-    if (!user && !isPublicRoute) {
+    if (!user && !isPublicRoute && !isApiRoute) {
         return redirectTo(request, "/login");
     }
 
-    if (user?.is_anonymous === true && !isPublicRoute) {
+    if (user?.is_anonymous === true && !isPublicRoute && !isApiRoute) {
         return redirectTo(request, "/login");
     }
 
@@ -86,7 +87,7 @@ export async function middleware(request: NextRequest) {
             return redirectTo(request, "/");
         }
 
-        if (!isPublicRoute && !allowed) {
+        if (!isPublicRoute && !allowed && !isApiRoute) {
             return redirectTo(request, "/access");
         }
     }

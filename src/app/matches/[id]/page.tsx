@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { requireCommunityAccess } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { redirect, notFound } from "next/navigation";
 import { MatchDetail } from "./MatchDetail";
@@ -13,6 +14,20 @@ export async function generateMetadata({
     params: Promise<{ id: string }>;
 }): Promise<Metadata> {
     const { id } = await params;
+    const supabase = await createClient();
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user || user.is_anonymous === true) {
+        return { title: "Partido — Pachanga" };
+    }
+
+    const access = await requireCommunityAccess(user);
+    if (!access.success) {
+        return { title: "Partido — Pachanga" };
+    }
+
     const admin = createAdminClient();
 
     const { data: match } = await admin
@@ -61,8 +76,10 @@ export default async function MatchPage({
     } = await supabase.auth.getUser();
 
     if (!user) redirect("/login");
+    if (user.is_anonymous === true) redirect("/login");
 
-    const isGuest = user.is_anonymous === true;
+    const access = await requireCommunityAccess(user);
+    if (!access.success) redirect("/access");
 
     const { data: match } = await supabase
         .from("matches")
@@ -112,7 +129,7 @@ export default async function MatchPage({
                 }}
                 isAdmin={userIsAdmin}
                 adminUserIds={adminUserIds}
-                isGuest={isGuest}
+                isGuest={false}
             />
         </>
     );

@@ -1,9 +1,9 @@
 'use server'
 
+import { requireCommunityAccess } from '@/lib/access'
 import { createClient } from '@/lib/supabase/server'
 import { revalidatePath } from 'next/cache'
 import { rateLimit } from '@/lib/rate-limit'
-import { isGuestUser } from '@/lib/permissions'
 import { z } from 'zod'
 import type { ActionResult } from "@/lib/types";
 
@@ -13,16 +13,28 @@ const UpdateProfileSchema = z.object({
     avatar_url: z.string().optional(),
 });
 
+async function requireProfileAccess(
+    user: { id: string; is_anonymous?: boolean } | null,
+    unauthenticatedError: string
+): Promise<ActionResult<true>> {
+    if (!user || user.is_anonymous === true) {
+        return { success: false, error: unauthenticatedError };
+    }
+
+    return requireCommunityAccess(user);
+}
+
 export async function updateProfile(formData: FormData): Promise<ActionResult> {
     const supabase = await createClient()
 
     const { data: { user }, error: authError } = await supabase.auth.getUser()
-    if (authError || !user) {
-        return { success: false, error: 'No estás autenticado' }
-    }
-    if (isGuestUser(user)) return { success: false, error: "Esta acción no está disponible en modo demo" };
+    if (authError) return { success: false, error: 'No estás autenticado' }
 
-    const { allowed } = await rateLimit(`update-profile:${user.id}`, 5, 60_000);
+    const access = await requireProfileAccess(user, 'No estás autenticado')
+    if (!access.success) return access;
+    const currentUser = user!
+
+    const { allowed } = await rateLimit(`update-profile:${currentUser.id}`, 5, 60_000);
     if (!allowed) return { success: false, error: "Demasiadas actualizaciones. Espera un momento." };
 
     const parsed = UpdateProfileSchema.safeParse({
@@ -45,7 +57,7 @@ export async function updateProfile(formData: FormData): Promise<ActionResult> {
             ...(avatar_url && { avatar_url }),
             updated_at: new Date().toISOString(),
         })
-        .eq('id', user.id)
+        .eq('id', currentUser.id)
 
     if (error) {
         return { success: false, error: 'Error al actualizar el perfil. Inténtalo de nuevo.' }
@@ -59,20 +71,21 @@ export async function updateProfile(formData: FormData): Promise<ActionResult> {
 
 export async function updateAvatar(path: string): Promise<ActionResult> {
     const supabase = await createClient();
-    const { data: { user } } = await supabase.auth.getUser();
+    const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-    if (!user) {
-        return { success: false, error: "No autenticado" };
-    }
-    if (isGuestUser(user)) return { success: false, error: "Esta acción no está disponible en modo demo" };
+    if (authError) return { success: false, error: "No autenticado" };
 
-    const { allowed } = await rateLimit(`update-avatar:${user.id}`, 10, 60_000);
+    const access = await requireProfileAccess(user, "No autenticado");
+    if (!access.success) return access;
+    const currentUser = user!;
+
+    const { allowed } = await rateLimit(`update-avatar:${currentUser.id}`, 10, 60_000);
     if (!allowed) return { success: false, error: "Demasiadas subidas. Espera un momento." };
 
     const { error } = await supabase
         .from("profiles")
         .update({ avatar_url: path })
-        .eq("id", user.id);
+        .eq("id", currentUser.id);
 
     if (error) {
         return { success: false, error: "Error al guardar el avatar." };

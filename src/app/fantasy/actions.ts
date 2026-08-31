@@ -1,5 +1,6 @@
 "use server";
 
+import { requireCommunityAccess } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { revalidatePath } from "next/cache";
 import { z } from "zod";
@@ -15,6 +16,16 @@ const nameSchema = z
     .min(2, "El nombre debe tener al menos 2 caracteres")
     .max(30, "Máximo 30 caracteres");
 
+async function requireFantasyAccess(
+    user: { id: string; is_anonymous?: boolean } | null
+): Promise<ActionResult<true>> {
+    if (!user || user.is_anonymous === true) {
+        return { success: false, error: "No autenticado" };
+    }
+
+    return requireCommunityAccess(user);
+}
+
 export async function createFantasyTeam(name: string): Promise<ActionResult> {
     const parsed = nameSchema.safeParse(name);
     if (!parsed.success) return { success: false, error: parsed.error.issues[0].message };
@@ -23,18 +34,20 @@ export async function createFantasyTeam(name: string): Promise<ActionResult> {
     const {
         data: { user },
     } = await supabase.auth.getUser();
-    if (!user) return { success: false, error: "No autenticado" };
+    const access = await requireFantasyAccess(user);
+    if (!access.success) return access;
+    const currentUser = user!;
 
     const { data: existing } = await supabase
         .from("fantasy_teams")
         .select("id")
-        .eq("user_id", user.id)
+        .eq("user_id", currentUser.id)
         .maybeSingle();
 
     if (existing) return { success: false, error: "Ya tienes un equipo fantasy" };
 
     const { error } = await supabase.from("fantasy_teams").insert({
-        user_id: user.id,
+        user_id: currentUser.id,
         name: parsed.data,
         budget: FANTASY_INITIAL_BUDGET,
     });
@@ -50,7 +63,9 @@ export async function buyPlayer(teamId: string, playerId: string): Promise<Actio
     const {
         data: { user },
     } = await supabase.auth.getUser();
-    if (!user) return { success: false, error: "No autenticado" };
+    const access = await requireFantasyAccess(user);
+    if (!access.success) return access;
+    const currentUser = user!;
 
     // Fetch price from DB — never trust the client
     const { data: playerData } = await supabase
@@ -68,7 +83,7 @@ export async function buyPlayer(teamId: string, playerId: string): Promise<Actio
         .from("fantasy_teams")
         .select("id, budget")
         .eq("id", teamId)
-        .eq("user_id", user.id)
+        .eq("user_id", currentUser.id)
         .single();
 
     if (!team) return { success: false, error: "Equipo no encontrado" };
@@ -138,7 +153,9 @@ export async function sellPlayer(teamId: string, playerId: string): Promise<Acti
     const {
         data: { user },
     } = await supabase.auth.getUser();
-    if (!user) return { success: false, error: "No autenticado" };
+    const access = await requireFantasyAccess(user);
+    if (!access.success) return access;
+    const currentUser = user!;
 
     // Fetch price from DB — never trust the client
     const { data: playerData } = await supabase
@@ -156,7 +173,7 @@ export async function sellPlayer(teamId: string, playerId: string): Promise<Acti
         .from("fantasy_teams")
         .select("id, budget")
         .eq("id", teamId)
-        .eq("user_id", user.id)
+        .eq("user_id", currentUser.id)
         .single();
 
     if (!team) return { success: false, error: "Equipo no encontrado" };
@@ -197,13 +214,15 @@ export async function setCaptain(teamId: string, playerId: string): Promise<Acti
     const {
         data: { user },
     } = await supabase.auth.getUser();
-    if (!user) return { success: false, error: "No autenticado" };
+    const access = await requireFantasyAccess(user);
+    if (!access.success) return access;
+    const currentUser = user!;
 
     const { data: team } = await supabase
         .from("fantasy_teams")
         .select("id")
         .eq("id", teamId)
-        .eq("user_id", user.id)
+        .eq("user_id", currentUser.id)
         .single();
 
     if (!team) return { success: false, error: "Equipo no encontrado" };
@@ -267,7 +286,9 @@ export async function saveLineup(teamId: string, starterIds: string[]): Promise<
     const {
         data: { user },
     } = await supabase.auth.getUser();
-    if (!user) return { success: false, error: "No autenticado" };
+    const access = await requireFantasyAccess(user);
+    if (!access.success) return access;
+    const currentUser = user!;
 
     // Regla 4: la alineación debe coincidir con alguna formación válida
     const VALID_FORMATIONS = [
@@ -305,7 +326,7 @@ export async function saveLineup(teamId: string, starterIds: string[]): Promise<
         .from("fantasy_teams")
         .select("id")
         .eq("id", teamId)
-        .eq("user_id", user.id)
+        .eq("user_id", currentUser.id)
         .single();
 
     if (!team) return { success: false, error: "Equipo no encontrado" };

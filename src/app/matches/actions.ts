@@ -1,5 +1,6 @@
 "use server";
 
+import { requireCommunityAccess } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath, revalidateTag } from "next/cache";
@@ -7,11 +8,21 @@ import { redirect } from "next/navigation";
 import { balanceTeams } from "@/lib/team-balancer";
 import { computeMatchEloUpdates, ELO_BASE } from "@/lib/elo";
 import { rateLimit } from "@/lib/rate-limit";
-import { isAdmin, isGuestUser } from "@/lib/permissions";
+import { isAdmin } from "@/lib/permissions";
 import { MVP_VOTING_WINDOW_MS } from "@/lib/constantes";
 import { z } from "zod";
 import { sendNotification } from "@/lib/notifications";
 import type { ActionResult, ParticipantProfile } from "@/lib/types";
+
+async function requireMatchAccess(
+    user: { id: string; is_anonymous?: boolean } | null
+): Promise<ActionResult<true>> {
+    if (!user || user.is_anonymous === true) {
+        return { success: false, error: "No autenticado" };
+    }
+
+    return requireCommunityAccess(user);
+}
 
 export async function createMatch(formData: FormData): Promise<ActionResult> {
     const supabase = await createClient();
@@ -19,10 +30,11 @@ export async function createMatch(formData: FormData): Promise<ActionResult> {
         data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) return { success: false, error: "No autenticado" };
-    if (isGuestUser(user)) return { success: false, error: "Esta acción no está disponible en modo demo" };
+    const access = await requireMatchAccess(user);
+    if (!access.success) return access;
+    const currentUser = user!;
 
-    const { allowed } = await rateLimit(`create-match:${user.id}`, 10, 60_000);
+    const { allowed } = await rateLimit(`create-match:${currentUser.id}`, 10, 60_000);
     if (!allowed) return { success: false, error: "Demasiadas acciones. Espera un momento." };
 
     const date = formData.get("date") as string;
@@ -49,7 +61,7 @@ export async function createMatch(formData: FormData): Promise<ActionResult> {
             location: validLocation.trim(),
             max_players,
             status: "open",
-            created_by: user.id,
+            created_by: currentUser.id,
         })
         .select("id")
         .single();
@@ -61,7 +73,7 @@ export async function createMatch(formData: FormData): Promise<ActionResult> {
         .from("match_participants")
         .insert({
             match_id: data.id,
-            user_id: user.id,
+            user_id: currentUser.id,
             team: null,
             goals: 0,
             is_mvp: false,
@@ -81,10 +93,11 @@ export async function joinMatch(matchId: string): Promise<ActionResult> {
         data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) return { success: false, error: "No autenticado" };
-    if (isGuestUser(user)) return { success: false, error: "Esta acción no está disponible en modo demo" };
+    const access = await requireMatchAccess(user);
+    if (!access.success) return access;
+    const currentUser = user!;
 
-    const { allowed } = await rateLimit(`join-match:${user.id}`, 10, 60_000);
+    const { allowed } = await rateLimit(`join-match:${currentUser.id}`, 10, 60_000);
     if (!allowed) return { success: false, error: "Demasiadas peticiones. Espera un momento." };
 
     // Check if already joined
@@ -92,7 +105,7 @@ export async function joinMatch(matchId: string): Promise<ActionResult> {
         .from("match_participants")
         .select("user_id")
         .eq("match_id", matchId)
-        .eq("user_id", user.id)
+        .eq("user_id", currentUser.id)
         .single();
 
     if (existing) return { success: false, error: "Ya estás apuntado a este partido" };
@@ -116,7 +129,7 @@ export async function joinMatch(matchId: string): Promise<ActionResult> {
 
     const { error } = await supabase
         .from("match_participants")
-        .insert({ match_id: matchId, user_id: user.id });
+        .insert({ match_id: matchId, user_id: currentUser.id });
 
     if (error) return { success: false, error: error.message };
 
@@ -124,14 +137,14 @@ export async function joinMatch(matchId: string): Promise<ActionResult> {
     const { data: joinerProfile } = await supabase
         .from("profiles")
         .select("username")
-        .eq("id", user.id)
+        .eq("id", currentUser.id)
         .single();
     const { data: matchForNotif } = await supabase
         .from("matches")
         .select("created_by, location")
         .eq("id", matchId)
         .single();
-    if (matchForNotif && matchForNotif.created_by !== user.id) {
+    if (matchForNotif && matchForNotif.created_by !== currentUser.id) {
         await sendNotification(
             [matchForNotif.created_by],
             "join",
@@ -154,10 +167,11 @@ export async function leaveMatch(matchId: string): Promise<ActionResult> {
         data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) return { success: false, error: "No autenticado" };
-    if (isGuestUser(user)) return { success: false, error: "Esta acción no está disponible en modo demo" };
+    const access = await requireMatchAccess(user);
+    if (!access.success) return access;
+    const currentUser = user!;
 
-    const { allowed } = await rateLimit(`leave-match:${user.id}`, 10, 60_000);
+    const { allowed } = await rateLimit(`leave-match:${currentUser.id}`, 10, 60_000);
     if (!allowed) return { success: false, error: "Demasiadas peticiones. Espera un momento." };
 
     const { data: match } = await supabase
@@ -173,7 +187,7 @@ export async function leaveMatch(matchId: string): Promise<ActionResult> {
         .from("match_participants")
         .delete()
         .eq("match_id", matchId)
-        .eq("user_id", user.id);
+        .eq("user_id", currentUser.id);
 
     if (error) return { success: false, error: error.message };
 
@@ -190,7 +204,9 @@ export async function closeMatch(matchId: string): Promise<ActionResult> {
         data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) return { success: false, error: "No autenticado" };
+    const access = await requireMatchAccess(user);
+    if (!access.success) return access;
+    const currentUser = user!;
 
     // Verify organizer or admin
     const { data: match } = await supabase
@@ -199,8 +215,8 @@ export async function closeMatch(matchId: string): Promise<ActionResult> {
         .eq("id", matchId)
         .single();
 
-    const admin = await isAdmin(user.id);
-    if (match?.created_by !== user.id && !admin)
+    const admin = await isAdmin(currentUser.id);
+    if (match?.created_by !== currentUser.id && !admin)
         return { success: false, error: "Solo el organizador puede cerrar este partido" };
 
     // Admin uses admin client to bypass RLS
@@ -399,9 +415,11 @@ export async function setScore(
         data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) return { success: false, error: "No autenticado" };
+    const access = await requireMatchAccess(user);
+    if (!access.success) return access;
+    const currentUser = user!;
 
-    const { allowed } = await rateLimit(`set-score:${user.id}`, 5, 60_000);
+    const { allowed } = await rateLimit(`set-score:${currentUser.id}`, 5, 60_000);
     if (!allowed) return { success: false, error: "Demasiadas peticiones. Espera un momento." };
 
     const ScoreSchema = z.object({
@@ -429,8 +447,8 @@ export async function setScore(
 
     if (!match) return { success: false, error: "Partido no encontrado" };
 
-    const admin = await isAdmin(user.id);
-    if (match.created_by !== user.id && !admin) {
+    const admin = await isAdmin(currentUser.id);
+    if (match.created_by !== currentUser.id && !admin) {
         return { success: false, error: "No tienes permiso para establecer el resultado" };
     }
 
@@ -503,7 +521,7 @@ export async function setScore(
     if (allParticipants) {
         const participantIds = allParticipants
             .map((p) => p.user_id)
-            .filter((id) => id !== user.id);
+            .filter((id) => id !== currentUser.id);
         const { data: matchForNotif } = await supabase
             .from("matches")
             .select("location")
@@ -533,7 +551,9 @@ export async function generateTeams(matchId: string): Promise<ActionResult> {
         data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) return { success: false, error: "No autenticado" };
+    const access = await requireMatchAccess(user);
+    if (!access.success) return access;
+    const currentUser = user!;
 
     // Verify organizer or admin
     const { data: match } = await supabase
@@ -542,8 +562,8 @@ export async function generateTeams(matchId: string): Promise<ActionResult> {
         .eq("id", matchId)
         .single();
 
-    const admin = await isAdmin(user.id);
-    if (match?.created_by !== user.id && !admin)
+    const admin = await isAdmin(currentUser.id);
+    if (match?.created_by !== currentUser.id && !admin)
         return { success: false, error: "Solo el organizador puede generar equipos" };
 
     // Fetch participants with positions AND elo_rating
@@ -602,7 +622,7 @@ export async function generateTeams(matchId: string): Promise<ActionResult> {
         .select("location")
         .eq("id", matchId)
         .single();
-    const participantIds = participants.map((p) => p.user_id).filter((id) => id !== user.id);
+    const participantIds = participants.map((p) => p.user_id).filter((id) => id !== currentUser.id);
     await sendNotification(
         participantIds,
         "teams",
@@ -622,7 +642,9 @@ export async function cancelMatch(matchId: string): Promise<ActionResult> {
         data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) return { success: false, error: "No autenticado" };
+    const access = await requireMatchAccess(user);
+    if (!access.success) return access;
+    const currentUser = user!;
 
     // Validate matchId is a proper UUID
     const CancelSchema = z.object({ matchId: z.string().uuid("ID de partido inválido") });
@@ -637,8 +659,8 @@ export async function cancelMatch(matchId: string): Promise<ActionResult> {
 
     if (!match) return { success: false, error: "Partido no encontrado" };
 
-    const admin = await isAdmin(user.id);
-    if (match.created_by !== user.id && !admin)
+    const admin = await isAdmin(currentUser.id);
+    if (match.created_by !== currentUser.id && !admin)
         return { success: false, error: "No tienes permiso para cancelar este partido" };
 
     const client = admin ? createAdminClient() : supabase;
@@ -656,7 +678,7 @@ export async function cancelMatch(matchId: string): Promise<ActionResult> {
         .eq("match_id", matchId);
 
     if (participants) {
-        const ids = participants.map((p) => p.user_id).filter((id) => id !== user.id);
+        const ids = participants.map((p) => p.user_id).filter((id) => id !== currentUser.id);
         await sendNotification(
             ids,
             "cancel",
@@ -682,7 +704,9 @@ export async function rescheduleMatch(
         data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) return { success: false, error: "No autenticado" };
+    const access = await requireMatchAccess(user);
+    if (!access.success) return access;
+    const currentUser = user!;
 
     // Zod: validate matchId (UUID) and newDate (ISO datetime, must be in the future)
     const RescheduleSchema = z.object({
@@ -711,8 +735,8 @@ export async function rescheduleMatch(
     if (match.status === "finished" || match.status === "cancelled")
         return { success: false, error: "No se puede cambiar la fecha de un partido finalizado o cancelado" };
 
-    const admin = await isAdmin(user.id);
-    if (match.created_by !== user.id && !admin)
+    const admin = await isAdmin(currentUser.id);
+    if (match.created_by !== currentUser.id && !admin)
         return { success: false, error: "No tienes permiso para cambiar la fecha" };
 
     const client = admin ? createAdminClient() : supabase;
@@ -730,7 +754,7 @@ export async function rescheduleMatch(
         .eq("match_id", validMatchId);
 
     if (participants) {
-        const ids = participants.map((p) => p.user_id).filter((id) => id !== user.id);
+        const ids = participants.map((p) => p.user_id).filter((id) => id !== currentUser.id);
         const formattedDate = new Date(validDate).toLocaleString("es-ES", {
             dateStyle: "medium",
             timeStyle: "short",
@@ -760,7 +784,9 @@ export async function kickPlayer(
         data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) return { success: false, error: "No autenticado" };
+    const access = await requireMatchAccess(user);
+    if (!access.success) return access;
+    const currentUser = user!;
 
     // Validate both IDs are proper UUIDs
     const KickSchema = z.object({
@@ -770,10 +796,10 @@ export async function kickPlayer(
     const parsedKick = KickSchema.safeParse({ matchId, targetUserId });
     if (!parsedKick.success) return { success: false, error: parsedKick.error.issues[0].message };
 
-    if (!(await isAdmin(user.id)))
+    if (!(await isAdmin(currentUser.id)))
         return { success: false, error: "Solo el administrador puede expulsar jugadores" };
 
-    if (targetUserId === user.id)
+    if (targetUserId === currentUser.id)
         return { success: false, error: "No puedes expulsarte a ti mismo" };
 
     const { data: matchData } = await supabase
@@ -912,7 +938,9 @@ export async function forceResolveMvp(matchId: string): Promise<ActionResult> {
         data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) return { success: false, error: "No autenticado" };
+    const access = await requireMatchAccess(user);
+    if (!access.success) return access;
+    const currentUser = user!;
 
     const { data: match } = await supabase
         .from("matches")
@@ -923,7 +951,7 @@ export async function forceResolveMvp(matchId: string): Promise<ActionResult> {
     if (!match) return { success: false, error: "Partido no encontrado" };
 
     const { isAdmin } = await import("@/lib/permissions");
-    if (match.created_by !== user.id && !(await isAdmin(user.id))) {
+    if (match.created_by !== currentUser.id && !(await isAdmin(currentUser.id))) {
         return { success: false, error: "No tienes permiso para finalizar la votación" };
     }
 
@@ -934,6 +962,12 @@ export async function forceResolveMvp(matchId: string): Promise<ActionResult> {
 
 export async function checkAndResolveExpiredMvp(matchId: string): Promise<ActionResult> {
     const supabase = await createClient();
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+
+    const access = await requireMatchAccess(user);
+    if (!access.success) return access;
 
     const { data: match } = await supabase
         .from("matches")
@@ -973,14 +1007,15 @@ export async function voteForMvp(
         data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) return { success: false, error: "No autenticado" };
-    if (isGuestUser(user)) return { success: false, error: "Esta acción no está disponible en modo demo" };
+    const access = await requireMatchAccess(user);
+    if (!access.success) return access;
+    const currentUser = user!;
 
-    const { allowed } = await rateLimit(`vote-mvp:${user.id}`, 5, 60_000);
+    const { allowed } = await rateLimit(`vote-mvp:${currentUser.id}`, 5, 60_000);
     if (!allowed) return { success: false, error: "Demasiadas peticiones. Espera un momento." };
 
     // Can't vote for yourself
-    if (user.id === votedForUserId)
+    if (currentUser.id === votedForUserId)
         return { success: false, error: "No puedes votarte a ti mismo" };
 
     // Verify match exists and is finished
@@ -1008,7 +1043,7 @@ export async function voteForMvp(
         .from("match_participants")
         .select("user_id")
         .eq("match_id", matchId)
-        .eq("user_id", user.id)
+        .eq("user_id", currentUser.id)
         .single();
 
     if (!voterPart)
@@ -1030,7 +1065,7 @@ export async function voteForMvp(
         .from("mvp_votes")
         .select("id")
         .eq("match_id", matchId)
-        .eq("voter_id", user.id)
+        .eq("voter_id", currentUser.id)
         .single();
 
     if (existingVote)
@@ -1041,7 +1076,7 @@ export async function voteForMvp(
         .from("mvp_votes")
         .insert({
             match_id: matchId,
-            voter_id: user.id,
+            voter_id: currentUser.id,
             voted_for: votedForUserId,
         });
 
@@ -1078,7 +1113,9 @@ export async function markAsPaid(
         data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user) return { success: false, error: "No autenticado" };
+    const access = await requireMatchAccess(user);
+    if (!access.success) return access;
+    const currentUser = user!;
 
     const MarkPaidSchema = z.object({
         matchId: z.string().uuid("ID de partido inválido"),
@@ -1088,7 +1125,7 @@ export async function markAsPaid(
     const parsed = MarkPaidSchema.safeParse({ matchId, targetUserId, paid });
     if (!parsed.success) return { success: false, error: parsed.error.issues[0].message };
 
-    const { allowed } = await rateLimit(`mark-paid:${user.id}`, 20, 60_000);
+    const { allowed } = await rateLimit(`mark-paid:${currentUser.id}`, 20, 60_000);
     if (!allowed) return { success: false, error: "Demasiadas acciones. Espera un momento." };
 
     const { data: match } = await supabase
@@ -1100,8 +1137,8 @@ export async function markAsPaid(
     if (!match) return { success: false, error: "Partido no encontrado" };
     if (match.status !== "open") return { success: false, error: "Solo se puede marcar pagos en partidos abiertos" };
 
-    const admin = await isAdmin(user.id);
-    if (match.created_by !== user.id && !admin)
+    const admin = await isAdmin(currentUser.id);
+    if (match.created_by !== currentUser.id && !admin)
         return { success: false, error: "Solo el organizador puede marcar pagos" };
 
     const adminClient = createAdminClient();

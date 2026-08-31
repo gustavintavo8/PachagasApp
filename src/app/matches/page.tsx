@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { requireCommunityAccess } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import { MatchesTabs } from "./MatchesTabs";
@@ -15,8 +16,10 @@ export default async function MatchesPage() {
     } = await supabase.auth.getUser();
 
     if (!user) redirect("/login");
+    if (user.is_anonymous === true) redirect("/login");
 
-    const isGuest = user.is_anonymous === true;
+    const access = await requireCommunityAccess(user);
+    if (!access.success) redirect("/access");
 
     const { data: matches } = await supabase
         .from("matches")
@@ -28,7 +31,7 @@ export default async function MatchesPage() {
         <MatchesTabs
             matches={matches || []}
             userId={user.id}
-            isGuest={isGuest}
+            isGuest={false}
         />
     );
 }
