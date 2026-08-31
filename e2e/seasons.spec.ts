@@ -223,7 +223,7 @@ test.describe("writes season stats on match finalization", () => {
 
         const { data: stats } = await admin
             .from("season_player_stats")
-            .select("season_id, user_id, elo_rating, matches_played, wins, draws, losses")
+            .select("season_id, user_id, elo_rating, matches_played, goals_scored, wins, draws, losses")
             .eq("season_id", seasonId)
             .in("user_id", participantIds);
         const { data: history } = await admin
@@ -236,6 +236,7 @@ test.describe("writes season stats on match finalization", () => {
             const stat = stats?.find((entry) => entry.user_id === userId);
             expect(stat?.season_id).toBe(seasonId);
             expect(stat?.matches_played).toBe(1);
+            expect(stat?.goals_scored).toBe(0);
             expect((stat?.wins ?? 0) + (stat?.draws ?? 0) + (stat?.losses ?? 0)).toBe(1);
         }
 
@@ -256,6 +257,52 @@ test.describe("writes season stats on match finalization", () => {
         for (const update of expectedElo) {
             expect(stats?.find((stat) => stat.user_id === update.userId)?.elo_rating).toBe(update.newRating);
         }
+
+        const { data: goalBefore } = await admin
+            .from("match_participants")
+            .select("goals")
+            .eq("match_id", matchId)
+            .eq("user_id", organizerId)
+            .single();
+        const retry = await admin.rpc("finalize_match_with_elo", {
+            p_match_id: matchId,
+            p_team_a_score: 9,
+            p_team_b_score: 0,
+            p_finished_at: new Date().toISOString(),
+            p_goal_scorers: [{ user_id: organizerId, goals: 99 }],
+            p_elo_updates: [],
+        });
+        expect(retry.error).toBeNull();
+        expect(retry.data).toBe(false);
+        const { data: goalAfter } = await admin
+            .from("match_participants")
+            .select("goals")
+            .eq("match_id", matchId)
+            .eq("user_id", organizerId)
+            .single();
+        expect(goalAfter?.goals).toBe(goalBefore?.goals);
+
+        const firstMvpResolution = await admin.rpc("resolve_mvp_with_stats", {
+            p_match_id: matchId,
+            p_winner_id: organizerId,
+        });
+        expect(firstMvpResolution.error).toBeNull();
+        expect(firstMvpResolution.data).toBe(true);
+
+        const secondMvpResolution = await admin.rpc("resolve_mvp_with_stats", {
+            p_match_id: matchId,
+            p_winner_id: organizerId,
+        });
+        expect(secondMvpResolution.error).toBeNull();
+        expect(secondMvpResolution.data).toBe(false);
+
+        const { data: mvpStat } = await admin
+            .from("season_player_stats")
+            .select("mvps")
+            .eq("season_id", seasonId)
+            .eq("user_id", organizerId)
+            .single();
+        expect(mvpStat?.mvps).toBe(1);
 
         expect(history?.length).toBe(participantIds.length);
         for (const row of history ?? []) {

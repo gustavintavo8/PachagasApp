@@ -497,20 +497,6 @@ export async function setScore(
     try {
         await getStatsForUsers(match.season_id, participantIds);
 
-        // Update individual goal scorers FIRST so the trigger reads the correct score.
-        if (validData.goalScorers && validData.goalScorers.length > 0) {
-            for (const scorer of validData.goalScorers) {
-                if (scorer.goals > 0) {
-                    const { error: goalError } = await adminSupabase
-                        .from("match_participants")
-                        .update({ goals: scorer.goals })
-                        .eq("match_id", validData.matchId)
-                        .eq("user_id", scorer.userId);
-                    if (goalError) throw new Error(`No se pudieron guardar los goles: ${goalError.message}`);
-                }
-            }
-        }
-
         const { data: eloParticipants, error: eloParticipantsError } = await adminSupabase
             .from("match_participants")
             .select("user_id, team, goals, is_mvp, profiles(position)")
@@ -524,10 +510,16 @@ export async function setScore(
         const seasonalStatsByUser = new Map(
             seasonalStats.map((stat) => [stat.user_id, stat] as const)
         );
+        const goalScorers = validData.goalScorers?.filter((scorer) => scorer.goals > 0) ?? [];
+        const goalsByUser = new Map(goalScorers.map((scorer) => [scorer.userId, scorer.goals] as const));
+        const eloParticipantsWithSubmittedGoals = (eloParticipants ?? []).map((participant) => ({
+            ...participant,
+            goals: goalsByUser.get(participant.user_id) ?? participant.goals,
+        }));
         const eloUpdates = computeEloUpdates(
             validData.teamAScore,
             validData.teamBScore,
-            eloParticipants as Parameters<typeof computeEloUpdates>[2],
+            eloParticipantsWithSubmittedGoals as Parameters<typeof computeEloUpdates>[2],
             seasonalStatsByUser
         );
 
@@ -540,6 +532,7 @@ export async function setScore(
                 p_team_a_score: validData.teamAScore,
                 p_team_b_score: validData.teamBScore,
                 p_finished_at: new Date().toISOString(),
+                p_goal_scorers: goalScorers,
                 p_elo_updates: eloUpdates.map((update) => ({
                     user_id: update.userId,
                     new_rating: update.newRating,
@@ -564,7 +557,7 @@ export async function setScore(
                 validData.matchId,
                 validData.teamAScore,
                 validData.teamBScore,
-                eloParticipants as Parameters<typeof applyFantasyPoints>[4]
+                eloParticipantsWithSubmittedGoals as Parameters<typeof applyFantasyPoints>[4]
             );
         }
     } catch (error) {
@@ -964,60 +957,21 @@ async function resolveMvp(matchId: string): Promise<ActionResult> {
     // On tie → no MVP
     if (isTie || !winnerId) return { success: true, data: undefined };
 
-    const { data: currentMvp, error: currentMvpError } = await adminClient
-        .from("match_participants")
-        .select("user_id")
-        .eq("match_id", matchId)
-        .eq("is_mvp", true)
-        .maybeSingle();
-    if (currentMvpError) return { success: false, error: currentMvpError.message };
-
-    const previousWinnerId = currentMvp?.user_id ?? null;
-    const isAlreadyResolvedToWinner = previousWinnerId === winnerId;
-
-    if (!isAlreadyResolvedToWinner) {
-        // Reset any existing MVP flags for this match
-        const { error: resetError } = await adminClient
-            .from("match_participants")
-            .update({ is_mvp: false })
-            .eq("match_id", matchId);
-        if (resetError) return { success: false, error: `No se pudo resetear el MVP: ${resetError.message}` };
-
-        // Set the winner as MVP
-        const { data: winnerParticipant, error: winnerError } = await adminClient
-            .from("match_participants")
-            .update({ is_mvp: true })
-            .eq("match_id", matchId)
-            .eq("user_id", winnerId)
-            .select("user_id")
-            .maybeSingle();
-        if (winnerError) return { success: false, error: `No se pudo asignar el MVP: ${winnerError.message}` };
-        if (!winnerParticipant) return { success: false, error: "El ganador del MVP no participa en el partido" };
-    }
-
     try {
-        await upsertZeroStats(match.season_id, winnerId);
-
-        const rebuildTargets = previousWinnerId && previousWinnerId !== winnerId
-            ? [previousWinnerId, winnerId]
-            : [winnerId];
-        for (const userId of rebuildTargets) {
-            await upsertZeroStats(match.season_id, userId);
-            const { error: rebuildError } = await adminClient.rpc("rebuild_season_player_stats", {
-                p_season_id: match.season_id,
-                p_user_id: userId,
-            });
-            if (rebuildError) throw new Error(`No se pudo recalcular el MVP de temporada: ${rebuildError.message}`);
-        }
+        const { data: changed, error: resolveError } = await adminClient.rpc(
+            "resolve_mvp_with_stats",
+            {
+                p_match_id: matchId,
+                p_winner_id: winnerId,
+            }
+        );
+        if (resolveError) throw new Error(`No se pudo resolver el MVP: ${resolveError.message}`);
+        if (!changed) return { success: true, data: undefined };
     } catch (error) {
         return {
             success: false,
             error: error instanceof Error ? error.message : "No se pudieron actualizar las estadísticas MVP",
         };
-    }
-
-    if (isAlreadyResolvedToWinner) {
-        return { success: true, data: undefined };
     }
 
     // Notify the winner
