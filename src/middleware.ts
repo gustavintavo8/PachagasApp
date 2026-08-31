@@ -1,6 +1,12 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
 
+function redirectTo(request: NextRequest, pathname: string) {
+    const url = request.nextUrl.clone();
+    url.pathname = pathname;
+    return NextResponse.redirect(url);
+}
+
 export async function middleware(request: NextRequest) {
     let supabaseResponse = NextResponse.next({
         request,
@@ -34,31 +40,64 @@ export async function middleware(request: NextRequest) {
         data: { user },
     } = await supabase.auth.getUser();
 
+    const pathname = request.nextUrl.pathname;
+
     // Routes accessible without authentication, for both guests and logged-in users
     // (legal/transparency pages must stay reachable from anywhere, e.g. before signup).
-    const publicRoutes = ["/login", "/auth/callback", "/privacidad", "/aviso-legal", "/terminos"];
+    const publicRoutes = ["/login", "/auth/callback", "/privacidad", "/aviso-legal", "/terminos", "/access"];
     const isPublicRoute = publicRoutes.some((route) =>
-        request.nextUrl.pathname.startsWith(route)
+        pathname.startsWith(route)
     );
 
     // Of those, only the login page should redirect an already-authenticated user away.
     const guestOnlyRoutes = ["/login"];
     const isGuestOnlyRoute = guestOnlyRoutes.some((route) =>
-        request.nextUrl.pathname.startsWith(route)
+        pathname.startsWith(route)
     );
 
     // If user is not authenticated and trying to access a protected route
     if (!user && !isPublicRoute) {
-        const url = request.nextUrl.clone();
-        url.pathname = "/login";
-        return NextResponse.redirect(url);
+        return redirectTo(request, "/login");
+    }
+
+    if (user?.is_anonymous === true && !isPublicRoute) {
+        return redirectTo(request, "/login");
+    }
+
+    const shouldCheckAccess = Boolean(
+        user &&
+        user.is_anonymous !== true &&
+        (!isPublicRoute || pathname.startsWith("/access"))
+    );
+
+    if (shouldCheckAccess && user) {
+        const [{ data: grant }, { data: profile }] = await Promise.all([
+            supabase
+                .from("community_access_grants")
+                .select("user_id")
+                .eq("user_id", user.id)
+                .is("revoked_at", null)
+                .maybeSingle(),
+            supabase
+                .from("profiles")
+                .select("is_admin")
+                .eq("id", user.id)
+                .maybeSingle(),
+        ]);
+        const allowed = Boolean(grant || profile?.is_admin === true);
+
+        if (pathname.startsWith("/access") && allowed) {
+            return redirectTo(request, "/");
+        }
+
+        if (!isPublicRoute && !allowed) {
+            return redirectTo(request, "/access");
+        }
     }
 
     // If user is authenticated and trying to access the login page
-    if (user && isGuestOnlyRoute) {
-        const url = request.nextUrl.clone();
-        url.pathname = "/";
-        return NextResponse.redirect(url);
+    if (user && user.is_anonymous !== true && isGuestOnlyRoute) {
+        return redirectTo(request, "/");
     }
 
     return supabaseResponse;

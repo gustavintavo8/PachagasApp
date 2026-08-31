@@ -8,6 +8,8 @@ async function globalSetup() {
     const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
     const email = process.env.E2E_TEST_EMAIL!;
     const password = process.env.E2E_TEST_PASSWORD!;
+    const gatedEmail = process.env.E2E_GATED_TEST_EMAIL!;
+    const gatedPassword = process.env.E2E_GATED_TEST_PASSWORD!;
 
     // GUARDIA: abortar si por cualquier razón apunta a producción
     if (!supabaseUrl.includes("127.0.0.1") && !supabaseUrl.includes("localhost")) {
@@ -23,32 +25,70 @@ async function globalSetup() {
         auth: { autoRefreshToken: false, persistSession: false },
     });
 
-    const { error: createError } = await admin.auth.admin.createUser({
+    async function ensureConfirmedUser(params: {
+        email: string;
+        password: string;
+        username: string;
+    }) {
+        const { email, password, username } = params;
+        const { error: createError } = await admin.auth.admin.createUser({
+            email,
+            password,
+            email_confirm: true,
+        });
+
+        if (
+            createError &&
+            !createError.message.includes("already been registered") &&
+            !createError.message.includes("already exists")
+        ) {
+            throw new Error(`No se pudo crear el usuario de test ${email}: ${createError.message}`);
+        }
+
+        const { data: authUsers } = await admin.auth.admin.listUsers();
+        const user = authUsers?.users.find((candidate) => candidate.email === email);
+        if (!user) {
+            throw new Error(`Usuario de test no encontrado tras creación: ${email}`);
+        }
+
+        await admin.from("profiles").upsert(
+            {
+                id: user.id,
+                username,
+                position: "MID",
+                elo_rating: 1000,
+                matches_played: 0,
+            },
+            { onConflict: "id" }
+        );
+
+        return user.id;
+    }
+
+    const testUserId = await ensureConfirmedUser({
         email,
         password,
-        email_confirm: true,
+        username: "test-e2e",
+    });
+    const gatedUserId = await ensureConfirmedUser({
+        email: gatedEmail,
+        password: gatedPassword,
+        username: "gated-e2e",
     });
 
-    // Ignorar error "already exists"
-    if (createError && !createError.message.includes("already been registered") && !createError.message.includes("already exists")) {
-        throw new Error(`No se pudo crear el usuario de test: ${createError.message}`);
-    }
-
-    // También crear el perfil si no existe (el trigger puede no estar en local)
-    const { data: authUser } = await admin.auth.admin.listUsers();
-    const testUser = authUser?.users.find((u) => u.email === email);
-    if (testUser) {
-        await admin.from("profiles").upsert({
-            id: testUser.id,
-            username: "test-e2e",
-            position: "MID",
-            elo_rating: 1000,
-            matches_played: 0,
-        }, { onConflict: "id" });
-    }
+    await admin.from("community_access_grants").upsert(
+        {
+            user_id: testUserId,
+            granted_at: new Date().toISOString(),
+            revoked_at: null,
+        },
+        { onConflict: "user_id" }
+    );
+    await admin.from("community_access_grants").delete().eq("user_id", gatedUserId);
 
     // Limpiar rate limits del usuario test para evitar bloqueos entre ejecuciones
     await admin.from("rate_limits").delete().like("key", `login:${email}%`);
+    await admin.from("rate_limits").delete().like("key", `login:${gatedEmail}%`);
 
     // Login vía UI y guardar storageState
     const browser = await chromium.launch();
@@ -64,7 +104,7 @@ async function globalSetup() {
     await page.waitForFunction(
         () => window.location.pathname === "/",
         { timeout: 30_000 }
-    ).catch(async (e) => {
+    ).catch(async () => {
         const url = page.url();
         const errorText = await page.$eval(".text-red-400", (el) => el.textContent).catch(() => null);
         throw new Error(
