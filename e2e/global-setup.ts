@@ -1,4 +1,4 @@
-import { chromium } from "@playwright/test";
+import { chromium, type Browser } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 import * as fs from "fs";
 import * as path from "path";
@@ -11,8 +11,23 @@ async function globalSetup() {
     const password = process.env.E2E_TEST_PASSWORD;
     const gatedEmail = process.env.E2E_GATED_TEST_EMAIL;
     const gatedPassword = process.env.E2E_GATED_TEST_PASSWORD;
+    const seasonEmail = process.env.E2E_SEASONS_TEST_EMAIL;
+    const seasonPassword = process.env.E2E_SEASONS_TEST_PASSWORD;
+    const seasonStatsEmail = process.env.E2E_SEASONS_STATS_TEST_EMAIL;
+    const seasonStatsPassword = process.env.E2E_SEASONS_STATS_TEST_PASSWORD;
 
-    if (!supabaseUrl || !serviceKey || !email || !password || !gatedEmail || !gatedPassword) {
+    if (
+        !supabaseUrl ||
+        !serviceKey ||
+        !email ||
+        !password ||
+        !gatedEmail ||
+        !gatedPassword ||
+        !seasonEmail ||
+        !seasonPassword ||
+        !seasonStatsEmail ||
+        !seasonStatsPassword
+    ) {
         throw new Error(
             "[E2E ABORT] Faltan variables de entorno para los usuarios E2E. " +
                 "Configura .env.test.local con valores locales de prueba."
@@ -83,18 +98,34 @@ async function globalSetup() {
         password: gatedPassword,
         username: "gated-e2e",
     });
+    const seasonUserId = await ensureConfirmedUser({
+        email: seasonEmail,
+        password: seasonPassword,
+        username: "seasons-e2e",
+    });
+    const seasonStatsUserId = await ensureConfirmedUser({
+        email: seasonStatsEmail,
+        password: seasonStatsPassword,
+        username: "seasons-stats-e2e",
+    });
 
-    const { error: regularGrantError } = await admin.from("community_access_grants").upsert(
-        {
-            user_id: testUserId,
-            granted_at: new Date().toISOString(),
-            revoked_at: null,
-        },
-        { onConflict: "user_id" }
-    );
-    if (regularGrantError) {
-        throw new Error(`No se pudo activar el grant del usuario regular: ${regularGrantError.message}`);
+    async function ensureCommunityGrant(userId: string, label: string) {
+        const { error } = await admin.from("community_access_grants").upsert(
+            {
+                user_id: userId,
+                granted_at: new Date().toISOString(),
+                revoked_at: null,
+            },
+            { onConflict: "user_id" }
+        );
+        if (error) {
+            throw new Error(`No se pudo activar el grant del usuario ${label}: ${error.message}`);
+        }
     }
+
+    await ensureCommunityGrant(testUserId, "regular");
+    await ensureCommunityGrant(seasonUserId, "de temporadas");
+    await ensureCommunityGrant(seasonStatsUserId, "de estadísticas de temporadas");
 
     const { error: gatedGrantError } = await admin
         .from("community_access_grants")
@@ -104,46 +135,86 @@ async function globalSetup() {
         throw new Error(`No se pudo limpiar el grant del usuario gated: ${gatedGrantError.message}`);
     }
 
-    // Limpiar rate limits del usuario test para evitar bloqueos entre ejecuciones
-    const { error: regularRateLimitError } = await admin.from("rate_limits").delete().like("key", `login:${email}%`);
-    if (regularRateLimitError) {
-        throw new Error(`No se pudo limpiar el rate limit del usuario regular: ${regularRateLimitError.message}`);
+    // Limpiar rate limits de los fixtures para evitar bloqueos entre ejecuciones.
+    for (const [label, loginEmail] of [
+        ["regular", email],
+        ["gated", gatedEmail],
+        ["de temporadas", seasonEmail],
+        ["de estadísticas de temporadas", seasonStatsEmail],
+    ] as const) {
+        const { error } = await admin.from("rate_limits").delete().like("key", `login:${loginEmail}%`);
+        if (error) {
+            throw new Error(`No se pudo limpiar el rate limit del usuario ${label}: ${error.message}`);
+        }
     }
-    const { error: gatedRateLimitError } = await admin.from("rate_limits").delete().like("key", `login:${gatedEmail}%`);
-    if (gatedRateLimitError) {
-        throw new Error(`No se pudo limpiar el rate limit del usuario gated: ${gatedRateLimitError.message}`);
+
+    // El usuario de historia debe arrancar sin estadísticas persistidas de otras ejecuciones.
+    const { error: seasonStatsCleanupError } = await admin
+        .from("season_player_stats")
+        .delete()
+        .eq("user_id", seasonUserId);
+    if (seasonStatsCleanupError) {
+        throw new Error(`No se pudieron limpiar las estadísticas del fixture de temporadas: ${seasonStatsCleanupError.message}`);
     }
 
-    // Login vía UI y guardar storageState
-    const browser = await chromium.launch();
-    const page = await browser.newPage();
-
-    await page.goto("http://localhost:3000/login");
-    await page.fill('input[type="email"]', email);
-    await page.fill('input[type="password"]', password);
-    await page.click('button[type="submit"]');
-
-    // waitForFunction sondea window.location directamente, compatible con
-    // las soft navigations del App Router (router.replace vía pushState).
-    await page.waitForFunction(
-        () => window.location.pathname === "/",
-        { timeout: 30_000 }
-    ).catch(async () => {
-        const url = page.url();
-        const errorText = await page.$eval(".text-red-400", (el) => el.textContent).catch(() => null);
-        throw new Error(
-            `[global-setup] Login no redirigió a /. URL actual: ${url}. ` +
-            (errorText ? `Error en UI: ${errorText}` : "No hay error visible en la página.")
-        );
-    });
-
-    await page.waitForLoadState("networkidle");
-
+    // Login vía UI y guardar un storageState por fixture.
     const authDir = path.resolve("e2e/.auth");
     if (!fs.existsSync(authDir)) fs.mkdirSync(authDir, { recursive: true });
-    await page.context().storageState({ path: "e2e/.auth/user.json" });
 
-    await browser.close();
+    const browser = await chromium.launch();
+    try {
+        await saveStorageState(browser, {
+            email,
+            password,
+            storagePath: "e2e/.auth/user.json",
+        });
+        await saveStorageState(browser, {
+            email: seasonEmail,
+            password: seasonPassword,
+            storagePath: "e2e/.auth/seasons.json",
+        });
+        await saveStorageState(browser, {
+            email: seasonStatsEmail,
+            password: seasonStatsPassword,
+            storagePath: "e2e/.auth/seasons-stats.json",
+        });
+    } finally {
+        await browser.close();
+    }
+}
+
+async function saveStorageState(
+    browser: Browser,
+    params: { email: string; password: string; storagePath: string }
+) {
+    const context = await browser.newContext();
+    const page = await context.newPage();
+
+    try {
+        await page.goto("http://localhost:3000/login");
+        await page.fill('input[type="email"]', params.email);
+        await page.fill('input[type="password"]', params.password);
+        await page.click('button[type="submit"]');
+
+        // waitForFunction sondea window.location directamente, compatible con
+        // las soft navigations del App Router (router.replace vía pushState).
+        await page.waitForFunction(
+            () => window.location.pathname === "/",
+            { timeout: 30_000 }
+        ).catch(async () => {
+            const url = page.url();
+            const errorText = await page.$eval(".text-red-400", (el) => el.textContent).catch(() => null);
+            throw new Error(
+                `[global-setup] Login no redirigió a /. URL actual: ${url}. ` +
+                (errorText ? `Error en UI: ${errorText}` : "No hay error visible en la página.")
+            );
+        });
+
+        await page.waitForLoadState("networkidle");
+        await context.storageState({ path: params.storagePath });
+    } finally {
+        await context.close();
+    }
 }
 
 export default globalSetup;

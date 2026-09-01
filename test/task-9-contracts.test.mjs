@@ -39,8 +39,8 @@ test("global setup y helpers aplican la misma guardia antes de usar service_role
     assert.match(dbHelpers, /assertLocalSupabaseUrl\(url\)/);
 });
 
-test("el spec estacional serializa el estado compartido del usuario regular", () => {
-    assert.match(read("e2e/seasons.spec.ts"), /test\.describe\.configure\(\{\s*mode:\s*["']serial["']\s*\}\)/);
+test("el spec estacional no depende de serializar toda la suite", () => {
+    assert.doesNotMatch(read("e2e/seasons.spec.ts"), /test\.describe\.configure\(\{\s*mode:\s*["']serial["']\s*\}\)/);
 });
 
 test("el cleanup gated elimina solo sus estadísticas y su grant", () => {
@@ -51,4 +51,20 @@ test("el cleanup gated elimina solo sus estadísticas y su grant", () => {
     assert.match(dbHelpers, /from\("season_player_stats"\)\.delete\(\)\.eq\("user_id", userId\)/);
     assert.match(access, /deleteSeasonPlayerStats\(gatedUserId\)/);
     assert.match(access, /deleteCommunityGrant\(gatedUserId\)/);
+});
+
+test("seasons usa usuarios y storage states exclusivos sin serializar toda la suite", () => {
+    const globalSetup = read("e2e/global-setup.ts");
+    const seasons = read("e2e/seasons.spec.ts");
+    const matchesScore = read("e2e/matches-score.spec.ts");
+
+    assert.match(globalSetup, /E2E_SEASONS_TEST_EMAIL/);
+    assert.match(globalSetup, /E2E_SEASONS_STATS_TEST_EMAIL/);
+    assert.match(seasons, /storageState:\s*["']e2e\/\.auth\/seasons\.json["']/);
+    assert.match(seasons, /storageState:\s*["']e2e\/\.auth\/seasons-stats\.json["']/);
+    assert.match(seasons, /getSeasonTestUserId\(\)/);
+    assert.match(seasons, /getSeasonStatsTestUserId\(\)/);
+    assert.match(matchesScore, /getTestUserId\(\)/);
+    assert.doesNotMatch(seasons, /getTestUserId\(\)/);
+    assert.doesNotMatch(seasons, /test\.describe\.configure\(\{\s*mode:\s*["']serial["']/);
 });

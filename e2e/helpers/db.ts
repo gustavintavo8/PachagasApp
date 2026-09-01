@@ -35,6 +35,27 @@ export async function getGatedTestUserId(): Promise<string> {
     return user.id;
 }
 
+async function getUserIdByEmail(email: string, label: string): Promise<string> {
+    const db = getAdminClient();
+    const { data, error } = await db.auth.admin.listUsers();
+    if (error) throw new Error(`No se pudieron listar los usuarios E2E: ${error.message}`);
+    const user = data?.users.find((candidate) => candidate.email === email);
+    if (!user) throw new Error(`Usuario ${label} no encontrado: ${email}`);
+    return user.id;
+}
+
+export async function getSeasonTestUserId(): Promise<string> {
+    const email = process.env.E2E_SEASONS_TEST_EMAIL;
+    if (!email) throw new Error("Falta E2E_SEASONS_TEST_EMAIL para el fixture de temporadas.");
+    return getUserIdByEmail(email, "de temporadas");
+}
+
+export async function getSeasonStatsTestUserId(): Promise<string> {
+    const email = process.env.E2E_SEASONS_STATS_TEST_EMAIL;
+    if (!email) throw new Error("Falta E2E_SEASONS_STATS_TEST_EMAIL para el fixture de estadísticas de temporadas.");
+    return getUserIdByEmail(email, "de estadísticas de temporadas");
+}
+
 export async function deleteCommunityGrant(userId: string): Promise<void> {
     const admin = getAdminClient();
     const { error } = await admin.from("community_access_grants").delete().eq("user_id", userId);

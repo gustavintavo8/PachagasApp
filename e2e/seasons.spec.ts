@@ -2,20 +2,24 @@ import { test, expect } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 import { computeMatchEloUpdates } from "../src/lib/elo";
 import { balanceTeams } from "../src/lib/team-balancer";
+import { assertLocalSupabaseUrl } from "./helpers/local-supabase-url.mjs";
 import {
     createDummyUsers,
     createTestMatch,
     deleteDummyUsers,
     deleteMatch,
-    getTestUserId,
+    getSeasonStatsTestUserId,
+    getSeasonTestUserId,
     seedParticipants,
 } from "./helpers/db";
 
-test.describe.configure({ mode: "serial" });
+test.use({ storageState: "e2e/.auth/seasons.json" });
 
 function getLocalAdminClient() {
+    const url = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    assertLocalSupabaseUrl(url);
     return createClient(
-        process.env.NEXT_PUBLIC_SUPABASE_URL!,
+        url,
         process.env.SUPABASE_SERVICE_ROLE_KEY!,
         { auth: { autoRefreshToken: false, persistSession: false } }
     );
@@ -45,6 +49,7 @@ test("el usuario normal conserva el acceso después de refrescar", async ({ page
 
 test("un partido nuevo pertenece a la temporada activa", async ({ page }) => {
     const admin = getLocalAdminClient();
+    const seasonUserId = await getSeasonTestUserId();
     let matchId: string | undefined;
 
     try {
@@ -59,7 +64,7 @@ test("un partido nuevo pertenece a la temporada activa", async ({ page }) => {
 
         const { data: match } = await admin
             .from("matches")
-            .select("id, season_id")
+            .select("id, season_id, created_by")
             .eq("id", matchId)
             .single();
         const { data: season } = await admin
@@ -69,12 +74,15 @@ test("un partido nuevo pertenece a la temporada activa", async ({ page }) => {
             .single();
 
         expect(match?.season_id).toBe(season?.id);
+        expect(match?.created_by).toBe(seasonUserId);
     } finally {
         if (matchId) await deleteMatch(matchId);
     }
 });
 
 test.describe("writes season stats on match finalization", () => {
+    test.use({ storageState: "e2e/.auth/seasons-stats.json" });
+
     let matchId: string;
     let seasonId: string;
     let organizerId: string;
@@ -84,7 +92,7 @@ test.describe("writes season stats on match finalization", () => {
 
     test.beforeAll(async () => {
         const admin = getLocalAdminClient();
-        organizerId = await getTestUserId();
+        organizerId = await getSeasonStatsTestUserId();
         dummyUserIds = await createDummyUsers(3);
 
         const { data: season } = await admin
