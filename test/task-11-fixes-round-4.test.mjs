@@ -87,3 +87,13 @@ test("el callback OAuth espera la persistencia diferida de la sesión", () => {
         /await\s+new\s+Promise\s*\(\s*\(resolve\)\s*=>\s*setTimeout\(resolve\s*,\s*0\)/i
     );
 });
+
+test("OAuth se inicia en el navegador para conservar el verificador PKCE", () => {
+    const loginPage = read("src/app/login/page.tsx");
+
+    assert.match(loginPage, /@\/lib\/supabase\/client/);
+    assert.match(loginPage, /supabase\.auth\.signInWithOAuth\(/);
+    assert.match(loginPage, /window\.location\.origin/);
+    assert.match(loginPage, /skipBrowserRedirect:\s*true/);
+    assert.doesNotMatch(loginPage, /signInWithOAuth\(provider\)/);
+});
