@@ -65,17 +65,32 @@ Si los conteos no son plausibles para el proyecto seleccionado, detenerse y reso
 
 ### 3. Configuración local — máquina del operador
 
-Crear o actualizar `.env.local` y `.env.test.local` sin incluirlos en Git. No usar claves de producción para las pruebas locales y no colocar credenciales de producción en ninguno de esos dos archivos. Para la verificación local de migraciones, el comando oficial carga `.env.test.local`:
-
-```powershell
-npx tsx --env-file=.env.test.local src/scripts/verify-season-migration.ts
-```
-
-El verificador usa `SUPABASE_SERVICE_ROLE_KEY` para comprobaciones administrativas. Nunca imprimir esa variable ni su contenido.
+Crear o actualizar `.env.local` y `.env.test.local` sin incluirlos en Git. No usar claves de producción para las pruebas locales y no colocar credenciales de producción en ninguno de esos dos archivos. `.env.test.local` queda reservado a la suite E2E y a la verificación de la base local; la única ejecución local del verificador está en el paso 4, después de confirmar y resetear el stack local. El verificador usa `SUPABASE_SERVICE_ROLE_KEY` para comprobaciones administrativas; nunca imprimir esa variable ni su contenido.
 
 ### 4. Reset y verificador local — solo Supabase local
 
-Iniciar Docker Desktop y el stack local de Supabase. El siguiente comando es destructivo para la base local y no debe ejecutarse contra producción:
+Iniciar Docker Desktop y levantar el stack local de Supabase. Confirmar primero que el stack está levantado; todos los comandos de este bloque son locales y no deben ejecutarse contra producción:
+
+```powershell
+npx supabase start
+npx supabase status
+```
+
+Antes del reset, verificar que `.env.test.local` apunta a un host local permitido. Esta comprobación solo imprime esquema y hostname, nunca claves ni tokens:
+
+```powershell
+$localUrlLine = Get-Content -LiteralPath '.env.test.local' | Where-Object { $_ -match '^\s*NEXT_PUBLIC_SUPABASE_URL\s*=' } | Select-Object -First 1
+if (-not $localUrlLine) { throw 'Falta NEXT_PUBLIC_SUPABASE_URL en .env.test.local' }
+$localUrl = ($localUrlLine -split '=', 2)[1].Trim().Trim('"').Trim("'")
+$localTarget = [Uri]$localUrl
+$allowedLocalHosts = @('127.0.0.1', 'localhost', '::1')
+if ($localTarget.Scheme -notin @('http', 'https') -or $localTarget.Host -notin $allowedLocalHosts) {
+    throw "Destino Supabase no es local: $($localTarget.Scheme)://$($localTarget.Host)"
+}
+Write-Output "Destino Supabase local verificado: $($localTarget.Scheme)://$($localTarget.Host)"
+```
+
+Con el stack levantado y el host local verificado, ejecutar el reset y, a continuación, la única ejecución local del verificador. El reset es destructivo para la base local:
 
 ```powershell
 npx supabase db reset

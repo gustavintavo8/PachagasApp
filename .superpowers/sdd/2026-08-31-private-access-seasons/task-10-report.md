@@ -64,3 +64,9 @@ La documentación inicial de Tarea 10 quedó creada en `8a6491c337a9d3426dc1611f
 | Validación de enlaces relativos Markdown en README, runbook e informe | OK; sin destinos locales inexistentes. |
 | Secret-pattern scan sobre los tres archivos documentales | OK; sin valores de credenciales o códigos. |
 | Escaneo de afirmaciones Fantasy obsoletas en README | OK; no quedan las tools ni la afirmación de disponibilidad retiradas. |
+
+## Ronda 2 — Corrección del orden de verificación local
+
+El bloque ejecutable del verificador se retiró del paso 3. Ese paso solo prepara `.env.local` y `.env.test.local`; la única ejecución local de `npx tsx --env-file=.env.test.local src/scripts/verify-season-migration.ts` permanece junto a `npx supabase db reset` en el paso 4, después de `npx supabase start`, `npx supabase status` y la comprobación explícita de que `NEXT_PUBLIC_SUPABASE_URL` usa `127.0.0.1`, `localhost` o `::1`. La comprobación no imprime secretos.
+
+No se ejecutaron migraciones remotas, SQL de producción, despliegues ni operaciones destructivas. El README, `.env.production.local`, la retirada futura de `Fantasy desactivado` y el commit base `8a6491c337a9d3426dc1611fa5ce4d252d84558a` se conservan.
