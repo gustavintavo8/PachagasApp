@@ -71,3 +71,19 @@ test("rate-limit falla cerrado cuando el RPC no está disponible", () => {
     assert.doesNotMatch(source, /return\s+\{\s*allowed:\s*true[\s\S]{0,80}remaining/);
     assert.match(source, /return\s+\{\s*allowed:\s*false\s*,\s*remaining:\s*0\s*\}/);
 });
+
+test("el callback OAuth espera la persistencia diferida de la sesión", () => {
+    const callback = read("src/app/auth/callback/route.ts");
+    const exchangeIndex = callback.indexOf("exchangeCodeForSession(code)");
+    const persistenceWaitIndex = callback.indexOf("setTimeout", exchangeIndex);
+
+    assert.ok(exchangeIndex >= 0, "El callback debe intercambiar el código OAuth");
+    assert.ok(
+        persistenceWaitIndex > exchangeIndex,
+        "El callback debe esperar después del intercambio OAuth"
+    );
+    assert.match(
+        callback.slice(exchangeIndex, persistenceWaitIndex + 200),
+        /await\s+new\s+Promise\s*\(\s*\(resolve\)\s*=>\s*setTimeout\(resolve\s*,\s*0\)/i
+    );
+});

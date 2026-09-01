@@ -16,6 +16,14 @@ export async function GET(request: Request) {
         const supabase = await createClient();
         const { data, error } = await supabase.auth.exchangeCodeForSession(code);
 
+        // supabase-js >= 2.91.0 defers the SIGNED_IN notification that the SSR
+        // adapter uses to persist auth cookies. Let that notification run
+        // before returning the redirect, otherwise Vercel can redirect to a
+        // protected page without a session and send the user back to /login.
+        if (!error) {
+            await new Promise((resolve) => setTimeout(resolve, 0));
+        }
+
         if (!error && data.user) {
             // Check if profile exists
             const { data: existingProfile } = await supabase
