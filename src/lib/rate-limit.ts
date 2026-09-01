@@ -7,7 +7,7 @@ export async function rateLimit(
 ): Promise<{ allowed: boolean; remaining: number }> {
     try {
         const admin = createAdminClient();
-        const { data, error } = await admin.rpc("consume_rate_limit", {
+        const { data, error } = await admin.rpc("consume_rate_limit_server", {
             p_key: key,
             p_max_tokens: maxTokens,
             p_refill_interval_ms: refillIntervalMs
