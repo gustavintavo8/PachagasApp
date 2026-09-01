@@ -80,6 +80,88 @@ test("abre y cierra el menú con teclado devolviendo el foco", async ({ page }) 
     }
 });
 
+test("navega por los tres elementos con Arrow/Home/End y conserva Tab/Escape/click externo", async ({ page }) => {
+    const matchPage = new MatchPage(page);
+    const matchId = await matchPage.createMatch("Campo Navegación", 2880);
+
+    try {
+        const trigger = page.getByRole("button", { name: "Añadir al calendario" });
+        const google = page.getByRole("menuitem", { name: "Google Calendar" });
+        const outlook = page.getByRole("menuitem", { name: "Outlook" });
+        const download = page.getByRole("menuitem", { name: "Descargar archivo .ics" });
+
+        await trigger.focus();
+        await page.keyboard.press("Enter");
+        await expect(google).toBeFocused();
+
+        await page.keyboard.press("ArrowDown");
+        await expect(outlook).toBeFocused();
+        await page.keyboard.press("ArrowDown");
+        await expect(download).toBeFocused();
+        await page.keyboard.press("ArrowDown");
+        await expect(google).toBeFocused();
+
+        await page.keyboard.press("ArrowUp");
+        await expect(download).toBeFocused();
+        await page.keyboard.press("ArrowUp");
+        await expect(outlook).toBeFocused();
+        await page.keyboard.press("ArrowUp");
+        await expect(google).toBeFocused();
+        await page.keyboard.press("Home");
+        await expect(google).toBeFocused();
+        await page.keyboard.press("End");
+        await expect(download).toBeFocused();
+        await page.keyboard.press("Home");
+        await expect(google).toBeFocused();
+
+        await page.keyboard.press("Tab");
+        await expect(download).not.toBeFocused();
+        await page.keyboard.press("Escape");
+        await expect(page.getByRole("menu", { name: "Opciones de calendario" })).toBeHidden();
+        await expect(trigger).toBeFocused();
+
+        await trigger.press("Enter");
+        await expect(page.getByRole("menu", { name: "Opciones de calendario" })).toBeVisible();
+        await page.locator("main").click({ position: { x: 5, y: 5 } });
+        await expect(page.getByRole("menu", { name: "Opciones de calendario" })).toBeHidden();
+    } finally {
+        await deleteMatch(matchId);
+    }
+});
+
+test("muestra un error y no abre un menú vacío si falla la preparación del evento", async ({ page }) => {
+    await page.addInitScript(() => {
+        const NativeURL = window.URL;
+        const failingOrigin = window.location.origin;
+
+        class FailingURL extends NativeURL {
+            constructor(input: string | URL, base?: string | URL) {
+                if (input === failingOrigin) {
+                    throw new Error("fallo controlado al construir el evento");
+                }
+                super(input, base);
+            }
+        }
+
+        window.URL = FailingURL as typeof URL;
+    });
+
+    const matchPage = new MatchPage(page);
+    const matchId = await matchPage.createMatch("Campo Evento", 2880);
+
+    try {
+        const trigger = page.getByRole("button", { name: "Añadir al calendario" });
+        await expect(trigger).toBeVisible();
+        await trigger.click();
+
+        await expect(page.getByText("No se pudo preparar el evento")).toBeVisible();
+        await expect(page.getByRole("menu", { name: "Opciones de calendario" })).toBeHidden();
+        await expect(page.getByRole("menuitem")).toHaveCount(0);
+    } finally {
+        await deleteMatch(matchId);
+    }
+});
+
 test("el control no provoca desbordamiento horizontal @mobile", async ({ page }) => {
     const matchPage = new MatchPage(page);
     const matchId = await matchPage.createMatch("Campo móvil", 2880);

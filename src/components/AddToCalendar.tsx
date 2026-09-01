@@ -22,9 +22,11 @@ export function AddToCalendar({ match }: AddToCalendarProps): React.JSX.Element 
     const { toast } = useToast();
     const [origin, setOrigin] = useState<string | null>(null);
     const [open, setOpen] = useState(false);
+    const [event, setEvent] = useState<CalendarEventData | null>(null);
     const rootRef = useRef<HTMLDivElement>(null);
     const triggerRef = useRef<HTMLButtonElement>(null);
     const firstItemRef = useRef<HTMLAnchorElement>(null);
+    const menuItemRefs = useRef<Array<HTMLElement | null>>([]);
 
     // The origin must be read after hydration so the server and client markup match.
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -34,21 +36,6 @@ export function AddToCalendar({ match }: AddToCalendarProps): React.JSX.Element 
         () => origin !== null && canAddMatchToCalendar(match.status, match.date),
         [match.date, match.status, origin]
     );
-
-    const event = useMemo<CalendarEventData | null>(() => {
-        if (!available || !origin) return null;
-
-        try {
-            return createMatchCalendarEvent({
-                id: match.id,
-                date: match.date,
-                location: match.location,
-                origin,
-            });
-        } catch {
-            return null;
-        }
-    }, [available, match.date, match.id, match.location, origin]);
 
     const calendarUrls = useMemo(() => {
         if (!event) return null;
@@ -128,6 +115,41 @@ export function AddToCalendar({ match }: AddToCalendarProps): React.JSX.Element 
         }
     };
 
+    const handleMenuKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+        const items = menuItemRefs.current.filter((item): item is HTMLElement => item !== null);
+        const currentIndex = items.indexOf(document.activeElement as HTMLElement);
+        if (currentIndex === -1 || items.length === 0) return;
+
+        let nextIndex: number | null = null;
+        if (event.key === "ArrowDown") {
+            nextIndex = (currentIndex + 1) % items.length;
+        } else if (event.key === "ArrowUp") {
+            nextIndex = (currentIndex - 1 + items.length) % items.length;
+        } else if (event.key === "Home") {
+            nextIndex = 0;
+        } else if (event.key === "End") {
+            nextIndex = items.length - 1;
+        }
+
+        if (nextIndex !== null) {
+            event.preventDefault();
+            items[nextIndex].focus();
+        }
+    };
+
+    const handleTriggerClick = () => {
+        if (open) {
+            setOpen(false);
+            return;
+        }
+
+        const currentEvent = prepareEvent();
+        if (!currentEvent) return;
+
+        setEvent(currentEvent);
+        setOpen(true);
+    };
+
     return (
         <div ref={rootRef} className="relative">
             <button
@@ -136,7 +158,7 @@ export function AddToCalendar({ match }: AddToCalendarProps): React.JSX.Element 
                 aria-haspopup="menu"
                 aria-expanded={open}
                 aria-controls="calendar-options-menu"
-                onClick={() => setOpen((value) => !value)}
+                onClick={handleTriggerClick}
                 className="flex items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-2 text-xs font-medium text-muted transition-all hover:border-accent hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
             >
                 <CalendarPlus size={14} />
@@ -148,10 +170,14 @@ export function AddToCalendar({ match }: AddToCalendarProps): React.JSX.Element 
                     id="calendar-options-menu"
                     role="menu"
                     aria-label="Opciones de calendario"
+                    onKeyDown={handleMenuKeyDown}
                     className="absolute right-0 top-full z-50 mt-2 w-56 rounded-xl border border-border bg-surface p-1 shadow-xl shadow-black/20"
                 >
                     <a
-                        ref={firstItemRef}
+                        ref={(element) => {
+                            firstItemRef.current = element;
+                            menuItemRefs.current[0] = element;
+                        }}
                         href={calendarUrls.google}
                         target="_blank"
                         rel="noopener noreferrer"
@@ -163,6 +189,9 @@ export function AddToCalendar({ match }: AddToCalendarProps): React.JSX.Element 
                         Google Calendar
                     </a>
                     <a
+                        ref={(element) => {
+                            menuItemRefs.current[1] = element;
+                        }}
                         href={calendarUrls.outlook}
                         target="_blank"
                         rel="noopener noreferrer"
@@ -174,6 +203,9 @@ export function AddToCalendar({ match }: AddToCalendarProps): React.JSX.Element 
                         Outlook
                     </a>
                     <button
+                        ref={(element) => {
+                            menuItemRefs.current[2] = element;
+                        }}
                         type="button"
                         role="menuitem"
                         onClick={handleDownload}
