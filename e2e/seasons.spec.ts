@@ -29,32 +29,47 @@ test("el historial acepta selector de temporada", async ({ page }) => {
     await expect(page.getByText(/Temporada 1/i)).toBeVisible();
 });
 
+test("Temporada 2 no hereda estadísticas de Temporada 1", async ({ page }) => {
+    await page.goto("/history?season=season-2");
+    await expect(page.getByText(/Temporada 2/i)).toBeVisible();
+    await expect(page.getByText("Aún no has jugado partidos")).toBeVisible();
+});
+
+test("el usuario normal conserva el acceso después de refrescar", async ({ page }) => {
+    await page.goto("/");
+    await page.reload();
+    await expect(page).toHaveURL("http://localhost:3000/");
+});
+
 test("un partido nuevo pertenece a la temporada activa", async ({ page }) => {
     const admin = getLocalAdminClient();
+    let matchId: string | undefined;
 
-    await page.goto("/matches/new");
-    const date = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString().slice(0, 16);
-    await page.locator('input[type="datetime-local"]').fill(date);
-    await page.locator('input[name="location"]').fill("Campo temporada E2E");
-    await page.getByRole("button", { name: /crear/i }).click();
-    await page.waitForURL(/\/matches\/[a-f0-9-]+/);
+    try {
+        await page.goto("/matches/new");
+        const date = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString().slice(0, 16);
+        await page.locator('input[type="datetime-local"]').fill(date);
+        await page.locator('input[name="location"]').fill("Campo temporada E2E");
+        await page.getByRole("button", { name: /crear/i }).click();
+        await page.waitForURL(/\/matches\/[a-f0-9-]+/);
 
-    const matchId = page.url().split("/matches/")[1];
+        matchId = page.url().split("/matches/")[1];
 
-    const { data: match } = await admin
-        .from("matches")
-        .select("id, season_id")
-        .eq("id", matchId)
-        .single();
-    const { data: season } = await admin
-        .from("seasons")
-        .select("id, status")
-        .eq("status", "active")
-        .single();
+        const { data: match } = await admin
+            .from("matches")
+            .select("id, season_id")
+            .eq("id", matchId)
+            .single();
+        const { data: season } = await admin
+            .from("seasons")
+            .select("id, status")
+            .eq("status", "active")
+            .single();
 
-    expect(match?.season_id).toBe(season?.id);
-
-    await deleteMatch(matchId);
+        expect(match?.season_id).toBe(season?.id);
+    } finally {
+        if (matchId) await deleteMatch(matchId);
+    }
 });
 
 test.describe("writes season stats on match finalization", () => {
@@ -137,8 +152,8 @@ test.describe("writes season stats on match finalization", () => {
 
     test.afterAll(async () => {
         const admin = getLocalAdminClient();
-        await deleteMatch(matchId);
-        for (const [userId, snapshot] of seasonSnapshots) {
+        if (matchId) await deleteMatch(matchId);
+        for (const [userId, snapshot] of seasonSnapshots ?? new Map()) {
             if (snapshot) {
                 const { error } = await admin
                     .from("season_player_stats")
@@ -155,7 +170,7 @@ test.describe("writes season stats on match finalization", () => {
                 if (error) throw new Error(`delete season stats: ${error.message}`);
             }
         }
-        for (const [userId, snapshot] of profileSnapshots) {
+        for (const [userId, snapshot] of profileSnapshots ?? new Map()) {
             if (!snapshot) continue;
             const { error } = await admin
                 .from("profiles")
@@ -163,7 +178,7 @@ test.describe("writes season stats on match finalization", () => {
                 .eq("id", userId);
             if (error) throw new Error(`restore profile stats: ${error.message}`);
         }
-        await deleteDummyUsers(dummyUserIds);
+        await deleteDummyUsers(dummyUserIds ?? []);
     });
 
     test("guarda historial RP y contadores en season_player_stats", async ({ page }) => {

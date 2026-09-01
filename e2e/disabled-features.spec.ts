@@ -13,6 +13,7 @@ test.describe("Fantasy y guest mode deshabilitados", () => {
     test("la navegación autenticada ya no expone Fantasy", async ({ page }) => {
         await page.goto("/");
         await expect(page.getByRole("link", { name: /^Fantasy$/i })).toHaveCount(0);
+        await expect(page.locator('a[href^="/fantasy"]')).toHaveCount(0);
     });
 
     for (const path of ["/fantasy", "/fantasy/mercado", "/fantasy/clasificacion"]) {

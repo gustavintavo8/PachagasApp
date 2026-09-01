@@ -1,7 +1,12 @@
 import { expect, test, type Page } from "@playwright/test";
+import { deleteCommunityGrant, getGatedTestUserId } from "./helpers/db";
 
 test.describe.configure({ mode: "serial" });
 test.use({ storageState: { cookies: [], origins: [] } });
+
+test.afterEach(async () => {
+    await deleteCommunityGrant(await getGatedTestUserId());
+});
 
 async function loginAsGatedUser(page: Page) {
     await page.goto("/login");

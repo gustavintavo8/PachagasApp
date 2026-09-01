@@ -4,12 +4,19 @@ import * as fs from "fs";
 import * as path from "path";
 
 async function globalSetup() {
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY!;
-    const email = process.env.E2E_TEST_EMAIL!;
-    const password = process.env.E2E_TEST_PASSWORD!;
-    const gatedEmail = process.env.E2E_GATED_TEST_EMAIL!;
-    const gatedPassword = process.env.E2E_GATED_TEST_PASSWORD!;
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
+    const serviceKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    const email = process.env.E2E_TEST_EMAIL;
+    const password = process.env.E2E_TEST_PASSWORD;
+    const gatedEmail = process.env.E2E_GATED_TEST_EMAIL;
+    const gatedPassword = process.env.E2E_GATED_TEST_PASSWORD;
+
+    if (!supabaseUrl || !serviceKey || !email || !password || !gatedEmail || !gatedPassword) {
+        throw new Error(
+            "[E2E ABORT] Faltan variables de entorno para los usuarios E2E. " +
+                "Configura .env.test.local con valores locales de prueba."
+        );
+    }
 
     // GUARDIA: abortar si por cualquier razón apunta a producción
     if (!supabaseUrl.includes("127.0.0.1") && !supabaseUrl.includes("localhost")) {
@@ -45,13 +52,16 @@ async function globalSetup() {
             throw new Error(`No se pudo crear el usuario de test ${email}: ${createError.message}`);
         }
 
-        const { data: authUsers } = await admin.auth.admin.listUsers();
+        const { data: authUsers, error: listUsersError } = await admin.auth.admin.listUsers();
+        if (listUsersError) {
+            throw new Error(`No se pudieron listar los usuarios de test: ${listUsersError.message}`);
+        }
         const user = authUsers?.users.find((candidate) => candidate.email === email);
         if (!user) {
             throw new Error(`Usuario de test no encontrado tras creación: ${email}`);
         }
 
-        await admin.from("profiles").upsert(
+        const { error: profileError } = await admin.from("profiles").upsert(
             {
                 id: user.id,
                 username,
@@ -61,6 +71,9 @@ async function globalSetup() {
             },
             { onConflict: "id" }
         );
+        if (profileError) {
+            throw new Error(`No se pudo preparar el perfil de test ${email}: ${profileError.message}`);
+        }
 
         return user.id;
     }
@@ -76,7 +89,7 @@ async function globalSetup() {
         username: "gated-e2e",
     });
 
-    await admin.from("community_access_grants").upsert(
+    const { error: regularGrantError } = await admin.from("community_access_grants").upsert(
         {
             user_id: testUserId,
             granted_at: new Date().toISOString(),
@@ -84,11 +97,27 @@ async function globalSetup() {
         },
         { onConflict: "user_id" }
     );
-    await admin.from("community_access_grants").delete().eq("user_id", gatedUserId);
+    if (regularGrantError) {
+        throw new Error(`No se pudo activar el grant del usuario regular: ${regularGrantError.message}`);
+    }
+
+    const { error: gatedGrantError } = await admin
+        .from("community_access_grants")
+        .delete()
+        .eq("user_id", gatedUserId);
+    if (gatedGrantError) {
+        throw new Error(`No se pudo limpiar el grant del usuario gated: ${gatedGrantError.message}`);
+    }
 
     // Limpiar rate limits del usuario test para evitar bloqueos entre ejecuciones
-    await admin.from("rate_limits").delete().like("key", `login:${email}%`);
-    await admin.from("rate_limits").delete().like("key", `login:${gatedEmail}%`);
+    const { error: regularRateLimitError } = await admin.from("rate_limits").delete().like("key", `login:${email}%`);
+    if (regularRateLimitError) {
+        throw new Error(`No se pudo limpiar el rate limit del usuario regular: ${regularRateLimitError.message}`);
+    }
+    const { error: gatedRateLimitError } = await admin.from("rate_limits").delete().like("key", `login:${gatedEmail}%`);
+    if (gatedRateLimitError) {
+        throw new Error(`No se pudo limpiar el rate limit del usuario gated: ${gatedRateLimitError.message}`);
+    }
 
     // Login vía UI y guardar storageState
     const browser = await chromium.launch();
