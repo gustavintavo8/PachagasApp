@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import Image from "next/image";
-import { login, signup, signInWithOAuth } from "./actions";
+import { login, signup } from "./actions";
+import { createClient as createBrowserClient } from "@/lib/supabase/client";
 
 export default function LoginPage() {
     const [isSignUp, setIsSignUp] = useState(false);
@@ -44,19 +45,35 @@ export default function LoginPage() {
         setError(null);
         setSuccessMessage(null);
         setOauthLoading(provider);
-        let result: { error?: string; url?: string };
+
         try {
-            result = await signInWithOAuth(provider);
+            const supabase = createBrowserClient();
+            const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
+                provider,
+                options: {
+                    redirectTo: `${window.location.origin}/auth/callback`,
+                    // Keep the PKCE verifier in the browser before navigating
+                    // to Supabase, so the server callback can exchange the code.
+                    skipBrowserRedirect: true,
+                },
+            });
+
+            if (oauthError) {
+                setError(oauthError.message);
+                setOauthLoading(null);
+                return;
+            }
+
+            if (data.url) {
+                window.location.href = data.url;
+                return;
+            }
+
+            setError("No se pudo iniciar sesión con el proveedor");
+            setOauthLoading(null);
         } catch {
             setError("Error al conectar con el proveedor");
             setOauthLoading(null);
-            return;
-        }
-        if (result.error) {
-            setError(result.error);
-            setOauthLoading(null);
-        } else if (result.url) {
-            window.location.href = result.url;
         }
     }
 
