@@ -180,6 +180,8 @@ Crea las siguientes tablas en tu Supabase Dashboard o via SQL Editor:
 
 `profiles` almacena la identidad y los datos básicos del jugador. Los contadores competitivos son estacionales y su fuente principal es `season_player_stats`; las columnas legacy de `profiles` se conservan durante la transición. El acceso a la comunidad es privado: una cuenta autenticada sin un grant activo debe canjear `PACHANGA_ACCESS_CODE` en `/access`. El código se configura únicamente en el entorno server-side y nunca debe publicarse ni commitearse. Fantasy permanece desactivado aunque sus tablas se conserven para una futura reactivación.
 
+> **Operaciones:** consulta el [runbook de rollout de Temporada 2 y acceso privado](docs/operations/2026-08-31-season-2-rollout.md) antes de aplicar cambios en Supabase o Vercel.
+
 ---
 
 ## 🔑 Variables de Entorno

@@ -47,4 +47,20 @@ No se ejecutaron `npx supabase db push`, SQL de producción, despliegues ni E2E 
 
 ## Commit
 
-Pendiente de crear tras la verificación final del diff: `docs: add Season 2 production rollout runbook`.
+La documentación inicial de Tarea 10 quedó creada en `8a6491c337a9d3426dc1611fa5ce4d252d84558a` (`docs: add Season 2 production rollout runbook`). Esta ronda añade las correcciones de revisión sobre ese commit base.
+
+## Ronda 1 — Correcciones aplicadas
+
+- `README.md` enlaza visiblemente el runbook mediante la ruta relativa `docs/operations/2026-08-31-season-2-rollout.md` junto a la documentación de acceso privado.
+- El verificador de producción usa exclusivamente `.env.production.local`, separado de `.env.local` y `.env.test.local`. El runbook incluye una comprobación visible de esquema y hostname HTTPS antes de ejecutar `npx tsx`, sin imprimir claves ni tokens.
+- La reactivación futura de Fantasy exige una migración nueva y transaccional que retire o reemplace explícitamente `Fantasy desactivado` en `public.fantasy_teams` y `public.fantasy_rosters`, recree policies/grants aprobados y verifique que no queda un deny residual.
+- Se conserva la separación de acciones locales y producción y no se ejecutaron migraciones remotas, SQL de producción, despliegues ni operaciones destructivas.
+
+### Validaciones de la ronda 1
+
+| Comprobación | Resultado |
+| --- | --- |
+| `git diff --check` sobre el staging final | OK. |
+| Validación de enlaces relativos Markdown en README, runbook e informe | OK; sin destinos locales inexistentes. |
+| Secret-pattern scan sobre los tres archivos documentales | OK; sin valores de credenciales o códigos. |
+| Escaneo de afirmaciones Fantasy obsoletas en README | OK; no quedan las tools ni la afirmación de disponibilidad retiradas. |

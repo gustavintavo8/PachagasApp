@@ -18,7 +18,7 @@ Antes de empezar, el operador debe tener:
 - Supabase CLI autenticada y vinculada al proyecto correcto, si se elige CLI. El project ref debe obtenerse de la configuración segura del equipo o del Dashboard; no se debe inventar ni guardar en este repositorio.
 - Acceso al proyecto de Vercel para configurar una variable server-side y desplegar la aplicación.
 - Node.js/npm, Docker Desktop y el repositorio en una revisión que contenga las migraciones y el verificador de este runbook.
-- Un `.env.local` local no versionado para la aplicación y un `.env.test.local` local no versionado para Playwright. Ambos deben contener solo valores de desarrollo/prueba. El `.gitignore` del proyecto excluye los archivos `.env*` y `e2e/.auth/`.
+- Un `.env.local` local no versionado para la aplicación y un `.env.test.local` local no versionado para Playwright. Ambos deben contener solo valores de desarrollo/prueba; `.env.local` queda reservado exclusivamente a Supabase local. Para el verificador del proyecto reanudado se usa un tercer archivo no versionado, `.env.production.local`, separado de los dos entornos locales. El `.gitignore` del proyecto excluye los archivos `.env*` y `e2e/.auth/`.
 
 La configuración local necesita, como mínimo, `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` y `SUPABASE_SERVICE_ROLE_KEY`. Para la suite E2E también se requieren las variables `E2E_TEST_*`, `E2E_GATED_TEST_*`, `E2E_SEASONS_TEST_*` y `E2E_SEASONS_STATS_TEST_*` que consume `e2e/global-setup.ts`. `PACHANGA_ACCESS_CODE` puede usar un valor ficticio solo en el entorno local; nunca se copia al informe, al README ni a los logs.
 
@@ -65,7 +65,7 @@ Si los conteos no son plausibles para el proyecto seleccionado, detenerse y reso
 
 ### 3. Configuración local — máquina del operador
 
-Crear o actualizar `.env.local` y `.env.test.local` sin incluirlos en Git. No usar claves de producción para las pruebas locales. Para la verificación de migraciones, el comando oficial carga `.env.test.local`:
+Crear o actualizar `.env.local` y `.env.test.local` sin incluirlos en Git. No usar claves de producción para las pruebas locales y no colocar credenciales de producción en ninguno de esos dos archivos. Para la verificación local de migraciones, el comando oficial carga `.env.test.local`:
 
 ```powershell
 npx tsx --env-file=.env.test.local src/scripts/verify-season-migration.ts
@@ -123,13 +123,29 @@ Si una migración ya figura como aplicada, no volver a pegarla en SQL Editor. Si
 
 ### 7. Verificador en el proyecto reanudado — producción, acción manual
 
-Después del `db push` o de la ejecución manual en SQL Editor, ejecutar el verificador apuntando al proyecto reanudado, con las credenciales de producción cargadas solo en el entorno seguro del operador:
+Después del `db push` o de la ejecución manual en SQL Editor, crear o actualizar `.env.production.local` en la máquina del operador. Este archivo es exclusivo del verificador contra producción, está ignorado por Git y no debe reutilizarse como `.env.local` ni `.env.test.local`. Cargar ahí las variables del proyecto reanudado usando el gestor seguro del equipo; no guardar el archivo en el repositorio.
+
+Antes del verificador, comprobar de forma visible que la URL apunta al proyecto esperado. El hostname no es un secreto: obtenerlo de Supabase Dashboard o de la configuración segura del equipo e introducirlo cuando lo solicite el comando. El comando muestra únicamente el esquema y hostname, nunca claves ni tokens:
 
 ```powershell
-npx tsx --env-file=.env.local src/scripts/verify-season-migration.ts
+$expectedProductionHost = Read-Host "Hostname esperado de Supabase producción"
+$urlLine = Get-Content -LiteralPath '.env.production.local' | Where-Object { $_ -match '^\s*NEXT_PUBLIC_SUPABASE_URL\s*=' } | Select-Object -First 1
+if (-not $urlLine) { throw 'Falta NEXT_PUBLIC_SUPABASE_URL en .env.production.local' }
+$productionUrl = ($urlLine -split '=', 2)[1].Trim().Trim('"').Trim("'")
+$target = [Uri]$productionUrl
+if ($target.Scheme -ne 'https' -or $target.Host -ne $expectedProductionHost) {
+    throw "Destino Supabase no coincide: $($target.Scheme)://$($target.Host)"
+}
+Write-Output "Destino Supabase producción verificado: $($target.Scheme)://$($target.Host)"
 ```
 
-El comando es una comprobación de solo lectura, pero el proceso que lo ejecute tendrá acceso administrativo. No guardar el `.env.local`, su salida completa ni tokens en el repositorio. Si el resultado no es satisfactorio, detener el rollout antes del despliegue.
+Con el hostname validado, ejecutar el verificador usando exclusivamente el archivo de producción:
+
+```powershell
+npx tsx --env-file=.env.production.local src/scripts/verify-season-migration.ts
+```
+
+El comando es una comprobación de solo lectura, pero el proceso que lo ejecute tendrá acceso administrativo. No guardar `.env.production.local`, su salida completa ni tokens en el repositorio. Si el resultado no es satisfactorio, detener el rollout antes del despliegue.
 
 ### 8. Configuración del código global — Vercel, producción
 
@@ -261,10 +277,23 @@ La reactivación requiere una tarea y una revisión de seguridad independientes.
 
 1. Definir y aprobar el alcance de Fantasy: rutas, acciones, herramientas de Panenka, roles permitidos, políticas RLS, grants de tablas, secuencias y funciones.
 2. Preparar una migración nueva con timestamp posterior a `20260901000001_disable_fantasy_access.sql`. No editar ni borrar esa migración, ni restaurar privilegios manualmente en producción como solución permanente.
-3. Recrear explícitamente las políticas y privilegios aprobados, tomando como referencia histórica `20260422221734_remote_schema.sql` y respetando el mínimo privilegio. No copiar automáticamente `GRANT ALL` si la nueva superficie no lo necesita.
-4. Reactivar de forma coordinada el código de rutas, Server Actions, API/tools y navegación. Los tests deben demostrar que el acceso comunitario sigue siendo obligatorio y que una cuenta sin grant no puede usar Fantasy.
-5. Aplicar la migración nueva primero en local con `npx supabase db reset`, ejecutar el verificador, los contratos dirigidos y la suite E2E. Después repetir el flujo de backup, `migration list`, aplicación manual, consultas RLS/grants y smoke tests en producción.
-6. Desplegar la aplicación compatible y exponer la UI solo después de confirmar que las políticas, grants y controles de acceso funcionan en producción.
+3. Dentro de esa misma migración y transacción, eliminar o reemplazar explícitamente la policy restrictiva `Fantasy desactivado` en ambas tablas. La migración nueva debe incluir las dos sentencias, antes o junto a la creación de las policies aprobadas:
+
+   ```sql
+   begin;
+   drop policy if exists "Fantasy desactivado" on public.fantasy_teams;
+   drop policy if exists "Fantasy desactivado" on public.fantasy_rosters;
+   -- Recrear aquí las policies y grants aprobados.
+   commit;
+   ```
+
+   Añadir grants no neutraliza una policy `AS RESTRICTIVE` con `USING (false)` y `WITH CHECK (false)`.
+4. Recrear explícitamente las políticas y privilegios aprobados, tomando como referencia histórica `20260422221734_remote_schema.sql` y respetando el mínimo privilegio. No copiar automáticamente `GRANT ALL` si la nueva superficie no lo necesita.
+5. Reactivar de forma coordinada el código de rutas, Server Actions, API/tools y navegación. Los tests deben demostrar que el acceso comunitario sigue siendo obligatorio y que una cuenta sin grant no puede usar Fantasy.
+6. Aplicar la migración nueva primero en local con `npx supabase db reset`, ejecutar el verificador, los contratos dirigidos y la suite E2E. Después repetir el flujo de backup, `migration list`, aplicación manual, consultas RLS/grants y smoke tests en producción.
+7. Desplegar la aplicación compatible y exponer la UI solo después de confirmar que las políticas, grants y controles de acceso funcionan en producción.
+
+Después de aplicar la migración de reactivación, revisar `pg_policies` para las dos tablas y confirmar que no queda ninguna fila con `policyname = 'Fantasy desactivado'` ni otra policy restrictiva de denegación residual. Repetir la consulta de RLS/grants de este runbook: RLS debe seguir activo, los grants deben coincidir con el alcance aprobado y las condiciones efectivas deben permitir únicamente lo que las nuevas policies definen.
 
 No usar un rollback de backup para reactivar Fantasy salvo que el objetivo sea restaurar el proyecto completo a un punto anterior. Para una reactivación selectiva, la fuente de verdad es una migración nueva y revisada.
 
