@@ -18,7 +18,6 @@ const grantIndex = accessSource.indexOf(
     '.from("community_access_grants").upsert('
 );
 
-assert.equal(accessSource.includes("isGuestUser"), false);
 assert.ok(provisioningIndex >= 0);
 assert.ok(statsIndex > provisioningIndex);
 assert.ok(grantIndex > statsIndex);

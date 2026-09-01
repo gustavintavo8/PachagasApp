@@ -54,7 +54,7 @@ export async function exportMyData(): Promise<ActionResult<string>> {
     const admin = createAdminClient();
     const uid = currentUser.id;
 
-    const [profile, participations, comments, photos, votes, notifications, rp] =
+    const [profile, participations, comments, photos, votes, notifications, rp, fantasy] =
         await Promise.all([
             admin.from("profiles").select("*").eq("id", uid).maybeSingle(),
             admin.from("match_participants").select("*").eq("user_id", uid),
@@ -63,6 +63,7 @@ export async function exportMyData(): Promise<ActionResult<string>> {
             admin.from("mvp_votes").select("*").eq("voter_id", uid),
             admin.from("notifications").select("*").eq("user_id", uid),
             admin.from("rp_history").select("*").eq("user_id", uid),
+            admin.from("fantasy_teams").select("*").eq("user_id", uid),
         ]);
 
     const queryResults = {
@@ -73,6 +74,7 @@ export async function exportMyData(): Promise<ActionResult<string>> {
         votes,
         notifications,
         rp,
+        fantasy,
     };
     const failedQueries = Object.entries(queryResults).filter(([, result]) => result.error);
 
@@ -100,6 +102,7 @@ export async function exportMyData(): Promise<ActionResult<string>> {
         mvp_votes: votes.data ?? [],
         notifications: notifications.data ?? [],
         rp_history: rp.data ?? [],
+        fantasy_teams: fantasy.data ?? [],
     };
 
     return { success: true, data: JSON.stringify(exportObject, null, 2) };

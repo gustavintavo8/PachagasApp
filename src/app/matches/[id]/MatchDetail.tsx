@@ -95,7 +95,6 @@ interface MatchDetailProps {
     };
     isAdmin: boolean;
     adminUserIds: string[];
-    isGuest: boolean;
 }
 
 export function MatchDetail({
@@ -108,7 +107,6 @@ export function MatchDetail({
     currentUserProfile,
     isAdmin,
     adminUserIds,
-    isGuest,
 }: MatchDetailProps) {
     const { toast } = useToast();
     const [loading, setLoading] = useState<string | null>(null);
@@ -315,7 +313,7 @@ export function MatchDetail({
 
                     {/* Action Buttons */}
                     <div className="flex flex-wrap gap-3">
-                        {match.status === "open" && !hasJoined && !isGuest && (
+                        {match.status === "open" && !hasJoined && (
                             <Button
                                 size="lg"
                                 loading={loading === "join"}
@@ -325,7 +323,7 @@ export function MatchDetail({
                                 Unirse
                             </Button>
                         )}
-                        {match.status === "open" && hasJoined && !isOrganizer && !isAdmin && !isGuest && (
+                        {match.status === "open" && hasJoined && !isOrganizer && !isAdmin && (
                             <Button
                                 variant="outline"
                                 size="lg"
@@ -493,7 +491,6 @@ export function MatchDetail({
                         matchId={match.id}
                         currentUserId={currentUserId}
                         currentUserProfile={currentUserProfile}
-                        isGuest={isGuest}
                     />
                 </div>
             )}
@@ -504,7 +501,6 @@ export function MatchDetail({
                     <MatchPhotos
                         matchId={match.id}
                         currentUserId={currentUserId}
-                        isGuest={isGuest}
                     />
                     {match.status === "finished" && (
                         <MvpVoting
@@ -514,7 +510,6 @@ export function MatchDetail({
                             matchFinishedAt={match.finished_at}
                             matchDate={match.date}
                             canManage={canManage}
-                            isGuest={isGuest}
                         />
                     )}
                 </div>

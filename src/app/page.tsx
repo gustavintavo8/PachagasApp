@@ -9,6 +9,7 @@ import { Avatar } from "@/components/ui/Avatar";
 import { formatDate, getAvatarUrl } from "@/lib/utils";
 import { Calendar, Users, Zap, PlusCircle, ChevronRight } from "lucide-react";
 import { getActiveSeason } from "@/lib/seasons";
+import { requireCommunityAccess } from "@/lib/access";
 
 // --- Hero Card ---
 
@@ -220,6 +221,8 @@ async function DashboardContent() {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
+  const access = await requireCommunityAccess(user);
+  if (!access.success) redirect("/access");
 
   const season = await getActiveSeason();
 

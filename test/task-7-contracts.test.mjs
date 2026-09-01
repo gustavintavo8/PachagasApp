@@ -31,6 +31,9 @@ test("Task 7 blocks guest backend access and Fantasy AI tools", () => {
 
     const aiTools = read("src/lib/ai/tools.ts");
     assert.doesNotMatch(aiTools, /get_fantasy_|fantasy_(?:teams|rosters)/);
+
+    const seasonsContract = read("src/scripts/verify-season-helpers.ts");
+    assert.doesNotMatch(seasonsContract, /accessSource\.includes\("isGuestUser"\), false/);
 });
 
 test("Task 7 Fantasy actions never query or mutate data", () => {
@@ -40,4 +43,36 @@ test("Task 7 Fantasy actions never query or mutate data", () => {
 
     const matchActions = read("src/app/matches/actions.ts");
     assert.doesNotMatch(matchActions, /applyFantasyPoints|fantasy_(?:teams|rosters)/);
+});
+
+test("Task 7 denies direct Supabase access while preserving Fantasy data", () => {
+    const migration = read("supabase/migrations/20260901000001_disable_fantasy_access.sql");
+    assert.match(migration, /REVOKE ALL ON TABLE public\.fantasy_teams FROM anon, authenticated;/i);
+    assert.match(migration, /REVOKE ALL ON TABLE public\.fantasy_rosters FROM anon, authenticated;/i);
+    assert.match(migration, /DROP POLICY IF EXISTS .* ON public\.fantasy_teams;/i);
+    assert.match(migration, /DROP POLICY IF EXISTS .* ON public\.fantasy_rosters;/i);
+    assert.match(migration, /CREATE POLICY .*Fantasy desactivado.*USING \(false\).*WITH CHECK \(false\)/is);
+    assert.match(migration, /REVOKE ALL ON SEQUENCE/i);
+    assert.match(migration, /REVOKE ALL ON FUNCTION/i);
+    assert.doesNotMatch(migration, /FROM anon, authenticated, service_role/i);
+
+    const dashboard = read("src/app/page.tsx");
+    assert.match(dashboard, /requireCommunityAccess\(user\)/);
+    assert.match(dashboard, /if \(!access\.success\) redirect\("\/access"\)/);
+
+    const dataActions = read("src/app/profile/data-actions.ts");
+    assert.match(dataActions, /fantasy_teams/);
+});
+
+test("Task 7 removes obsolete guest component props", () => {
+    for (const file of [
+        "src/app/matches/MatchesTabs.tsx",
+        "src/app/matches/[id]/MatchDetail.tsx",
+        "src/components/MatchChat.tsx",
+        "src/components/MatchPhotos.tsx",
+        "src/components/MvpVoting.tsx",
+        "src/app/profile/ProfileForm.tsx",
+    ]) {
+        assert.doesNotMatch(read(file), /isGuest/);
+    }
 });

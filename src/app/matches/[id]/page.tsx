@@ -147,7 +147,6 @@ export default async function MatchPage({
                 }}
                 isAdmin={userIsAdmin}
                 adminUserIds={adminUserIds}
-                isGuest={false}
             />
         </>
     );

@@ -3,7 +3,6 @@
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/Toast";
-import { Card } from "@/components/ui/Card";
 import { Avatar } from "@/components/ui/Avatar";
 import { getAvatarUrl, timeAgo } from "@/lib/utils";
 import { Camera, Plus, X, ImageIcon, Loader2 } from "lucide-react";
@@ -25,10 +24,9 @@ interface Photo {
 interface MatchPhotosProps {
     matchId: string;
     currentUserId: string;
-    isGuest?: boolean;
 }
 
-export function MatchPhotos({ matchId, currentUserId, isGuest = false }: MatchPhotosProps) {
+export function MatchPhotos({ matchId, currentUserId }: MatchPhotosProps) {
     const [photos, setPhotos] = useState<Photo[]>([]);
     const [loading, setLoading] = useState(true);
     const [uploading, setUploading] = useState(false);
@@ -130,8 +128,7 @@ export function MatchPhotos({ matchId, currentUserId, isGuest = false }: MatchPh
             </div>
 
             {/* Upload Button */}
-            {!isGuest && (
-                <div className="border-b border-border px-4 py-3">
+            <div className="border-b border-border px-4 py-3">
                     <input
                         ref={fileInputRef}
                         type="file"
@@ -159,8 +156,7 @@ export function MatchPhotos({ matchId, currentUserId, isGuest = false }: MatchPh
                     <p className="mt-2 text-center text-[11px] text-muted/70">
                         Sube solo fotos sobre las que tengas derechos y con permiso de quienes aparecen.
                     </p>
-                </div>
-            )}
+            </div>
 
             {/* Photos Grid */}
             <div className="p-4">
@@ -174,7 +170,7 @@ export function MatchPhotos({ matchId, currentUserId, isGuest = false }: MatchPh
                     <div className="flex flex-col items-center justify-center py-8 text-center">
                         <ImageIcon size={32} className="mb-2 text-muted/30" />
                         <p className="text-sm text-muted">
-                            {isGuest ? "Aún no hay fotos." : "Aún no hay fotos. ¡Sube la primera!"}
+                            Aún no hay fotos. ¡Sube la primera!
                         </p>
                     </div>
                 ) : (
