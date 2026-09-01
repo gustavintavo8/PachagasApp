@@ -88,6 +88,18 @@ test("el callback OAuth espera la persistencia diferida de la sesión", () => {
     );
 });
 
+test("el callback OAuth adjunta las cookies a la misma respuesta de redirección", () => {
+    const callback = read("src/app/auth/callback/route.ts");
+
+    assert.match(callback, /createServerClient/);
+    assert.match(callback, /const\s+response\s*=\s*NextResponse\.redirect\(/i);
+    assert.match(
+        callback,
+        /setAll\s*\(\s*cookiesToSet\s*\)[\s\S]{0,500}response\.cookies\.set/i
+    );
+    assert.match(callback, /return\s+response\s*;/i);
+});
+
 test("OAuth se inicia en el navegador para conservar el verificador PKCE", () => {
     const loginPage = read("src/app/login/page.tsx");
 
@@ -95,6 +107,7 @@ test("OAuth se inicia en el navegador para conservar el verificador PKCE", () =>
     assert.match(loginPage, /supabase\.auth\.signInWithOAuth\(/);
     assert.match(loginPage, /window\.location\.origin/);
     assert.match(loginPage, /skipBrowserRedirect:\s*true/);
+    assert.match(loginPage, /<button\s+type="button"\s+onClick=\{\(\)\s*=>\s*void\s+handleOAuth\("google"\)\}/);
     assert.doesNotMatch(loginPage, /signInWithOAuth\(provider\)/);
 });
 

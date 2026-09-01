@@ -1,20 +1,47 @@
 import { hasCommunityAccess } from "@/lib/access";
-import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { NextResponse } from "next/server";
+import { createServerClient } from "@supabase/ssr";
+import { NextRequest, NextResponse } from "next/server";
 import { PRIVACY_POLICY_VERSION } from "@/lib/legal";
 
-export async function GET(request: Request) {
+export async function GET(request: NextRequest) {
     const url = new URL(request.url);
     const searchParams = url.searchParams;
     const protocol = request.headers.get("x-forwarded-proto") || url.protocol;
     const host = request.headers.get("x-forwarded-host") || request.headers.get("host") || url.host;
     const origin = `${protocol}://${host}`;
     const code = searchParams.get("code");
+    const response = NextResponse.redirect(`${origin}/login`);
 
     if (code) {
-        const supabase = await createClient();
+        // Bind Supabase's cookie writes to the exact response that leaves this
+        // route. Using the generic server helper here can update Next's cookie
+        // store without carrying those Set-Cookie headers onto this redirect.
+        const supabase = createServerClient(
+            process.env.NEXT_PUBLIC_SUPABASE_URL!,
+            process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+            {
+                cookies: {
+                    getAll() {
+                        return request.cookies.getAll();
+                    },
+                    setAll(cookiesToSet) {
+                        cookiesToSet.forEach(({ name, value, options }) =>
+                            response.cookies.set(name, value, options)
+                        );
+                    },
+                },
+            }
+        );
         const { data, error } = await supabase.auth.exchangeCodeForSession(code);
+
+        if (error) {
+            // Never log the one-time OAuth code or any session material.
+            console.error("[auth/callback] OAuth code exchange failed", {
+                name: error.name,
+                code: error.code,
+            });
+        }
 
         // supabase-js >= 2.91.0 defers the SIGNED_IN notification that the SSR
         // adapter uses to persist auth cookies. Let that notification run
@@ -68,9 +95,9 @@ export async function GET(request: Request) {
             }
 
             const targetPath = await hasCommunityAccess(data.user.id) ? "/" : "/access";
-            return NextResponse.redirect(`${origin}${targetPath}`);
+            response.headers.set("Location", `${origin}${targetPath}`);
         }
     }
 
-    return NextResponse.redirect(`${origin}/login`);
+    return response;
 }
