@@ -60,20 +60,26 @@ test("revoca las dos sobrecargas públicas de consume_rate_limit y cubre rate_li
 
     for (const signature of signatures) {
         const escapedSignature = signature.replaceAll(" ", "\\s*");
-        assert.match(
-            migration,
-            new RegExp(
+        const privilegePattern = signature.endsWith("bigint")
+            ? new RegExp(
+                `execute\\s+['"]revoke\\s+all\\s+on\\s+function\\s+public\\.consume_rate_limit\\(${escapedSignature}\\)\\s+from\\s+public\\s*,\\s*anon\\s*,\\s*authenticated['"]`,
+                "i"
+            )
+            : new RegExp(
                 `revoke\\s+all\\s+on\\s+function\\s+public\\.consume_rate_limit\\(${escapedSignature}\\)\\s+from\\s+public\\s*,\\s*anon\\s*,\\s*authenticated\\s*;`,
                 "i"
-            )
-        );
-        assert.match(
-            migration,
-            new RegExp(
-                `grant\\s+execute\\s+on\\s+function\\s+public\\.consume_rate_limit\\(${escapedSignature}\\)\\s+to\\s+service_role\\s*;`,
+            );
+        const grantPattern = signature.endsWith("bigint")
+            ? new RegExp(
+                `execute\\s+['"]grant\\s+execute\\s+on\\s+function\\s+public\\.consume_rate_limit\\(${escapedSignature}\\)\\s+to\\s+service_role['"]`,
                 "i"
             )
-        );
+            : new RegExp(
+                `grant\\s+execute\\s+on\\s+function\\s+public\\.consume_rate_limit\\(${escapedSignature}\\)\\s+to\\s+service_role\\s*;`,
+                "i"
+            );
+        assert.match(migration, privilegePattern);
+        assert.match(migration, grantPattern);
     }
 
     assert.match(migration, /rate_limits/i);

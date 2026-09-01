@@ -14,10 +14,16 @@ revoke all on function public.consume_rate_limit(text, integer, integer)
   from public, anon, authenticated;
 grant execute on function public.consume_rate_limit(text, integer, integer)
   to service_role;
-revoke all on function public.consume_rate_limit(text, integer, bigint)
-  from public, anon, authenticated;
-grant execute on function public.consume_rate_limit(text, integer, bigint)
-  to service_role;
+-- Some deployed snapshots only contain the integer overload. Revoke the bigint
+-- overload when present, without making the whole migration fail on those projects.
+do $$
+begin
+  if to_regprocedure('public.consume_rate_limit(text,integer,bigint)') is not null then
+    execute 'revoke all on function public.consume_rate_limit(text, integer, bigint) from public, anon, authenticated';
+    execute 'grant execute on function public.consume_rate_limit(text, integer, bigint) to service_role';
+  end if;
+end;
+$$;
 revoke all on table public.rate_limits from public, anon, authenticated;
 grant all on table public.rate_limits to service_role;
 
