@@ -30,10 +30,32 @@ test("rate-limit usa un RPC único y privado para evitar ambigüedad de overload
 
 test("middleware devuelve 404 para cualquier ruta Fantasy deshabilitada", () => {
     const middleware = read("src/middleware.ts");
+    const fantasyGuard = middleware.indexOf("const isFantasyRoute");
+    const supabaseClient = middleware.indexOf("const supabase = createServerClient");
 
     assert.match(
         middleware,
-        /pathname\s*===\s*["']\/fantasy["'][\s\S]{0,120}pathname\.startsWith\(["']\/fantasy\/["']\)/i
+        /isFantasyRoute\s*=\s*pathname\s*===\s*["']\/fantasy["'][\s\S]{0,120}pathname\.startsWith\(["']\/fantasy\/["']\)/i
     );
     assert.match(middleware, /new\s+NextResponse\([\s\S]{0,120}status:\s*404/i);
+    assert.ok(fantasyGuard > 0 && fantasyGuard < supabaseClient);
+});
+
+test("el verificador RLS valida la policy restrictiva completa", () => {
+    const migration = read(
+        "supabase/migrations/20260901000006_harden_rls_contract_checks.sql"
+    );
+
+    assert.match(migration, /p\.permissive\s*=\s*'RESTRICTIVE'/i);
+    assert.match(migration, /p\.cmd\s*=\s*'ALL'/i);
+    assert.match(migration, /p\.roles\s*=\s*array\s*\[\s*'authenticated'::name\s*\]/i);
+    assert.match(migration, /coalesce\(p\.qual,\s*['"]['"]\)\s*~\s*['"][^'"]*has_community_access/i);
+    assert.match(migration, /coalesce\(p\.with_check,\s*['"]['"]\)\s*~\s*['"][^'"]*has_community_access/i);
+});
+
+test("rate-limit falla cerrado cuando el RPC no está disponible", () => {
+    const source = read("src/lib/rate-limit.ts");
+
+    assert.doesNotMatch(source, /return\s+\{\s*allowed:\s*true[\s\S]{0,80}remaining/);
+    assert.match(source, /return\s+\{\s*allowed:\s*false\s*,\s*remaining:\s*0\s*\}/);
 });

@@ -15,12 +15,12 @@ export async function rateLimit(
 
         if (error) {
             console.error("[rate-limit] RPC error:", error.message);
-            return { allowed: true, remaining: 0 };
+            return { allowed: false, remaining: 0 };
         }
 
         return { allowed: data === true, remaining: 0 };
     } catch (e) {
         console.error("[rate-limit] unexpected error:", e);
-        return { allowed: true, remaining: 0 };
+        return { allowed: false, remaining: 0 };
     }
 }

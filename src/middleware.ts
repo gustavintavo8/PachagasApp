@@ -8,6 +8,15 @@ function redirectTo(request: NextRequest, pathname: string) {
 }
 
 export async function middleware(request: NextRequest) {
+    const pathname = request.nextUrl.pathname;
+    const isFantasyRoute = pathname === "/fantasy" || pathname.startsWith("/fantasy/");
+
+    // Fantasy is paused for now. Keep the UI, server actions, and direct URLs
+    // unavailable while preserving the underlying data for a future reactivation.
+    if (isFantasyRoute) {
+        return new NextResponse("Not Found", { status: 404 });
+    }
+
     let supabaseResponse = NextResponse.next({
         request,
     });
@@ -40,14 +49,7 @@ export async function middleware(request: NextRequest) {
         data: { user },
     } = await supabase.auth.getUser();
 
-    const pathname = request.nextUrl.pathname;
     const isApiRoute = pathname.startsWith("/api/");
-
-    // Fantasy is paused for now. Keep the UI, server actions, and direct URLs
-    // unavailable while preserving the underlying data for a future reactivation.
-    if (pathname === "/fantasy" || pathname.startsWith("/fantasy/")) {
-        return new NextResponse("Not Found", { status: 404 });
-    }
 
     // Routes accessible without authentication, for both guests and logged-in users
     // (legal/transparency pages must stay reachable from anywhere, e.g. before signup).
