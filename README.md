@@ -88,7 +88,7 @@
 | Feature | Descripción |
 |---------|-------------|
 | 🤖 **Panenka** | Asistente conversacional con acceso a datos reales de la app |
-| 📊 **11 herramientas** | Ranking, goleadores, estadísticas propias, historial, fantasy, comparativas entre jugadores |
+| 📊 **Consultas sobre el juego** | Ranking, goleadores, estadísticas propias, historial y comparativas entre jugadores |
 | 📈 **Análisis temporal** | Calcula ritmo de goles por mes, progresión y tendencias desde el historial real |
 | 💬 **Markdown enriquecido** | Respuestas con tablas, negrita y listas renderizadas en el chat |
 | ⚡ **~1.400 tokens/petición** | Eficiencia alta gracias al modelo y schemas compactos |
@@ -164,7 +164,10 @@ Crea las siguientes tablas en tu Supabase Dashboard o via SQL Editor:
 
 | Tabla | Columnas clave |
 |-------|---------------|
-| `profiles` | id, username, avatar_url, position, skill_level, matches_played, goals_scored |
+| `profiles` | id, username, avatar_url, position, skill_level (identidad; conserva columnas legacy durante la transición) |
+| `seasons` | id, name, slug, status, starts_at, ends_at |
+| `season_player_stats` | season_id, user_id, elo_rating, matches_played, goals_scored, wins, draws, losses, mvps |
+| `community_access_grants` | user_id, granted_at, revoked_at |
 | `matches` | id, date, location, max_players, status, team_a_score, team_b_score, created_by |
 | `match_participants` | id, match_id, user_id, team, goals, is_mvp |
 | `match_comments` | id, match_id, user_id, content, created_at |
@@ -174,6 +177,8 @@ Crea las siguientes tablas en tu Supabase Dashboard o via SQL Editor:
 
 > **Storage bucket:** `match_photos` (público)
 > **Realtime:** Habilitar replicación para `notifications` y `match_comments`
+
+`profiles` almacena la identidad y los datos básicos del jugador. Los contadores competitivos son estacionales y su fuente principal es `season_player_stats`; las columnas legacy de `profiles` se conservan durante la transición. El acceso a la comunidad es privado: una cuenta autenticada sin un grant activo debe canjear `PACHANGA_ACCESS_CODE` en `/access`. El código se configura únicamente en el entorno server-side y nunca debe publicarse ni commitearse. Fantasy permanece desactivado aunque sus tablas se conserven para una futura reactivación.
 
 ---
 
@@ -293,7 +298,7 @@ El resultado es equipos con diferencia de ELO promedio cercana a cero, respetand
 
 ### Asistente Panenka — arquitectura y decisiones de modelo
 
-Panenka es un asistente conversacional integrado en la app que responde preguntas sobre jugadores, partidos, estadísticas y fantasy consultando la base de datos en tiempo real. La implementación usa **Vercel AI SDK v6** con un sistema de herramientas (_tool use_ / function calling) que permite al modelo razonar sobre cuándo y qué datos consultar.
+Panenka es un asistente conversacional integrado en la app que responde preguntas sobre jugadores, partidos y estadísticas estacionales consultando la base de datos en tiempo real. La implementación usa **Vercel AI SDK v6** con un sistema de herramientas (_tool use_ / function calling) que permite al modelo razonar sobre cuándo y qué datos consultar.
 
 **Elección de proveedor y modelo — `openai/gpt-oss-20b` vía Groq**
 
@@ -308,20 +313,18 @@ El proceso de selección pasó por varias iteraciones:
 
 Zod v4 convierte los campos `.optional()` en `anyOf: [{type: "X"}, {type: "null"}]` al generar el JSON Schema. Groq no soporta este patrón en function calling y devuelve error. La solución fue reemplazar `zodSchema()` por `jsonSchema()` de `"ai"` con schemas manuales explícitos donde los campos opcionales simplemente no aparecen en el array `required`, sin unions con null.
 
-**Herramientas disponibles (11)**
+**Herramientas de consulta disponibles**
 
 | Tool | Descripción |
 |------|-------------|
 | `get_my_stats` | ELO, goles, partidos y posición en el ranking del usuario autenticado |
 | `get_my_matches` | Historial de partidos con fecha, goles y MVP — para análisis temporal |
-| `get_my_fantasy_team` | Plantilla completa del equipo fantasy del usuario |
 | `get_player_detail` | Perfil y ranking de cualquier jugador (búsqueda por username con wildcards) |
 | `get_players` | Lista de jugadores con filtros de posición y rango ELO |
 | `get_matches` | Partidos con filtros de estado y rango de fechas |
 | `get_match_detail` | Resultado, participantes, goles y MVP de un partido concreto |
 | `get_leaderboard` | Ranking ELO global (mínimo 3 partidos) |
 | `get_top_scorers` | Ranking de máximos goleadores |
-| `get_fantasy_standings` | Clasificación de equipos fantasy |
 | `get_players_history_together` | Partidos en los que dos jugadores han coincidido |
 
 **Rendering de respuestas**
