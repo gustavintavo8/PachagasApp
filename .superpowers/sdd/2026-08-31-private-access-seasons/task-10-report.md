@@ -47,7 +47,9 @@ No se ejecutaron `npx supabase db push`, SQL de producción, despliegues ni E2E 
 
 ## Commit
 
-La documentación inicial de Tarea 10 quedó creada en `8a6491c337a9d3426dc1611fa5ce4d252d84558a` (`docs: add Season 2 production rollout runbook`). Esta ronda añade las correcciones de revisión sobre ese commit base.
+La documentación inicial de Tarea 10 quedó creada en `8a6491c337a9d3426dc1611fa5ce4d252d84558a` (`docs: add Season 2 production rollout runbook`). Las correcciones de la ronda 1 quedaron en `d1732a79763204be5dd9313f7c98c74686af61c3` (`docs: address Task 10 rollout review`).
+
+El commit final revisado de la ronda 2 es `6c2a8c6dfb8a6ab99b6498c882d20bf4fd4051bd` (`docs: fix local verifier rollout order`).
 
 ## Ronda 1 — Correcciones aplicadas
 
