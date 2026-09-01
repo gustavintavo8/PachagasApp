@@ -1,4 +1,5 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
+import { assertLocalSupabaseUrl } from "./local-supabase-url.mjs";
 
 function getAdminClient(): SupabaseClient {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -7,9 +8,7 @@ function getAdminClient(): SupabaseClient {
     if (!url || !key) {
         throw new Error("[E2E ABORT] Faltan variables de Supabase local para los helpers de DB.");
     }
-    if (!url.includes("127.0.0.1") && !url.includes("localhost")) {
-        throw new Error(`[E2E ABORT] db helper: URL no es local: "${url}". Abortando para proteger producción.`);
-    }
+    assertLocalSupabaseUrl(url);
 
     return createClient(url, key, {
         auth: { autoRefreshToken: false, persistSession: false },
@@ -40,6 +39,12 @@ export async function deleteCommunityGrant(userId: string): Promise<void> {
     const admin = getAdminClient();
     const { error } = await admin.from("community_access_grants").delete().eq("user_id", userId);
     if (error) throw new Error("No se pudo limpiar el grant: " + error.message);
+}
+
+export async function deleteSeasonPlayerStats(userId: string): Promise<void> {
+    const admin = getAdminClient();
+    const { error } = await admin.from("season_player_stats").delete().eq("user_id", userId);
+    if (error) throw new Error("No se pudieron limpiar las estadísticas de temporada: " + error.message);
 }
 
 export async function createTestMatch(params: {

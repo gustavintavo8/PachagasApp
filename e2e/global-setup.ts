@@ -2,6 +2,7 @@ import { chromium } from "@playwright/test";
 import { createClient } from "@supabase/supabase-js";
 import * as fs from "fs";
 import * as path from "path";
+import { assertLocalSupabaseUrl } from "./helpers/local-supabase-url.mjs";
 
 async function globalSetup() {
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -19,13 +20,7 @@ async function globalSetup() {
     }
 
     // GUARDIA: abortar si por cualquier razón apunta a producción
-    if (!supabaseUrl.includes("127.0.0.1") && !supabaseUrl.includes("localhost")) {
-        throw new Error(
-            `[E2E ABORT] NEXT_PUBLIC_SUPABASE_URL apunta a "${supabaseUrl}". ` +
-            `Los tests E2E solo pueden correr contra Supabase local (127.0.0.1). ` +
-            `Verifica que .env.test.local está correctamente configurado.`
-        );
-    }
+    assertLocalSupabaseUrl(supabaseUrl);
 
     // Crear usuario de test vía Admin (idempotente)
     const admin = createClient(supabaseUrl, serviceKey, {

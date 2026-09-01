@@ -11,6 +11,8 @@ import {
     seedParticipants,
 } from "./helpers/db";
 
+test.describe.configure({ mode: "serial" });
+
 function getLocalAdminClient() {
     return createClient(
         process.env.NEXT_PUBLIC_SUPABASE_URL!,
