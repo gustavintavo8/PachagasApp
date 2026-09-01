@@ -4,6 +4,7 @@ import { requireCommunityAccess } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { rateLimit } from "@/lib/rate-limit";
 import { buildTools } from "@/lib/ai/tools";
+import { resolveSeasonSelection } from "@/lib/seasons";
 
 const groq = createGroq({ apiKey: process.env.GROQ_API_KEY });
 
@@ -11,7 +12,7 @@ const SYSTEM_PROMPT = `Eres Panenka, una pelota de fútbol con ojeras asistente 
 
 Tono: humor seco, respuestas cortas, sin entusiasmo forzado. Nada de "¡Ánimo!" ni "¡A por todas!". Puedes soltar algún comentario cansado al final, pero sin tapar los datos.
 
-Reglas: datos siempre reales y precisos. Usuario autenticado, usa las tools directamente. Para tendencias usa get_my_matches y calcula tú mismo.`;
+Reglas: datos siempre reales y precisos. Usuario autenticado, usa las tools directamente. Solo conoces datos de partidos reales. Para tendencias usa get_my_matches y calcula tú mismo.`;
 
 export async function POST(request: Request) {
     const supabase = await createClient();
@@ -45,6 +46,7 @@ export async function POST(request: Request) {
     }
 
     let messages: UIMessage[];
+    let seasonSlug: string | undefined;
     try {
         const body = await request.json();
         if (!Array.isArray(body?.messages) || body.messages.length === 0) {
@@ -53,10 +55,28 @@ export async function POST(request: Request) {
                 { status: 400, headers: { "Content-Type": "application/json" } }
             );
         }
-        messages = body.messages;
+        if (body.season_slug !== undefined &&
+            (typeof body.season_slug !== "string" || body.season_slug.trim() === "")) {
+            return new Response(
+                JSON.stringify({ error: "Temporada inválida" }),
+                { status: 400, headers: { "Content-Type": "application/json" } }
+            );
+        }
+        messages = body.messages as UIMessage[];
+        seasonSlug = body.season_slug;
     } catch {
         return new Response(
             JSON.stringify({ error: "Cuerpo de la request inválido" }),
+            { status: 400, headers: { "Content-Type": "application/json" } }
+        );
+    }
+
+    let season;
+    try {
+        season = await resolveSeasonSelection(seasonSlug);
+    } catch {
+        return new Response(
+            JSON.stringify({ error: "Temporada inválida" }),
             { status: 400, headers: { "Content-Type": "application/json" } }
         );
     }
@@ -65,9 +85,9 @@ export async function POST(request: Request) {
     // datos de juego (username, stats). NUNCA email ni PII de auth. Ver src/lib/ai/tools.ts.
     const result = streamText({
         model: groq("openai/gpt-oss-20b"),
-        system: SYSTEM_PROMPT,
+        system: `${SYSTEM_PROMPT}\n\nTemporada de consulta: ${season.name} (${season.slug}). Todas las respuestas deben referirse exclusivamente a esta temporada.`,
         messages: await convertToModelMessages(messages),
-        tools: buildTools(user.id),
+        tools: buildTools(user.id, season),
         stopWhen: stepCountIs(7),
         maxRetries: 0,
         onError: ({ error }) => {
