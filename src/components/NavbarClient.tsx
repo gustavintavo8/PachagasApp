@@ -4,7 +4,7 @@
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { Home, Calendar, BarChart3, Users, Star, Bot } from "lucide-react";
+import { Home, Calendar, BarChart3, Users, Bot } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface NavbarClientProps {
@@ -17,7 +17,6 @@ const navLinks = [
   { href: "/matches",    label: "Partidos",  icon: Calendar  },
   { href: "/leaderboard",label: "Ranking",   icon: BarChart3 },
   { href: "/players",    label: "Jugadores", icon: Users     },
-  { href: "/fantasy",    label: "Fantasy",   icon: Star      },
   { href: "/asistente",  label: "Panenka",   icon: Bot       },
 ];
 

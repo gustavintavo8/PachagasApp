@@ -88,13 +88,13 @@ interface MatchDetailProps {
     currentUserId: string;
     organizerName: string;
     organizerAvatarUrl: string | null;
+    seasonName: string;
     currentUserProfile: {
         username: string | null;
         avatar_url: string | null;
     };
     isAdmin: boolean;
     adminUserIds: string[];
-    isGuest: boolean;
 }
 
 export function MatchDetail({
@@ -103,10 +103,10 @@ export function MatchDetail({
     currentUserId,
     organizerName,
     organizerAvatarUrl,
+    seasonName,
     currentUserProfile,
     isAdmin,
     adminUserIds,
-    isGuest,
 }: MatchDetailProps) {
     const { toast } = useToast();
     const [loading, setLoading] = useState<string | null>(null);
@@ -242,6 +242,9 @@ export function MatchDetail({
                                         Admin
                                     </span>
                                 )}
+                                <span className="rounded-full border border-border/50 bg-black/20 px-3 py-1 text-[11px] font-medium text-muted">
+                                    {seasonName}
+                                </span>
                             </div>
                             <div className="flex flex-wrap items-center gap-4 text-lg text-foreground mt-2">
                                 <div className="flex items-center gap-2">
@@ -310,7 +313,7 @@ export function MatchDetail({
 
                     {/* Action Buttons */}
                     <div className="flex flex-wrap gap-3">
-                        {match.status === "open" && !hasJoined && !isGuest && (
+                        {match.status === "open" && !hasJoined && (
                             <Button
                                 size="lg"
                                 loading={loading === "join"}
@@ -320,7 +323,7 @@ export function MatchDetail({
                                 Unirse
                             </Button>
                         )}
-                        {match.status === "open" && hasJoined && !isOrganizer && !isAdmin && !isGuest && (
+                        {match.status === "open" && hasJoined && !isOrganizer && !isAdmin && (
                             <Button
                                 variant="outline"
                                 size="lg"
@@ -488,7 +491,6 @@ export function MatchDetail({
                         matchId={match.id}
                         currentUserId={currentUserId}
                         currentUserProfile={currentUserProfile}
-                        isGuest={isGuest}
                     />
                 </div>
             )}
@@ -499,7 +501,6 @@ export function MatchDetail({
                     <MatchPhotos
                         matchId={match.id}
                         currentUserId={currentUserId}
-                        isGuest={isGuest}
                     />
                     {match.status === "finished" && (
                         <MvpVoting
@@ -509,7 +510,6 @@ export function MatchDetail({
                             matchFinishedAt={match.finished_at}
                             matchDate={match.date}
                             canManage={canManage}
-                            isGuest={isGuest}
                         />
                     )}
                 </div>
@@ -757,6 +757,7 @@ function PlayerRow({
                             {POSITION_SHORT[profile.position] || profile.position}
                         </span>
                     )}
+                    <span className="text-muted">{profile?.elo_rating ?? 1000} RP</span>
                 </div>
             </div>
             {showPaid && (

@@ -2,14 +2,13 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Home, Calendar, Users, Trophy, User } from "lucide-react";
+import { Home, Calendar, Users, User } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const tabs = [
   { href: "/",          label: "Inicio",    Icon: Home     },
   { href: "/matches",   label: "Partidos",  Icon: Calendar },
   { href: "/players",   label: "Jugadores", Icon: Users    },
-  { href: "/fantasy",   label: "Fantasy",   Icon: Trophy   },
   { href: "/profile",   label: "Perfil",    Icon: User     },
 ] as const;
 

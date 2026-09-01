@@ -40,10 +40,9 @@ interface Match {
 interface MatchesTabsProps {
     matches: Match[];
     userId: string;
-    isGuest?: boolean;
 }
 
-export function MatchesTabs({ matches, userId, isGuest = false }: MatchesTabsProps) {
+export function MatchesTabs({ matches, userId }: MatchesTabsProps) {
     const [tab, setTab] = useState<"active" | "history">("active");
 
     const activeMatches = matches.filter((m) => m.status === "open" || m.status === "closed");
@@ -75,14 +74,12 @@ export function MatchesTabs({ matches, userId, isGuest = false }: MatchesTabsPro
                     <h1 className="text-2xl font-bold text-foreground">Partidos</h1>
                     <p className="text-muted">Explora, únete y revisa tu historial</p>
                 </div>
-                {!isGuest && (
-                    <Link href="/matches/new">
-                        <Button size="lg">
-                            <PlusCircle size={18} />
-                            Nuevo
-                        </Button>
-                    </Link>
-                )}
+                <Link href="/matches/new">
+                    <Button size="lg">
+                        <PlusCircle size={18} />
+                        Nuevo
+                    </Button>
+                </Link>
             </div>
 
             {/* Tab Toggle */}

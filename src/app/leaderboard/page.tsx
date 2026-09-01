@@ -6,6 +6,7 @@ import { getAdminUserIds } from "@/lib/permissions";
 import { cacheLife, cacheTag } from "next/cache";
 import type { Metadata } from "next";
 import Link from "next/link";
+import { getActiveSeason } from "@/lib/seasons";
 
 export const metadata: Metadata = {
     title: "Ranking — Pachanga",
@@ -28,14 +29,15 @@ export default async function LeaderboardPage({
 
     const { page: pageParam } = await searchParams;
     const page = Math.max(1, parseInt(pageParam ?? "1", 10));
+    const season = await getActiveSeason();
 
-    const { leaderboardData, totalPages, adminUserIds } = await getLeaderboardData(page);
+    const { leaderboardData, totalPages, adminUserIds } = await getLeaderboardData(page, season.id);
 
     return (
         <div className="mx-auto max-w-5xl px-4 py-8">
             <div className="mb-8">
                 <h1 className="text-2xl font-bold text-foreground">Ranking</h1>
-                <p className="text-muted">Los mejores jugadores de la comunidad</p>
+                <p className="text-muted">Los mejores jugadores de la comunidad · {season.name}</p>
             </div>
             <LeaderboardTabs data={leaderboardData} currentUserId={user.id} adminUserIds={adminUserIds} />
             {totalPages > 1 && (
@@ -63,77 +65,55 @@ export default async function LeaderboardPage({
     );
 }
 
-async function getLeaderboardData(page: number) {
+async function getLeaderboardData(page: number, seasonId: string) {
     "use cache";
     cacheLife("hours");
-    cacheTag("leaderboard");
+    cacheTag("leaderboard", `leaderboard:${seasonId}`);
 
     const admin = createAdminClient();
     const from = (page - 1) * PAGE_SIZE;
     const to = from + PAGE_SIZE - 1;
 
-    const [{ data: profiles, count }, adminUserIds] = await Promise.all([
+    const [{ data: stats, count }, adminUserIds] = await Promise.all([
         admin
-            .from("profiles")
-            .select("*", { count: "exact" })
+            .from("season_player_stats")
+            .select(`
+                season_id, user_id, elo_rating, matches_played, goals_scored,
+                wins, draws, losses, mvps,
+                profiles!inner(id, username, avatar_url, position, skill_level)
+            `, { count: "exact" })
+            .eq("season_id", seasonId)
             .order("elo_rating", { ascending: false })
             .order("matches_played", { ascending: false })
             .range(from, to),
         getAdminUserIds(),
     ]);
 
-    const profileIds = (profiles || []).map((p) => p.id);
-
-    const { data: allParticipations } = profileIds.length > 0
-        ? await admin
-            .from("match_participants")
-            .select("user_id, team, goals, is_mvp, matches(status, team_a_score, team_b_score)")
-            .in("user_id", profileIds)
-        : { data: [] };
-
     const totalPages = Math.ceil((count ?? 0) / PAGE_SIZE);
 
-    // Build stats map
-    const statsMap: Record<string, { wins: number; draws: number; losses: number; mvps: number }> = {};
+    const leaderboardData = (stats || []).map((stat) => {
+        const profile = (Array.isArray(stat.profiles) ? stat.profiles[0] : stat.profiles) as {
+            username: string | null;
+            avatar_url: string | null;
+            position: string | null;
+            skill_level: number | null;
+        } | null | undefined;
 
-    if (allParticipations) {
-        for (const p of allParticipations) {
-            const match = p.matches as unknown as {
-                status: string;
-                team_a_score: number | null;
-                team_b_score: number | null;
-            };
-            if (!match || match.status !== "finished" || match.team_a_score === null || match.team_b_score === null || !p.team) continue;
-
-            if (!statsMap[p.user_id]) {
-                statsMap[p.user_id] = { wins: 0, draws: 0, losses: 0, mvps: 0 };
-            }
-
-            const myScore = p.team === "A" ? match.team_a_score : match.team_b_score;
-            const oppScore = p.team === "A" ? match.team_b_score : match.team_a_score;
-
-            if (myScore > oppScore) statsMap[p.user_id].wins++;
-            else if (myScore === oppScore) statsMap[p.user_id].draws++;
-            else statsMap[p.user_id].losses++;
-
-            if (p.is_mvp) statsMap[p.user_id].mvps++;
-        }
-    }
-
-    const leaderboardData = (profiles || []).map((p) => ({
-        id: p.id,
-        username: p.username,
-        avatar_url: p.avatar_url,
-        position: p.position,
-        skill_level: p.skill_level,
-        elo_rating: p.elo_rating ?? 1000,
-        matches_played: p.matches_played ?? 0,
-        goals_scored: p.goals_scored ?? 0,
-        wins: statsMap[p.id]?.wins ?? 0,
-        draws: statsMap[p.id]?.draws ?? 0,
-        losses: statsMap[p.id]?.losses ?? 0,
-        mvps: statsMap[p.id]?.mvps ?? 0,
-    }));
+        return {
+            id: stat.user_id,
+            username: profile?.username ?? null,
+            avatar_url: profile?.avatar_url ?? null,
+            position: profile?.position ?? null,
+            skill_level: profile?.skill_level ?? null,
+            elo_rating: stat.elo_rating ?? 1000,
+            matches_played: stat.matches_played ?? 0,
+            goals_scored: stat.goals_scored ?? 0,
+            wins: stat.wins ?? 0,
+            draws: stat.draws ?? 0,
+            losses: stat.losses ?? 0,
+            mvps: stat.mvps ?? 0,
+        };
+    });
 
     return { leaderboardData, totalPages, adminUserIds };
 }

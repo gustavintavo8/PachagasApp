@@ -22,10 +22,9 @@ const positionLabels: Record<string, string> = {
 interface ProfileFormProps {
     userId: string;
     profile: Profile | null;
-    isGuest?: boolean;
 }
 
-export function ProfileForm({ userId, profile, isGuest = false }: ProfileFormProps) {
+export function ProfileForm({ userId, profile }: ProfileFormProps) {
     const router = useRouter();
     const [uiState, setUiState] = useState({ loading: false, success: false, error: null as string | null });
     const [avatarPath, setAvatarPath] = useState<string | null>(profile?.avatar_url ?? null);
@@ -56,12 +55,6 @@ export function ProfileForm({ userId, profile, isGuest = false }: ProfileFormPro
         <Card className="relative overflow-hidden border border-border/80 bg-gradient-to-br from-surface to-surface-hover/50 shadow-xl">
             <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-accent/5 to-transparent pointer-events-none" />
             <div className="relative z-10">
-            {isGuest ? (
-                <div className="rounded-xl border border-zinc-800 bg-zinc-900 p-6 text-center text-sm text-zinc-500">
-                    El perfil no es editable en modo demo
-                </div>
-            ) : (
-                <>
             <div className="mb-6 flex justify-center">
                 <AvatarUpload
                     uid={userId}
@@ -134,8 +127,6 @@ export function ProfileForm({ userId, profile, isGuest = false }: ProfileFormPro
                         Guardar Perfil
                     </Button>
                 </form>
-                </>
-            )}
             </div>
         </Card>
     );

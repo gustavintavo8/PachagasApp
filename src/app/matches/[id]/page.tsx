@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { requireCommunityAccess } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { redirect, notFound } from "next/navigation";
 import { MatchDetail } from "./MatchDetail";
@@ -13,6 +14,20 @@ export async function generateMetadata({
     params: Promise<{ id: string }>;
 }): Promise<Metadata> {
     const { id } = await params;
+    const supabase = await createClient();
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+
+    if (!user) {
+        return { title: "Partido — Pachanga" };
+    }
+
+    const access = await requireCommunityAccess(user);
+    if (!access.success) {
+        return { title: "Partido — Pachanga" };
+    }
+
     const admin = createAdminClient();
 
     const { data: match } = await admin
@@ -62,7 +77,8 @@ export default async function MatchPage({
 
     if (!user) redirect("/login");
 
-    const isGuest = user.is_anonymous === true;
+    const access = await requireCommunityAccess(user);
+    if (!access.success) redirect("/access");
 
     const { data: match } = await supabase
         .from("matches")
@@ -72,14 +88,32 @@ export default async function MatchPage({
 
     if (!match) notFound();
 
-    const [{ data: participants }, { data: organizerProfile }, { data: currentProfile }, adminUserIds, userIsAdmin] =
+    const [{ data: participants }, { data: organizerProfile }, { data: currentProfile }, { data: season }, adminUserIds, userIsAdmin] =
         await Promise.all([
             supabase.from("match_participants").select("*, profiles(*)").eq("match_id", id),
             supabase.from("profiles").select("username, avatar_url").eq("id", match.created_by).single(),
             supabase.from("profiles").select("username, avatar_url").eq("id", user.id).single(),
+            supabase.from("seasons").select("name").eq("id", match.season_id).single(),
             getAdminUserIds(),
             isAdmin(user.id),
         ]);
+
+    const participantIds = (participants ?? []).map((participant) => participant.user_id);
+    const { data: seasonStats } = participantIds.length > 0
+        ? await supabase
+            .from("season_player_stats")
+            .select("user_id, elo_rating, matches_played, goals_scored, wins, draws, losses, mvps")
+            .eq("season_id", match.season_id)
+            .in("user_id", participantIds)
+        : { data: [] };
+    const seasonStatsMap = new Map((seasonStats ?? []).map((stat) => [stat.user_id, stat]));
+    const seasonalParticipants = (participants ?? []).map((participant) => ({
+        ...participant,
+        profiles: {
+            ...participant.profiles,
+            ...(seasonStatsMap.get(participant.user_id) ?? {}),
+        },
+    }));
 
     return (
         <>
@@ -102,7 +136,8 @@ export default async function MatchPage({
             />
             <MatchDetail
                 match={match}
-                participants={participants || []}
+                participants={seasonalParticipants}
+                seasonName={season?.name ?? "Temporada"}
                 currentUserId={user.id}
                 organizerName={organizerProfile?.username || "Desconocido"}
                 organizerAvatarUrl={organizerProfile?.avatar_url || null}
@@ -112,7 +147,6 @@ export default async function MatchPage({
                 }}
                 isAdmin={userIsAdmin}
                 adminUserIds={adminUserIds}
-                isGuest={isGuest}
             />
         </>
     );

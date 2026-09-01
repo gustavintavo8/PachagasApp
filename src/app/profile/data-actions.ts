@@ -1,24 +1,37 @@
 "use server";
 
+import { requireCommunityAccess } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { isGuestUser } from "@/lib/permissions";
 import { rateLimit } from "@/lib/rate-limit";
 import type { ActionResult } from "@/lib/types";
+
+async function requireProfileDataAccess(
+    user: { id: string; is_anonymous?: boolean } | null
+): Promise<ActionResult<true>> {
+    if (!user || user.is_anonymous === true) {
+        return { success: false, error: "No estás autenticado" };
+    }
+
+    return requireCommunityAccess(user);
+}
 
 export async function deleteAccount(): Promise<ActionResult> {
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-    if (authError || !user) return { success: false, error: "No estás autenticado" };
-    if (isGuestUser(user)) return { success: false, error: "Acción no disponible en modo demo" };
+    if (authError) return { success: false, error: "No estás autenticado" };
 
-    const { allowed } = await rateLimit(`delete-account:${user.id}`, 3, 3_600_000);
+    const access = await requireProfileDataAccess(user);
+    if (!access.success) return access;
+    const currentUser = user!;
+
+    const { allowed } = await rateLimit(`delete-account:${currentUser.id}`, 3, 3_600_000);
     if (!allowed) return { success: false, error: "Demasiados intentos. Espera un momento." };
 
     // Borra el usuario de auth.users; el ON DELETE CASCADE limpia profiles y todo lo dependiente.
     const admin = createAdminClient();
-    const { error } = await admin.auth.admin.deleteUser(user.id);
+    const { error } = await admin.auth.admin.deleteUser(currentUser.id);
     if (error) return { success: false, error: "No se pudo eliminar la cuenta. Inténtalo de nuevo." };
 
     await supabase.auth.signOut();
@@ -29,14 +42,17 @@ export async function exportMyData(): Promise<ActionResult<string>> {
     const supabase = await createClient();
     const { data: { user }, error: authError } = await supabase.auth.getUser();
 
-    if (authError || !user) return { success: false, error: "No estás autenticado" };
-    if (isGuestUser(user)) return { success: false, error: "Acción no disponible en modo demo" };
+    if (authError) return { success: false, error: "No estás autenticado" };
 
-    const { allowed } = await rateLimit(`export-data:${user.id}`, 5, 60_000);
+    const access = await requireProfileDataAccess(user);
+    if (!access.success) return access;
+    const currentUser = user!;
+
+    const { allowed } = await rateLimit(`export-data:${currentUser.id}`, 5, 60_000);
     if (!allowed) return { success: false, error: "Demasiadas descargas. Espera un momento." };
 
     const admin = createAdminClient();
-    const uid = user.id;
+    const uid = currentUser.id;
 
     const [profile, participations, comments, photos, votes, notifications, rp, fantasy] =
         await Promise.all([
@@ -78,7 +94,7 @@ export async function exportMyData(): Promise<ActionResult<string>> {
 
     const exportObject = {
         exported_at: new Date().toISOString(),
-        account: { id: uid, email: user.email },
+        account: { id: uid, email: currentUser.email },
         profile: profile.data ?? null,
         participations: participations.data ?? [],
         comments: comments.data ?? [],

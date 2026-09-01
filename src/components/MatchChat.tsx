@@ -25,14 +25,12 @@ interface MatchChatProps {
         username: string | null;
         avatar_url: string | null;
     };
-    isGuest?: boolean;
 }
 
 export function MatchChat({
     matchId,
     currentUserId,
     currentUserProfile,
-    isGuest = false,
 }: MatchChatProps) {
     const [comments, setComments] = useState<Comment[]>([]);
     const [loading, setLoading] = useState(true);
@@ -209,11 +207,10 @@ export function MatchChat({
             </div>
 
             {/* Input */}
-            {!isGuest && (
-                <form
-                    onSubmit={handleSend}
-                    className="flex items-center gap-2 border-t border-border px-4 py-3"
-                >
+            <form
+                onSubmit={handleSend}
+                className="flex items-center gap-2 border-t border-border px-4 py-3"
+            >
                     <input
                         type="text"
                         value={message}
@@ -230,8 +227,7 @@ export function MatchChat({
                     >
                         <Send size={16} />
                     </button>
-                </form>
-            )}
+            </form>
         </div>
     );
 }

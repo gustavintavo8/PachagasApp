@@ -1,7 +1,8 @@
 "use server";
 
-import { createClient } from "@/lib/supabase/server";
+import { hasCommunityAccess } from "@/lib/access";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { createClient } from "@/lib/supabase/server";
 import { rateLimit } from "@/lib/rate-limit";
 import { PRIVACY_POLICY_VERSION } from "@/lib/legal";
 import { redirect } from "next/navigation";
@@ -28,6 +29,14 @@ export async function login(formData: FormData): Promise<ActionResult> {
             return { success: false, error: "Debes confirmar tu email antes de iniciar sesión. Revisa tu bandeja de entrada." };
         }
         return { success: false, error: error.message };
+    }
+
+    const {
+        data: { user },
+    } = await supabase.auth.getUser();
+
+    if (user && !user.is_anonymous && !(await hasCommunityAccess(user.id))) {
+        redirect("/access");
     }
 
     redirect("/");
@@ -131,11 +140,4 @@ export async function signOut(): Promise<void> {
     const supabase = await createClient();
     await supabase.auth.signOut();
     redirect("/login");
-}
-
-export async function loginAsGuest(): Promise<void> {
-    const supabase = await createClient();
-    const { error } = await supabase.auth.signInAnonymously();
-    if (error) throw new Error(error.message);
-    redirect("/");
 }

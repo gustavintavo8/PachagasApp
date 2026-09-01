@@ -3,8 +3,10 @@ import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
 import { Card } from "@/components/ui/Card";
-import { Avatar } from "@/components/ui/Avatar";
-import { formatDate, getAvatarUrl } from "@/lib/utils";
+import { formatDate } from "@/lib/utils";
+import { resolveSeasonSelection } from "@/lib/seasons";
+import type { Season } from "@/lib/types";
+import { SeasonSelector } from "@/components/SeasonSelector";
 import {
     Calendar,
     MapPin,
@@ -20,7 +22,11 @@ export const metadata: Metadata = {
     description: "Tu historial de partidos jugados y resultados.",
 };
 
-export default async function HistoryPage() {
+export default async function HistoryPage({
+    searchParams,
+}: {
+    searchParams: Promise<{ season?: string }>;
+}) {
     const supabase = await createClient();
     const {
         data: { user },
@@ -28,24 +34,34 @@ export default async function HistoryPage() {
 
     if (!user) redirect("/login");
 
-    // Fetch user profile for header stats
-    const { data: profile } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", user.id)
-        .single();
+    const { season: seasonParam } = await searchParams;
+    const season = await resolveSeasonSelection(seasonParam);
+
+    const [{ data: stats }, { data: seasons }] = await Promise.all([
+        supabase
+            .from("season_player_stats")
+            .select("*")
+            .eq("season_id", season.id)
+            .eq("user_id", user.id)
+            .maybeSingle(),
+        supabase
+            .from("seasons")
+            .select("id, name, slug, status, starts_at, ends_at")
+            .order("starts_at", { ascending: false }),
+    ]);
 
     // Fetch finished matches where the user participated
     const { data: participations } = await supabase
         .from("match_participants")
         .select(`
-            match_id, 
-            team, 
-            goals, 
-            is_mvp, 
-            matches(id, date, location, status, team_a_score, team_b_score)
+            match_id,
+            team,
+            goals,
+            is_mvp,
+            matches!inner(id, season_id, date, location, status, team_a_score, team_b_score)
         `)
-        .eq("user_id", user.id);
+        .eq("user_id", user.id)
+        .eq("matches.season_id", season.id);
 
     // Filter to only finished matches and sort by date desc
     const finishedMatches = participations
@@ -69,53 +85,47 @@ export default async function HistoryPage() {
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
         ?? [];
 
-    // Calculate win/draw/loss stats
-    let wins = 0, draws = 0, losses = 0;
-    for (const m of finishedMatches) {
-        if (m.team_a_score === null || m.team_b_score === null || !m.userTeam) continue;
-        const myScore = m.userTeam === "A" ? m.team_a_score : m.team_b_score;
-        const oppScore = m.userTeam === "A" ? m.team_b_score : m.team_a_score;
-        if (myScore > oppScore) wins++;
-        else if (myScore === oppScore) draws++;
-        else losses++;
-    }
-
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const seasonOptions = (seasons ?? []) as Season[];
 
     return (
         <div className="mx-auto max-w-5xl px-4 py-8">
             {/* Header */}
             <div className="mb-8">
-                <h1 className="text-2xl font-bold text-foreground">Historial de Partidos</h1>
-                <p className="text-muted">Tus pachangas pasadas y resultados</p>
+                <div className="flex flex-wrap items-start justify-between gap-4">
+                    <div>
+                        <h1 className="text-2xl font-bold text-foreground">Historial de Partidos</h1>
+                        <p className="text-muted">Tus pachangas pasadas y resultados</p>
+                    </div>
+                    <SeasonSelector seasons={seasonOptions} selectedSlug={season.slug} name="season" />
+                </div>
             </div>
 
             {/* Stats Summary */}
             <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
                 <Card className="relative overflow-hidden text-center">
                     <p className="text-sm text-muted">Jugados</p>
-                    <p className="mt-1 text-3xl font-bold text-foreground">{finishedMatches.length}</p>
+                    <p className="mt-1 text-3xl font-bold text-foreground">{stats?.matches_played ?? 0}</p>
                 </Card>
                 <Card className="relative overflow-hidden text-center">
                     <div className="absolute right-3 top-3 text-green-500/20">
                         <TrendingUp size={32} />
                     </div>
                     <p className="text-sm text-muted">Victorias</p>
-                    <p className="mt-1 text-3xl font-bold text-green-400">{wins}</p>
+                    <p className="mt-1 text-3xl font-bold text-green-400">{stats?.wins ?? 0}</p>
                 </Card>
                 <Card className="relative overflow-hidden text-center">
                     <div className="absolute right-3 top-3 text-zinc-500/20">
                         <Minus size={32} />
                     </div>
                     <p className="text-sm text-muted">Empates</p>
-                    <p className="mt-1 text-3xl font-bold text-zinc-400">{draws}</p>
+                    <p className="mt-1 text-3xl font-bold text-zinc-400">{stats?.draws ?? 0}</p>
                 </Card>
                 <Card className="relative overflow-hidden text-center">
                     <div className="absolute right-3 top-3 text-red-500/20">
                         <TrendingDown size={32} />
                     </div>
                     <p className="text-sm text-muted">Derrotas</p>
-                    <p className="mt-1 text-3xl font-bold text-red-400">{losses}</p>
+                    <p className="mt-1 text-3xl font-bold text-red-400">{stats?.losses ?? 0}</p>
                 </Card>
             </div>
 

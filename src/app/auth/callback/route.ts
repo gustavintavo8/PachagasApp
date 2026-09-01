@@ -1,3 +1,4 @@
+import { hasCommunityAccess } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { NextResponse } from "next/server";
@@ -58,7 +59,8 @@ export async function GET(request: Request) {
                 }
             }
 
-            return NextResponse.redirect(`${origin}/`);
+            const targetPath = await hasCommunityAccess(data.user.id) ? "/" : "/access";
+            return NextResponse.redirect(`${origin}${targetPath}`);
         }
     }
 

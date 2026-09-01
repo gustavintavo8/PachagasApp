@@ -53,6 +53,29 @@ export type MatchWithParticipants = Match & {
     participants: (MatchParticipant & { profiles: Profile })[];
 };
 
+export type SeasonStatus = "active" | "archived";
+
+export type Season = {
+    id: string;
+    name: string;
+    slug: string;
+    status: SeasonStatus;
+    starts_at: string;
+    ends_at: string | null;
+};
+
+export type SeasonPlayerStats = {
+    season_id: string;
+    user_id: string;
+    elo_rating: number;
+    matches_played: number;
+    goals_scored: number;
+    wins: number;
+    draws: number;
+    losses: number;
+    mvps: number;
+};
+
 // ─── Server Action Results ────────────────────────────────────────────────────
 
 export type ActionResult<T = void> =
