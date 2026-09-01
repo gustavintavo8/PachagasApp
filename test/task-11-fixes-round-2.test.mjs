@@ -25,6 +25,8 @@ function readTree(relativePath) {
 
 const migrationPath =
     "supabase/migrations/20260901000003_harden_public_rpc_security.sql";
+const compatibilityMigrationPath =
+    "supabase/migrations/20260901000008_fix_optional_rate_limit_contract.sql";
 
 test("cierra get_common_matches para los roles de la Data API y lo cubre el contrato", () => {
     const migration = read(migrationPath);
@@ -86,6 +88,19 @@ test("revoca las dos sobrecargas públicas de consume_rate_limit y cubre rate_li
     assert.match(
         migration,
         /has_function_privilege\(\s*'service_role'\s*,\s*'public\.consume_rate_limit\(text,integer,integer\)'\s*,\s*'EXECUTE'\s*\)/i
+    );
+});
+
+test("el verificador acepta snapshots sin la sobrecarga bigint", () => {
+    const migration = read(compatibilityMigrationPath);
+
+    assert.match(
+        migration,
+        /case\s+when\s+to_regprocedure\(\s*'public\.consume_rate_limit\(text,integer,bigint\)'\s*\)\s+is\s+not\s+null\s+then\s+has_function_privilege\(/i
+    );
+    assert.match(
+        migration,
+        /not\s+rate_limit_bigint_present\s+or\s*\([\s\S]*not\s+rate_limit_bigint_anon_execute[\s\S]*rate_limit_bigint_service_execute/i
     );
 });
 
