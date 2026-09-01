@@ -97,3 +97,12 @@ test("OAuth se inicia en el navegador para conservar el verificador PKCE", () =>
     assert.match(loginPage, /skipBrowserRedirect:\s*true/);
     assert.doesNotMatch(loginPage, /signInWithOAuth\(provider\)/);
 });
+
+test("las redirecciones al login no conservan códigos OAuth en la query", () => {
+    const middleware = read("src/middleware.ts");
+
+    assert.match(
+        middleware,
+        /if\s*\(\s*pathname\s*===\s*["']\/login["']\s*\)\s*\{[\s\S]{0,100}?url\.search\s*=\s*["']["']/i
+    );
+});
