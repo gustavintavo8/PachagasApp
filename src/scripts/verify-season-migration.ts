@@ -51,7 +51,7 @@ async function main() {
     assert(season2?.status === "active", "Falta Temporada 2 activa");
     assert(seasons.filter((season) => season.status === "active").length === 1, "Debe existir exactamente una temporada activa");
 
-    const [profiles, seasonStats, matches, participants, nullMatches, nullRp, nonSeasonOneMatches, nonSeasonOneRp, catalog, privateCatalog] = await Promise.all([
+    const [profiles, seasonStats, matches, participants, nullMatches, nullRp, nonSeasonOneMatches, nonSeasonOneRp, catalog, privateCatalog, publicRpcCatalog] = await Promise.all([
         read<Profile[]>(admin.from("profiles").select("id, elo_rating, matches_played, goals_scored"), "No se pudo leer profiles"),
         read<SeasonStat[]>(admin.from("season_player_stats").select("season_id, user_id, elo_rating, matches_played, goals_scored, wins, draws, losses, mvps"), "No se pudo leer season_player_stats"),
         read<Match[]>(admin.from("matches").select("id, status, season_id, team_a_score, team_b_score"), "No se pudo leer matches"),
@@ -62,6 +62,7 @@ async function main() {
         read<number>(admin.from("rp_history").select("id", { count: "exact", head: true }).neq("season_id", season1.id).then(({ count, error }) => ({ data: count ?? 0, error })), "No se pudo comprobar rp_history de Season 1"),
         read<Record<string, boolean>>(admin.rpc("verify_season_migration_contract"), "No se pudo comprobar el catálogo SQL"),
         read<Record<string, boolean>>(admin.rpc("verify_private_access_rls_contract"), "No se pudo comprobar el contrato RLS de acceso privado"),
+        read<Record<string, boolean>>(admin.rpc("verify_public_rpc_security_contract"), "No se pudo comprobar el contrato de RPC públicos"),
     ]);
 
     assert(nullMatches === 0, `Quedan ${nullMatches} partidos sin temporada`);
@@ -70,6 +71,7 @@ async function main() {
     assert(nonSeasonOneRp === 0, `Hay ${nonSeasonOneRp} eventos RP que no apuntan a Season 1`);
     assert(catalog.ok === true, `Fallos de catálogo/privilegios: ${JSON.stringify(catalog)}`);
     assert(privateCatalog.ok === true, `Fallos del contrato RLS: ${JSON.stringify(privateCatalog)}`);
+    assert(publicRpcCatalog.ok === true, `Fallos de RPC/privilegios: ${JSON.stringify(publicRpcCatalog)}`);
 
     const statsByKey = new Map(seasonStats.map((stat) => [`${stat.season_id}:${stat.user_id}`, stat]));
     assert(seasonStats.length === profiles.length * 2, `Se esperaban ${profiles.length * 2} filas de stats, recibidas ${seasonStats.length}`);
@@ -139,6 +141,7 @@ async function main() {
         nullRp,
         catalog,
         privateCatalog,
+        publicRpcCatalog,
         coherentWithRawMatchAggregate,
         legacyCounterComparisons,
         legacyCounterDiscrepancies,

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useLayoutEffect } from "react";
+import { useCallback, useState, useRef, useEffect } from "react";
 import { Avatar } from "@/components/ui/Avatar";
 import { getAvatarUrl } from "@/lib/utils";
 import { POSITION_SHORT, POSITION_FULL, POSITION_COLORS, POSITION_ICONS } from "@/lib/positions";
@@ -569,11 +569,11 @@ function PlayerPopover({
     const popoverRef = useRef<HTMLDivElement>(null);
     const [adjustedPos, setAdjustedPos] = useState({ x, y });
 
-    useLayoutEffect(() => {
-        if (!popoverRef.current) return;
-        const el = popoverRef.current;
-        const parent = el.offsetParent as HTMLElement;
-        if (!parent) return;
+    const measurePopover = useCallback((el: HTMLDivElement | null) => {
+        popoverRef.current = el;
+        if (!el) return;
+        const parent = el.offsetParent;
+        if (!(parent instanceof HTMLElement)) return;
 
         const parentRect = parent.getBoundingClientRect();
         const popW = el.offsetWidth;
@@ -589,12 +589,16 @@ function PlayerPopover({
         // If popover would go above the pitch, flip below
         if (ay < 8) ay = y + 44;
 
-        setAdjustedPos({ x: ax, y: ay });
+        setAdjustedPos((current) =>
+            current.x === ax && current.y === ay
+                ? current
+                : { x: ax, y: ay }
+        );
     }, [x, y]);
 
     return (
         <div
-            ref={popoverRef}
+            ref={measurePopover}
             data-player-popover
             className="absolute z-50 w-56 animate-in fade-in zoom-in-95 duration-200"
             style={{

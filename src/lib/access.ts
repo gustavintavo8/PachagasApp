@@ -4,6 +4,7 @@ import { timingSafeEqual } from "node:crypto";
 
 import { hasActiveCommunityAccessGrant, isAdmin, isGuestUser, COMMUNITY_ACCESS_GRANT_SELECT, type CommunityAccessGrant } from "@/lib/permissions";
 import { ensureSeasonPlayerStats, getActiveSeason, SeasonNotFoundError } from "@/lib/seasons";
+import { rateLimit } from "@/lib/rate-limit";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
 import { normalizeAccessCode } from "@/lib/season-validation";
@@ -73,6 +74,15 @@ export async function redeemAccessCode(code: string): Promise<ActionResult> {
 
     if (authError || !user || isGuestUser(user)) {
         return { success: false, error: "No autenticado" };
+    }
+
+    const { allowed } = await rateLimit(
+        `redeem-community-access:${user.id}`,
+        5,
+        60_000
+    );
+    if (!allowed) {
+        return { success: false, error: COMMUNITY_ACCESS_REDEEM_ERROR };
     }
 
     if (!accessCodeMatches(code)) {
