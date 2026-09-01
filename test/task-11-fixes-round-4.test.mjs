@@ -53,6 +53,18 @@ test("el verificador RLS valida la policy restrictiva completa", () => {
     assert.match(migration, /coalesce\(p\.with_check,\s*['"]['"]\)\s*~\s*['"][^'"]*has_community_access/i);
 });
 
+test("el contrato RLS comprueba el OID exacto del helper en ambas expresiones", () => {
+    const migration = read(
+        "supabase/migrations/20260901000007_match_rls_helper_dependencies.sql"
+    );
+
+    assert.match(migration, /pg_policy\s+pol/i);
+    assert.match(migration, /pol\.polqual::text\s*~/i);
+    assert.match(migration, /pol\.polwithcheck::text\s*~/i);
+    assert.match(migration, /private\.has_community_access\(\)['"]?::regprocedure/i);
+    assert.match(migration, /:funcid\s+%s/i);
+});
+
 test("rate-limit falla cerrado cuando el RPC no está disponible", () => {
     const source = read("src/lib/rate-limit.ts");
 
