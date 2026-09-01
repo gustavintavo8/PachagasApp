@@ -20,3 +20,18 @@
 
 - La prueba E2E completa y el prerender de sitemap deben repetirse en un entorno con Supabase local y las variables de test configuradas. No se usaron datos remotos.
 - La UI no selecciona temporada explícitamente; el endpoint admite `season_slug` y usa la temporada activa cuando no se proporciona.
+
+## Ronda 1 — corrección de revisión
+
+La revisión detectó que `get_players`, `get_player_detail` y `get_my_stats` aún seleccionaban y propagaban `profiles.market_value`. Se retiró ese campo de las tres selecciones y se verificó que tampoco se exponen `total_points`, `budget`, `logo_url` ni referencias Fantasy en las tools del asistente.
+
+### Verificación de la corrección
+
+- `npx playwright test e2e/asistente.spec.ts --config=playwright.contract.config.ts --project=chromium -g "Fantasy tools contract"` (antes de la corrección) → 1 failed, aserción esperada: `market_value` estaba presente en `buildTools.toString()`.
+- El mismo comando después de la corrección → 1 passed.
+- `npx tsc --noEmit` → OK.
+- `npx eslint src/lib/ai/tools.ts src/app/api/asistente/route.ts src/app/asistente/page.tsx e2e/asistente.spec.ts` → OK.
+- `rg -ni "market_value|total_points|budget|fantasy|get_fantasy_standings|get_my_fantasy_team" src/lib/ai/tools.ts src/app/api/asistente/route.ts src/app/asistente/page.tsx` → sin coincidencias (exit 1 esperado).
+- `git diff --check` → sin errores.
+
+No se ejecutaron pruebas largas, el E2E con `globalSetup` ni mutaciones remotas en esta ronda. Se eliminó la configuración temporal de Playwright y se restauraron los artefactos generados por los tests.

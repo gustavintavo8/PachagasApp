@@ -58,7 +58,7 @@ export function buildTools(userId: string, defaultSeason: Season) {
                 const admin = createAdminClient();
                 let query = admin
                     .from("season_player_stats")
-                    .select("elo_rating, matches_played, goals_scored, profiles!inner(username, position, avatar_url, market_value)")
+                    .select("elo_rating, matches_played, goals_scored, profiles!inner(username, position, avatar_url)")
                     .eq("season_id", season.id)
                     .order("elo_rating", { ascending: false })
                     .limit(limit);
@@ -196,7 +196,7 @@ export function buildTools(userId: string, defaultSeason: Season) {
                 const admin = createAdminClient();
                 const { data: playerStat, error } = await admin
                     .from("season_player_stats")
-                    .select("elo_rating, matches_played, goals_scored, profiles!inner(username, position, skill_level, market_value, avatar_url)")
+                    .select("elo_rating, matches_played, goals_scored, profiles!inner(username, position, skill_level, avatar_url)")
                     .eq("season_id", season.id)
                     .ilike("profiles.username", `%${input.username}%`)
                     .order("elo_rating", { ascending: false })
@@ -263,7 +263,7 @@ export function buildTools(userId: string, defaultSeason: Season) {
                 const admin = createAdminClient();
                 const { data: stats, error } = await admin
                     .from("season_player_stats")
-                    .select("elo_rating, matches_played, goals_scored, profiles!inner(username, position, market_value, avatar_url)")
+                    .select("elo_rating, matches_played, goals_scored, profiles!inner(username, position, avatar_url)")
                     .eq("season_id", season.id)
                     .eq("user_id", userId)
                     .maybeSingle();

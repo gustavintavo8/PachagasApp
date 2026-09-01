@@ -31,6 +31,7 @@ test.describe("Asistente Panenka", () => {
         const tools = buildTools("test-user", TEST_SEASON);
         expect(Object.keys(tools)).not.toContain("get_fantasy_standings");
         expect(Object.keys(tools)).not.toContain("get_my_fantasy_team");
+        expect(buildTools.toString()).not.toContain("market_value");
         expect(buildTools.length).toBe(2);
 
         const execute = tools.get_matches.execute;
