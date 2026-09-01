@@ -4,6 +4,11 @@ import { NextResponse, type NextRequest } from "next/server";
 function redirectTo(request: NextRequest, pathname: string) {
     const url = request.nextUrl.clone();
     url.pathname = pathname;
+
+    if (pathname === "/login") {
+        url.search = "";
+    }
+
     return NextResponse.redirect(url);
 }
 
