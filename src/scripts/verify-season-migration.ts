@@ -15,6 +15,12 @@ type SeasonStat = { season_id: string; user_id: string; elo_rating: number; matc
 type Match = { id: string; status: string; season_id: string; team_a_score: number | null; team_b_score: number | null };
 type Participant = { match_id: string; user_id: string; team: string; goals: number | null; is_mvp: boolean | null };
 type Aggregate = { matches_played: number; goals_scored: number; wins: number; draws: number; losses: number; mvps: number };
+type LegacyCounterComparison = {
+    user_id: string;
+    legacy: Pick<Profile, "matches_played" | "goals_scored">;
+    raw: Pick<Aggregate, "matches_played" | "goals_scored">;
+    season_one: Pick<SeasonStat, "matches_played" | "goals_scored">;
+};
 
 function assert(condition: unknown, message: string): asserts condition {
     if (!condition) throw new Error(message);
@@ -45,7 +51,7 @@ async function main() {
     assert(season2?.status === "active", "Falta Temporada 2 activa");
     assert(seasons.filter((season) => season.status === "active").length === 1, "Debe existir exactamente una temporada activa");
 
-    const [profiles, seasonStats, matches, participants, nullMatches, nullRp, nonSeasonOneMatches, nonSeasonOneRp, catalog] = await Promise.all([
+    const [profiles, seasonStats, matches, participants, nullMatches, nullRp, nonSeasonOneMatches, nonSeasonOneRp, catalog, privateCatalog] = await Promise.all([
         read<Profile[]>(admin.from("profiles").select("id, elo_rating, matches_played, goals_scored"), "No se pudo leer profiles"),
         read<SeasonStat[]>(admin.from("season_player_stats").select("season_id, user_id, elo_rating, matches_played, goals_scored, wins, draws, losses, mvps"), "No se pudo leer season_player_stats"),
         read<Match[]>(admin.from("matches").select("id, status, season_id, team_a_score, team_b_score"), "No se pudo leer matches"),
@@ -55,6 +61,7 @@ async function main() {
         read<number>(admin.from("matches").select("id", { count: "exact", head: true }).neq("season_id", season1.id).then(({ count, error }) => ({ data: count ?? 0, error })), "No se pudo comprobar matches de Season 1"),
         read<number>(admin.from("rp_history").select("id", { count: "exact", head: true }).neq("season_id", season1.id).then(({ count, error }) => ({ data: count ?? 0, error })), "No se pudo comprobar rp_history de Season 1"),
         read<Record<string, boolean>>(admin.rpc("verify_season_migration_contract"), "No se pudo comprobar el catálogo SQL"),
+        read<Record<string, boolean>>(admin.rpc("verify_private_access_rls_contract"), "No se pudo comprobar el contrato RLS de acceso privado"),
     ]);
 
     assert(nullMatches === 0, `Quedan ${nullMatches} partidos sin temporada`);
@@ -62,6 +69,7 @@ async function main() {
     assert(nonSeasonOneMatches === 0, `Hay ${nonSeasonOneMatches} partidos que no apuntan a Season 1`);
     assert(nonSeasonOneRp === 0, `Hay ${nonSeasonOneRp} eventos RP que no apuntan a Season 1`);
     assert(catalog.ok === true, `Fallos de catálogo/privilegios: ${JSON.stringify(catalog)}`);
+    assert(privateCatalog.ok === true, `Fallos del contrato RLS: ${JSON.stringify(privateCatalog)}`);
 
     const statsByKey = new Map(seasonStats.map((stat) => [`${stat.season_id}:${stat.user_id}`, stat]));
     assert(seasonStats.length === profiles.length * 2, `Se esperaban ${profiles.length * 2} filas de stats, recibidas ${seasonStats.length}`);
@@ -80,16 +88,61 @@ async function main() {
         aggregates.set(participant.user_id, aggregate);
     }
 
+    const legacyCounterComparisons: LegacyCounterComparison[] = [];
+    const legacyCounterDiscrepancies: LegacyCounterComparison[] = [];
     for (const profile of profiles) {
         const raw = aggregates.get(profile.id) ?? { matches_played: 0, goals_scored: 0, wins: 0, draws: 0, losses: 0, mvps: 0 };
         const seasonOne = statsByKey.get(`${season1.id}:${profile.id}`);
         const seasonTwo = statsByKey.get(`${season2.id}:${profile.id}`);
         assert(seasonOne && seasonTwo, `Faltan filas de stats para ${profile.id}`);
+
+        const comparison: LegacyCounterComparison = {
+            user_id: profile.id,
+            legacy: {
+                matches_played: profile.matches_played,
+                goals_scored: profile.goals_scored,
+            },
+            raw: {
+                matches_played: raw.matches_played,
+                goals_scored: raw.goals_scored,
+            },
+            season_one: {
+                matches_played: seasonOne.matches_played,
+                goals_scored: seasonOne.goals_scored,
+            },
+        };
+        legacyCounterComparisons.push(comparison);
+        if (
+            (profile.matches_played !== null && profile.matches_played !== raw.matches_played) ||
+            (profile.goals_scored !== null && profile.goals_scored !== raw.goals_scored)
+        ) {
+            legacyCounterDiscrepancies.push(comparison);
+        }
+
+        // Existing non-null legacy counters are preserved as the Season 1 compatibility
+        // snapshot. Raw finished-match aggregates are the fallback for null legacy values;
+        // any disagreement is reported explicitly below instead of being hidden by ??.
         assertStats(seasonOne, { season_id: season1.id, user_id: profile.id, elo_rating: profile.elo_rating ?? 1000, matches_played: profile.matches_played ?? raw.matches_played, goals_scored: profile.goals_scored ?? raw.goals_scored, wins: raw.wins, draws: raw.draws, losses: raw.losses, mvps: raw.mvps }, `Season 1 ${profile.id}`);
         assertStats(seasonTwo, { season_id: season2.id, user_id: profile.id, elo_rating: 1000, matches_played: 0, goals_scored: 0, wins: 0, draws: 0, losses: 0, mvps: 0 }, `Season 2 ${profile.id}`);
     }
 
-    console.log(JSON.stringify({ seasons, profiles: profiles.length, seasonStats: seasonStats.length, nullMatches, nullRp, catalog }, null, 2));
+    const coherentWithRawMatchAggregate = legacyCounterDiscrepancies.length === 0;
+    if (!coherentWithRawMatchAggregate) {
+        console.warn(`Se detectaron ${legacyCounterDiscrepancies.length} discrepancias entre perfiles heredados y partidos finalizados`);
+    }
+
+    console.log(JSON.stringify({
+        seasons,
+        profiles: profiles.length,
+        seasonStats: seasonStats.length,
+        nullMatches,
+        nullRp,
+        catalog,
+        privateCatalog,
+        coherentWithRawMatchAggregate,
+        legacyCounterComparisons,
+        legacyCounterDiscrepancies,
+    }, null, 2));
 }
 
 main().catch((error) => {

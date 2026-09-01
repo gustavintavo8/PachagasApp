@@ -68,26 +68,16 @@ export async function middleware(request: NextRequest) {
     );
 
     if (shouldCheckAccess && user) {
-        const [{ data: grant }, { data: profile }] = await Promise.all([
-            supabase
-                .from("community_access_grants")
-                .select("user_id")
-                .eq("user_id", user.id)
-                .is("revoked_at", null)
-                .maybeSingle(),
-            supabase
-                .from("profiles")
-                .select("is_admin")
-                .eq("id", user.id)
-                .maybeSingle(),
-        ]);
-        const allowed = Boolean(grant || profile?.is_admin === true);
+        const { data: allowed, error: accessError } = await supabase.rpc(
+            "current_user_has_community_access"
+        );
+        const hasAccess = accessError ? false : allowed === true;
 
-        if (pathname === "/access" && allowed) {
+        if (pathname === "/access" && hasAccess) {
             return redirectTo(request, "/");
         }
 
-        if (!isPublicRoute && !allowed && !isApiRoute) {
+        if (!isPublicRoute && !hasAccess && !isApiRoute) {
             return redirectTo(request, "/access");
         }
     }

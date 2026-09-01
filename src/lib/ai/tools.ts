@@ -17,6 +17,47 @@ function profileFromRow(row: { profiles?: unknown }) {
     return Array.isArray(row.profiles) ? row.profiles[0] : row.profiles;
 }
 
+type ResolvedSeasonalPlayer = {
+    id: string;
+    username: string;
+    elo_rating: number;
+};
+
+async function resolveSeasonalPlayer(
+    admin: ReturnType<typeof createAdminClient>,
+    seasonId: string,
+    usernameQuery: string
+): Promise<{ player: ResolvedSeasonalPlayer | null; error: string | null }> {
+    const { data, error } = await admin
+        .from("season_player_stats")
+        .select("user_id, elo_rating, profiles!inner(id, username)")
+        .eq("season_id", seasonId)
+        .ilike("profiles.username", `%${usernameQuery}%`)
+        .order("elo_rating", { ascending: false })
+        .limit(2);
+
+    if (error) return { player: null, error: error.message };
+
+    const candidates = data ?? [];
+    if (candidates.length !== 1) {
+        return { player: null, error: "La búsqueda no identifica a un único jugador" };
+    }
+
+    const profile = profileFromRow(candidates[0]) as { id: string; username: string | null } | null;
+    if (!profile?.username) {
+        return { player: null, error: "El jugador no tiene un nombre válido" };
+    }
+
+    return {
+        player: {
+            id: candidates[0].user_id,
+            username: profile.username,
+            elo_rating: candidates[0].elo_rating,
+        },
+        error: null,
+    };
+}
+
 export function buildTools(userId: string, defaultSeason: Season) {
     const resolveToolSeason = async (seasonSlug?: string) => {
         if (seasonSlug === undefined) return defaultSeason;
@@ -344,9 +385,9 @@ export function buildTools(userId: string, defaultSeason: Season) {
 
                 const { player_a, player_b } = input;
                 const admin = createAdminClient();
-                const [{ data: profileA, error: errA }, { data: profileB, error: errB }] = await Promise.all([
-                    admin.from("profiles").select("id, username").ilike("username", `%${player_a}%`).order("elo_rating", { ascending: false }).limit(1).maybeSingle(),
-                    admin.from("profiles").select("id, username").ilike("username", `%${player_b}%`).order("elo_rating", { ascending: false }).limit(1).maybeSingle(),
+                const [{ player: profileA, error: errA }, { player: profileB, error: errB }] = await Promise.all([
+                    resolveSeasonalPlayer(admin, season.id, player_a),
+                    resolveSeasonalPlayer(admin, season.id, player_b),
                 ]);
 
                 if (errA || errB || !profileA || !profileB)

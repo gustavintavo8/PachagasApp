@@ -38,33 +38,6 @@ function getParticipantProfile<T extends ParticipantProfileLike>(
     return Array.isArray(profile) ? (profile[0] as T | undefined) ?? null : profile;
 }
 
-async function syncLegacyProfileStats(
-    adminSupabase: ReturnType<typeof createAdminClient>,
-    seasonId: string,
-    userIds: string[]
-): Promise<void> {
-    const seasonalStats = await getStatsForUsers(seasonId, userIds);
-
-    const results = await Promise.all(
-        seasonalStats.map((stat) =>
-            adminSupabase
-                .from("profiles")
-                .update({
-                    elo_rating: stat.elo_rating,
-                    matches_played: stat.matches_played,
-                    goals_scored: stat.goals_scored,
-                    market_value: Math.max(1_000_000, (stat.elo_rating - 800) * 50_000),
-                })
-                .eq("id", stat.user_id)
-        )
-    );
-
-    const failedUpdate = results.find((result) => result.error);
-    if (failedUpdate?.error) {
-        throw new Error(`No se pudo sincronizar el perfil: ${failedUpdate.error.message}`);
-    }
-}
-
 export async function createMatch(formData: FormData): Promise<ActionResult> {
     const supabase = await createClient();
     const {
@@ -436,14 +409,6 @@ export async function setScore(
             return { success: false, error: "El partido ya está finalizado o no está disponible" };
         }
 
-        if (eloParticipants && eloParticipants.length > 0) {
-            await syncLegacyProfileStats(
-                adminSupabase,
-                match.season_id,
-                eloParticipants.map((participant) => participant.user_id)
-            );
-
-        }
     } catch (error) {
         return {
             success: false,

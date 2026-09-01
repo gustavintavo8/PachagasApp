@@ -7,7 +7,97 @@
  */
 
 import { createClient } from "@supabase/supabase-js";
-import { ELO_BASE, computeMatchEloUpdates } from "../lib/elo";
+
+// This is intentionally kept inline: historical recalculation must remain byte-for-byte
+// compatible with the approved algorithm and must not follow the live-match algorithm.
+const ELO_BASE = 1000;
+const K_FACTOR = 30;
+const K_FACTOR_NEW = 60;
+const NEW_PLAYER_THRESHOLD = 5;
+const BLOWOUT_THRESHOLD = 4;
+const MAX_CHANGE_PER_MATCH = 50;
+const MIN_RATING = 100;
+const GK_CLEAN_SHEET_BONUS = 8;
+const GK_SOLID_DEFENSE_BONUS = 4;
+const GK_HEAVY_CONCEDE_PENALTY = -3;
+
+function calcExpected(ownAvg: number, oppAvg: number): number {
+    return 1 / (1 + Math.pow(10, (oppAvg - ownAvg) / 400));
+}
+
+function matchResult(myScore: number, oppScore: number): number {
+    if (myScore > oppScore) return 1;
+    if (myScore === oppScore) return 0.5;
+    return 0;
+}
+
+type HistoricalEloInput = {
+    userId: string;
+    currentRating: number;
+    matchesPlayed: number;
+    team: "A" | "B";
+    position: "GK" | "DEF" | "MID" | "FWD";
+    goalsScored: number;
+    isMvp: boolean;
+};
+
+type HistoricalEloOutput = {
+    userId: string;
+    oldRating: number;
+    newRating: number;
+    delta: number;
+};
+
+function computeHistoricalEloUpdates(
+    participants: HistoricalEloInput[],
+    teamAScore: number,
+    teamBScore: number
+): HistoricalEloOutput[] {
+    const teamA = participants.filter((participant) => participant.team === "A");
+    const teamB = participants.filter((participant) => participant.team === "B");
+    const avgRatingA = teamA.length > 0
+        ? teamA.reduce((sum, participant) => sum + participant.currentRating, 0) / teamA.length
+        : ELO_BASE;
+    const avgRatingB = teamB.length > 0
+        ? teamB.reduce((sum, participant) => sum + participant.currentRating, 0) / teamB.length
+        : ELO_BASE;
+    const isBlowout = Math.abs(teamAScore - teamBScore) >= BLOWOUT_THRESHOLD;
+
+    return participants.map((participant) => {
+        const isTeamA = participant.team === "A";
+        const myTeamScore = isTeamA ? teamAScore : teamBScore;
+        const oppTeamScore = isTeamA ? teamBScore : teamAScore;
+        const ownAvg = isTeamA ? avgRatingA : avgRatingB;
+        const oppAvg = isTeamA ? avgRatingB : avgRatingA;
+        const k = participant.matchesPlayed < NEW_PLAYER_THRESHOLD ? K_FACTOR_NEW : K_FACTOR;
+        const expected = calcExpected(ownAvg, oppAvg);
+        const actual = matchResult(myTeamScore, oppTeamScore);
+        let delta = Math.round(k * (actual - expected));
+
+        delta += participant.goalsScored * 3;
+        if (participant.isMvp) delta += 10;
+
+        if (participant.position === "GK") {
+            if (oppTeamScore === 0) delta += GK_CLEAN_SHEET_BONUS;
+            else if (oppTeamScore === 1) delta += GK_SOLID_DEFENSE_BONUS;
+            if (oppTeamScore >= 5) delta += GK_HEAVY_CONCEDE_PENALTY;
+        }
+
+        if (isBlowout) {
+            if (myTeamScore > oppTeamScore) delta += 5;
+            else if (myTeamScore < oppTeamScore) delta -= 5;
+        }
+
+        delta = Math.max(-MAX_CHANGE_PER_MATCH, Math.min(MAX_CHANGE_PER_MATCH, delta));
+        const newRating = Math.max(MIN_RATING, participant.currentRating + delta);
+        return {
+            userId: participant.userId,
+            oldRating: participant.currentRating,
+            newRating,
+            delta: newRating - participant.currentRating,
+        };
+    });
+}
 
 type Season = {
     id: string;
@@ -191,7 +281,7 @@ async function main() {
         }
         if (!participants || participants.length === 0) continue;
 
-        const updates = computeMatchEloUpdates(
+        const updates = computeHistoricalEloUpdates(
             (participants as Participant[]).map((participant) => ({
                 userId: participant.user_id,
                 currentRating: ratingMap[participant.user_id] ?? ELO_BASE,
@@ -223,6 +313,24 @@ async function main() {
         );
     }
 
+    // Preserve the approved post-processing step: amplify the dispersion without changing
+    // the order, and apply the same transformation to each event's resulting RP.
+    const SCALE_FACTOR = 2.5;
+    console.log(`\n📐 Reescalando dispersión ×${SCALE_FACTOR} desde base ${ELO_BASE}...`);
+    for (const userId of Object.keys(ratingMap)) {
+        const raw = ratingMap[userId];
+        ratingMap[userId] = Math.max(
+            MIN_RATING,
+            Math.round(ELO_BASE + (raw - ELO_BASE) * SCALE_FACTOR)
+        );
+    }
+    for (const entry of historyInserts) {
+        entry.new_rp = Math.max(
+            MIN_RATING,
+            Math.round(ELO_BASE + (entry.new_rp - ELO_BASE) * SCALE_FACTOR)
+        );
+    }
+
     console.log(`\n💾 Limpiando rp_history solo para ${season.slug}...`);
     const { error: deleteError } = await supabase
         .from("rp_history")
@@ -250,22 +358,6 @@ async function main() {
         const { error } = await supabase.from("rp_history").insert(chunk);
         if (error) {
             throw new Error(`No se pudo guardar el historial RP: ${error.message}`);
-        }
-    }
-
-    if (season.status === "active") {
-        for (const [userId, rating] of Object.entries(ratingMap)) {
-            const { error } = await supabase
-                .from("profiles")
-                .update({
-                    elo_rating: rating,
-                    market_value: Math.max(1_000_000, (rating - 800) * 50_000),
-                })
-                .eq("id", userId);
-
-            if (error) {
-                throw new Error(`No se pudo sincronizar el perfil ${userId}: ${error.message}`);
-            }
         }
     }
 
