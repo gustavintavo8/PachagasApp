@@ -219,51 +219,6 @@ export function buildTools(userId: string) {
             },
         }),
 
-        get_fantasy_standings: tool({
-            description: "Clasificación de equipos fantasy por puntos.",
-            inputSchema: jsonSchema<{ limit?: number }>({
-                type: "object",
-                properties: { limit: { type: "number" } },
-                required: [],
-            }),
-            execute: async (input) => {
-                const { data, error } = await admin
-                    .from("fantasy_teams")
-                    .select("name, total_points, budget, profiles(username)")
-                    .order("total_points", { ascending: false })
-                    .limit(input.limit ?? 10);
-                if (error) return { error: "No se pudo obtener la clasificación fantasy" };
-                return { clasificacion: data ?? [] };
-            },
-        }),
-
-        get_my_fantasy_team: tool({
-            description: "Equipo fantasy del usuario autenticado con plantilla completa.",
-            inputSchema: jsonSchema<Record<string, never>>({
-                type: "object",
-                properties: {},
-                required: [],
-            }),
-            execute: async () => {
-                const { data: team, error: teamError } = await admin
-                    .from("fantasy_teams")
-                    .select("id, name, total_points, budget")
-                    .eq("user_id", userId)
-                    .single();
-
-                if (teamError || !team)
-                    return { error: "No tienes un equipo fantasy o no se pudo obtener" };
-
-                const { data: roster, error: rosterError } = await admin
-                    .from("fantasy_rosters")
-                    .select("is_captain, is_starter, profiles(username, position, elo_rating)")
-                    .eq("team_id", team.id);
-
-                if (rosterError) return { error: "No se pudo obtener la plantilla" };
-                return { equipo: { ...team, plantilla: roster ?? [] } };
-            },
-        }),
-
         get_players_history_together: tool({
             description: "Partidos en los que dos jugadores coincidieron.",
             inputSchema: jsonSchema<{ player_a: string; player_b: string }>({

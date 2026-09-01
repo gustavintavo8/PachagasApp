@@ -141,10 +141,3 @@ export async function signOut(): Promise<void> {
     await supabase.auth.signOut();
     redirect("/login");
 }
-
-export async function loginAsGuest(): Promise<void> {
-    const supabase = await createClient();
-    const { error } = await supabase.auth.signInAnonymously();
-    if (error) throw new Error(error.message);
-    redirect("/");
-}

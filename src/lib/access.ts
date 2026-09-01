@@ -2,7 +2,7 @@ import "server-only";
 
 import { timingSafeEqual } from "node:crypto";
 
-import { hasActiveCommunityAccessGrant, isAdmin, COMMUNITY_ACCESS_GRANT_SELECT, type CommunityAccessGrant } from "@/lib/permissions";
+import { hasActiveCommunityAccessGrant, isAdmin, isGuestUser, COMMUNITY_ACCESS_GRANT_SELECT, type CommunityAccessGrant } from "@/lib/permissions";
 import { ensureSeasonPlayerStats, getActiveSeason, SeasonNotFoundError } from "@/lib/seasons";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createClient } from "@/lib/supabase/server";
@@ -53,7 +53,7 @@ export async function hasCommunityAccess(userId: string): Promise<boolean> {
 export async function requireCommunityAccess(
     user: { id: string; is_anonymous?: boolean }
 ): Promise<ActionResult<true>> {
-    if (!user.id) {
+    if (!user.id || isGuestUser(user)) {
         return { success: false, error: "No autenticado" };
     }
 
@@ -71,7 +71,7 @@ export async function redeemAccessCode(code: string): Promise<ActionResult> {
         error: authError,
     } = await supabase.auth.getUser();
 
-    if (authError || !user) {
+    if (authError || !user || isGuestUser(user)) {
         return { success: false, error: "No autenticado" };
     }
 

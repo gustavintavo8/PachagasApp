@@ -14,7 +14,7 @@ import { getActiveSeason, SeasonNotFoundError } from "@/lib/seasons";
 import { MVP_VOTING_WINDOW_MS } from "@/lib/constantes";
 import { z } from "zod";
 import { sendNotification } from "@/lib/notifications";
-import type { ActionResult, ParticipantProfile, SeasonPlayerStats } from "@/lib/types";
+import type { ActionResult, SeasonPlayerStats } from "@/lib/types";
 
 async function requireMatchAccess(
     user: { id: string; is_anonymous?: boolean } | null
@@ -327,115 +327,6 @@ function computeEloUpdates(
     );
 }
 
-async function applyFantasyPoints(
-    adminSupabase: ReturnType<typeof createAdminClient>,
-    matchId: string,
-    teamAScore: number,
-    teamBScore: number,
-    participants: Array<{
-        user_id: string;
-        team: "A" | "B" | null;
-        goals: number | null;
-        profiles: ParticipantProfileLike | ParticipantProfileLike[];
-    }>
-): Promise<void> {
-    // ── FANTASY: Puntuación del partido ──────────────────────────────────
-    // Reglas: +2 jugar, +3 victoria, +1 empate, +3/gol, +4 portería a cero (GK/DEF)
-    // Multiplicadores capitán: ×2 base | ×3 si GK portería a cero | ×3 si es MVP
-    const fantasyPointsMap: Record<string, number> = {};
-    const fantasyIsMvpMap: Record<string, boolean> = {};
-    const fantasyPositionMap: Record<string, string> = {};
-    const aScore = teamAScore;
-    const bScore = teamBScore;
-
-    // Identify the MVP player from this match (if already resolved)
-    const { data: mvpParticipant } = await adminSupabase
-        .from("match_participants")
-        .select("user_id")
-        .eq("match_id", matchId)
-        .eq("is_mvp", true)
-        .maybeSingle();
-    const mvpUserId = mvpParticipant?.user_id ?? null;
-
-    for (const p of participants) {
-        const pTeam = p.team as "A" | "B" | null;
-        if (pTeam !== "A" && pTeam !== "B") continue;
-
-        const goals = p.goals ?? 0;
-        const profileData = Array.isArray(p.profiles) ? p.profiles[0] as ParticipantProfile : p.profiles as ParticipantProfile | null;
-        const position = profileData?.position ?? "MID";
-
-        let pts = 2; // Jugar el partido
-
-        if (aScore === bScore) {
-            pts += 1; // Empate
-        } else if (
-            (pTeam === "A" && aScore > bScore) ||
-            (pTeam === "B" && bScore > aScore)
-        ) {
-            pts += 3; // Victoria
-        }
-
-        pts += goals * 3; // Goles: +3 c/u
-
-        const conceded = pTeam === "A" ? bScore : aScore;
-        if (position === "GK" || position === "DEF") {
-            if (conceded === 0) pts += 4; // Portería a cero
-        }
-
-        fantasyPointsMap[p.user_id] = pts;
-        fantasyPositionMap[p.user_id] = position;
-        fantasyIsMvpMap[p.user_id] = p.user_id === mvpUserId;
-    }
-
-    const scoringPlayerIds = Object.keys(fantasyPointsMap);
-    if (scoringPlayerIds.length > 0) {
-        const { data: rosterEntries } = await adminSupabase
-            .from("fantasy_rosters")
-            .select("team_id, player_id, is_captain, is_starter")
-            .in("player_id", scoringPlayerIds);
-
-        if (rosterEntries && rosterEntries.length > 0) {
-            // Agrupar puntos por equipo fantasy aplicando multiplicador de capitán
-            const teamPointsMap: Record<string, number> = {};
-            for (const entry of rosterEntries) {
-                if (!entry.is_starter) continue;
-                const base = fantasyPointsMap[entry.player_id] ?? 0;
-                let earned = base;
-                if (entry.is_captain) {
-                    const pos = fantasyPositionMap[entry.player_id] ?? "MID";
-                    const conceded = (() => {
-                        const p = participants.find((ep) => ep.user_id === entry.player_id);
-                        if (!p) return 99;
-                        return p.team === "A" ? bScore : aScore;
-                    })();
-                    const isMvp = fantasyIsMvpMap[entry.player_id] ?? false;
-                    // Regla 5: GK capitán con portería a cero → ×3
-                    // Regla 6: Capitán que es MVP → ×3
-                    const multiplier = (pos === "GK" && conceded === 0) || isMvp ? 3 : 2;
-                    earned = base * multiplier;
-                }
-                teamPointsMap[entry.team_id] =
-                    (teamPointsMap[entry.team_id] ?? 0) + earned;
-            }
-
-            for (const [teamId, earned] of Object.entries(teamPointsMap)) {
-                const { data: ft } = await adminSupabase
-                    .from("fantasy_teams")
-                    .select("total_points")
-                    .eq("id", teamId)
-                    .single();
-
-                await adminSupabase
-                    .from("fantasy_teams")
-                    .update({ total_points: (ft?.total_points ?? 0) + earned })
-                    .eq("id", teamId);
-            }
-        }
-    }
-    // ─────────────────────────────────────────────────────────────────────
-}
-
 export async function setScore(
     matchId: string,
     teamAScore: number,
@@ -552,13 +443,6 @@ export async function setScore(
                 eloParticipants.map((participant) => participant.user_id)
             );
 
-            await applyFantasyPoints(
-                adminSupabase,
-                validData.matchId,
-                validData.teamAScore,
-                validData.teamBScore,
-                eloParticipantsWithSubmittedGoals as Parameters<typeof applyFantasyPoints>[4]
-            );
         }
     } catch (error) {
         return {
@@ -982,31 +866,6 @@ async function resolveMvp(matchId: string): Promise<ActionResult> {
         `Has sido elegido MVP del partido en ${match.location || "tu partido"}`,
         matchId
     );
-
-    // ── FANTASY: Bonus MVP (+5 base, +10 si capitán) ─────────────────────
-    const { data: mvpRosters } = await adminClient
-        .from("fantasy_rosters")
-        .select("team_id, is_captain, is_starter")
-        .eq("player_id", winnerId);
-
-    if (mvpRosters && mvpRosters.length > 0) {
-        for (const entry of mvpRosters) {
-            if (!entry.is_starter) continue;
-            const mvpPoints = entry.is_captain ? 10 : 5;
-            const { data: ft } = await adminClient
-                .from("fantasy_teams")
-                .select("total_points")
-                .eq("id", entry.team_id)
-                .single();
-
-            await adminClient
-                .from("fantasy_teams")
-                .update({ total_points: (ft?.total_points ?? 0) + mvpPoints })
-                .eq("id", entry.team_id);
-        }
-    }
-    // ─────────────────────────────────────────────────────────────────────
-
     return { success: true, data: undefined };
 }
 

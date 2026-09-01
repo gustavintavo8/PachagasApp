@@ -19,7 +19,7 @@ export async function generateMetadata({
         data: { user },
     } = await supabase.auth.getUser();
 
-    if (!user || user.is_anonymous === true) {
+    if (!user) {
         return { title: "Partido — Pachanga" };
     }
 
@@ -76,7 +76,6 @@ export default async function MatchPage({
     } = await supabase.auth.getUser();
 
     if (!user) redirect("/login");
-    if (user.is_anonymous === true) redirect("/login");
 
     const access = await requireCommunityAccess(user);
     if (!access.success) redirect("/access");

@@ -17,7 +17,6 @@ export default async function ProfilePage() {
     } = await supabase.auth.getUser();
 
     if (!user) redirect("/login");
-    if (user.is_anonymous === true) redirect("/login");
 
     const access = await requireCommunityAccess(user);
     if (!access.success) redirect("/access");
@@ -32,7 +31,7 @@ export default async function ProfilePage() {
         <div className="mx-auto max-w-lg px-4 py-8">
             <h1 className="mb-2 text-2xl font-bold text-foreground">Tu Perfil</h1>
             <p className="mb-8 text-muted">Configura tu info de jugador</p>
-            <ProfileForm userId={user.id} profile={profile} isGuest={false} />
+            <ProfileForm userId={user.id} profile={profile} />
             <AccountDataPanel />
         </div>
     );

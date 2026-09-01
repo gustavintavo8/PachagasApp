@@ -10,7 +10,6 @@ export default async function NewMatchPage() {
     } = await supabase.auth.getUser();
 
     if (!user) redirect("/login");
-    if (user.is_anonymous === true) redirect("/login");
 
     const access = await requireCommunityAccess(user);
     if (!access.success) redirect("/access");

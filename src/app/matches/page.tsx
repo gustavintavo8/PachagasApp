@@ -17,7 +17,6 @@ export default async function MatchesPage() {
     } = await supabase.auth.getUser();
 
     if (!user) redirect("/login");
-    if (user.is_anonymous === true) redirect("/login");
 
     const access = await requireCommunityAccess(user);
     if (!access.success) redirect("/access");
@@ -34,7 +33,6 @@ export default async function MatchesPage() {
         <MatchesTabs
             matches={matches || []}
             userId={user.id}
-            isGuest={false}
         />
     );
 }

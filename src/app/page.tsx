@@ -87,7 +87,7 @@ function HeroCardSkeleton() {
 
 // --- Próximo partido destacado ---
 
-async function NextMatchCard({ userId, isGuest, seasonId }: { userId: string; isGuest: boolean; seasonId: string }) {
+async function NextMatchCard({ userId, seasonId }: { userId: string; seasonId: string }) {
   const supabase = await createClient();
 
   const { data: openMatches } = await supabase
@@ -103,14 +103,12 @@ async function NextMatchCard({ userId, isGuest, seasonId }: { userId: string; is
     return (
       <Card className="border-border/50 text-center">
         <p className="text-sm text-muted">No hay partidos abiertos ahora mismo.</p>
-        {!isGuest && (
-          <Link href="/matches/new" className="mt-2 inline-block">
-            <Button variant="outline" size="sm">
-              <PlusCircle size={14} />
-              Crear partido
-            </Button>
-          </Link>
-        )}
+        <Link href="/matches/new" className="mt-2 inline-block">
+          <Button variant="outline" size="sm">
+            <PlusCircle size={14} />
+            Crear partido
+          </Button>
+        </Link>
       </Card>
     );
   }
@@ -223,7 +221,6 @@ async function DashboardContent() {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) redirect("/login");
 
-  const isGuest = user.is_anonymous === true;
   const season = await getActiveSeason();
 
   return (
@@ -233,7 +230,7 @@ async function DashboardContent() {
       </Suspense>
 
       <Suspense fallback={<NextMatchCardSkeleton />}>
-        <NextMatchCard userId={user.id} isGuest={isGuest} seasonId={season.id} />
+        <NextMatchCard userId={user.id} seasonId={season.id} />
       </Suspense>
 
       <Suspense fallback={<MoreOpenMatchesSkeleton />}>
