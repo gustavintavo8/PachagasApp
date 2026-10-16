@@ -9,7 +9,7 @@
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/)
 [![Supabase](https://img.shields.io/badge/Supabase-Database%20%26%20Auth-3fcf8e?logo=supabase)](https://supabase.com/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?logo=typescript)](https://typescriptlang.org/)
-[![Playwright](https://img.shields.io/badge/Playwright-E2E%20Tests-45ba4b?logo=playwright)](https://playwright.dev/)
+[![Playwright](https://img.shields.io/badge/Playwright-64%20E2E%20tests-45ba4b?logo=playwright)](https://playwright.dev/)
 [![PWA](https://img.shields.io/badge/PWA-Installable-5a0fc8?logo=pwa)](https://web.dev/progressive-web-apps/)
 
 [Demo](#-demo) · [Highlights](#-highlights-técnicos) · [Características](#-características) · [Tech Stack](#️-tech-stack) · [Decisiones Técnicas](#-decisiones-técnicas) · [Instalación](#-instalación) · [Deploy](#-deploy)
@@ -110,7 +110,7 @@
 | 📱 **PWA** | Instalable como app nativa (manifest + service worker) |
 | 🌙 **Dark Mode** | Tema oscuro premium con acentos verde neón `#ccff00` |
 | 🛡️ **Rate Limiting** | Protección contra spam en acciones críticas |
-| 🧪 **E2E Tests** | Suite de Playwright con 10 tests automatizados |
+| 🧪 **E2E Tests** | 64 tests de Playwright en 13 specs, con comprobaciones de accesibilidad (axe-core). Los marcados `@smoke` y `@mobile` se repiten en Pixel 5 y iPhone 13 |
 
 ---
 
@@ -126,7 +126,7 @@ Realtime       Supabase Realtime (chat + notificaciones)
 AI             Vercel AI SDK v6 · @ai-sdk/groq · openai/gpt-oss-20b
 Charts         Recharts 3
 Icons          Lucide React
-Testing        Playwright (Chromium)
+Testing        Playwright (Chromium, Pixel 5, iPhone 13) + axe-core
 Deploy         Vercel (recomendado)
 ```
 
@@ -205,8 +205,8 @@ SUPABASE_SERVICE_ROLE_KEY=eyJ...
 ## 🧪 Tests
 
 ```bash
-# Instalar navegadores de Playwright (solo la primera vez)
-npx playwright install chromium
+# Instalar navegadores de Playwright (solo la primera vez; WebKit es para el perfil de iPhone 13)
+npx playwright install chromium webkit
 
 # Ejecutar todos los tests
 npx playwright test
@@ -245,7 +245,7 @@ src/
 │   ├── api/asistente/       # API route del asistente Panenka (streamText)
 │   ├── asistente/           # Chat con Panenka (UI)
 │   ├── auth/callback/       # OAuth callback handler
-│   ├── fantasy/             # Clasificación y mercado fantasy
+│   ├── fantasy/             # Fantasy (desactivado: sus rutas devuelven 404)
 │   ├── history/             # Historial de partidos
 │   ├── leaderboard/         # Ranking global
 │   ├── login/               # Autenticación
