@@ -13,8 +13,8 @@ export default function Loading() {
                     <div className="skeleton mt-2 h-5 w-44" />
                 </div>
                 <div className="mt-4 flex items-center gap-3 px-4">
-                    <div className="skeleton h-[min(160px,41vw)] flex-1" />
-                    <div className="skeleton h-[min(160px,41vw)] w-[min(160px,41vw)] shrink-0 rounded-full" />
+                    <div className="skeleton h-[min(156px,40vw,20dvh)] flex-1" />
+                    <div className="skeleton h-[min(156px,40vw,20dvh)] w-[min(156px,40vw,20dvh)] shrink-0 rounded-full" />
                 </div>
                 <div className="mt-4 border-t border-border">
                     {[0, 1, 2, 3].map((fila) => (

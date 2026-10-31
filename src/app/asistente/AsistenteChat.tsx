@@ -89,21 +89,22 @@ export function AsistenteChat() {
     const pensando = isLoading && !escribiendo;
     const pregunta = [...messages].reverse().find((m) => m.role === "user");
 
+    // Vacío no se baja: en un móvil corto se comería la cara
     useEffect(() => {
         const el = scrollRef.current;
-        if (el && pegado.current) el.scrollTop = el.scrollHeight;
-    }, [messages, pensando, error]);
+        if (el && !vacio && pegado.current) el.scrollTop = el.scrollHeight;
+    }, [messages, pensando, error, vacio]);
 
     // Al abrir el teclado el área encoge: lo último que se leía sigue a la vista
     useEffect(() => {
         const el = scrollRef.current;
-        if (!el) return;
+        if (!el || vacio) return;
         const observador = new ResizeObserver(() => {
             if (pegado.current) el.scrollTop = el.scrollHeight;
         });
         observador.observe(el);
         return () => observador.disconnect();
-    }, []);
+    }, [vacio]);
 
     function handleScroll() {
         const el = scrollRef.current;
@@ -148,7 +149,7 @@ export function AsistenteChat() {
                             <Panenka
                                 size={168}
                                 animated
-                                className="-mb-[15px] h-[min(168px,43vw)] w-[min(168px,43vw)] shrink-0"
+                                className="-mb-[12px] h-[min(168px,43vw,22dvh)] w-[min(168px,43vw,22dvh)] shrink-0"
                             />
                         </div>
 

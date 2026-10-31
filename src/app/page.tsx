@@ -42,7 +42,7 @@ type FilaTemporada = {
   elo_rating: number | null;
   matches_played: number | null;
   goals_scored: number | null;
-  profiles: Pick<Profile, "username" | "avatar_url"> | null;
+  profiles: Pick<Profile, "username"> | null;
 };
 
 function aPartidoInicio(fila: FilaPartido): PartidoInicio & { created_by: string } {
@@ -82,11 +82,18 @@ const leerTemporada = cache(async (seasonId: string) => {
   const supabase = await createClient();
   const { data } = await supabase
     .from("season_player_stats")
-    .select("user_id, elo_rating, matches_played, goals_scored, profiles!inner(username, avatar_url)")
+    .select("user_id, elo_rating, matches_played, goals_scored, profiles!inner(username)")
     .eq("season_id", seasonId)
     .order("elo_rating", { ascending: false })
     .order("matches_played", { ascending: false });
   return (data ?? []) as unknown as FilaTemporada[];
+});
+
+/** Aparte de la temporada: quien aún no ha jugado no tiene fila en ella. */
+const leerPerfil = cache(async (userId: string) => {
+  const supabase = await createClient();
+  const { data } = await supabase.from("profiles").select("username, avatar_url").eq("id", userId).single();
+  return data;
 });
 
 async function leerUltimoResultado(seasonId: string) {
@@ -165,11 +172,12 @@ function BandaResultado({ ultimo }: { ultimo: NonNullable<Awaited<ReturnType<typ
 
 async function Portada({ userId, seasonId }: { userId: string; seasonId: string }) {
   const ahora = new Date().toISOString();
-  const [{ partidos, error }, temporada, admin, ultimo] = await Promise.all([
+  const [{ partidos, error }, temporada, admin, ultimo, perfil] = await Promise.all([
     leerPartidos(seasonId),
     leerTemporada(seasonId),
     isAdmin(userId),
     leerUltimoResultado(seasonId),
+    leerPerfil(userId),
   ]);
 
   if (error) return <PortadaSinDatos pregunta={preguntaPortada(null, ahora)} />;
@@ -187,7 +195,7 @@ async function Portada({ userId, seasonId }: { userId: string; seasonId: string 
     <InicioPortada
       partido={partido}
       yo={userId}
-      miNombre={temporada.find((fila) => fila.user_id === userId)?.profiles?.username ?? null}
+      miNombre={perfil?.username ?? null}
       ahora={ahora}
       puedeBorrarse={partido?.status === "open" && !organizo && !admin}
       candidatos={candidatos}
@@ -249,12 +257,15 @@ async function OtrosPartidos({ userId, seasonId }: { userId: string; seasonId: s
 }
 
 async function TuTemporada({ userId, seasonId }: { userId: string; seasonId: string }) {
-  const temporada = await leerTemporada(seasonId);
-  const { partidos } = await leerPartidos(seasonId);
+  const [temporada, { partidos }, perfil] = await Promise.all([
+    leerTemporada(seasonId),
+    leerPartidos(seasonId),
+    leerPerfil(userId),
+  ]);
   const { partido } = elegirPartidoPortada(partidos, userId, new Date().toISOString());
   const mia = temporada.find((fila) => fila.user_id === userId);
-  const nombre = mia?.profiles?.username || "Jugador";
-  const avatarUrl = getAvatarUrl(process.env.NEXT_PUBLIC_SUPABASE_URL!, mia?.profiles?.avatar_url ?? null);
+  const nombre = perfil?.username || "Jugador";
+  const avatarUrl = getAvatarUrl(process.env.NEXT_PUBLIC_SUPABASE_URL!, perfil?.avatar_url ?? null);
 
   return (
     <section className="pb-8 pt-8">

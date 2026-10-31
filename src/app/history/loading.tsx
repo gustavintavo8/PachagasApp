@@ -6,7 +6,8 @@ export default function HistoryLoading() {
                 <div className="skeleton my-1.5 h-8 w-28" />
             </div>
             <div className="px-4 pb-5 pt-3">
-                <div className="skeleton h-14 w-full" />
+                <div className="skeleton h-14 w-3/5" />
+                <div className="skeleton mt-1 h-14 w-4/5" />
                 <div className="skeleton mt-4 h-12 w-full" />
                 <div className="mt-4 grid grid-cols-4 gap-2">
                     {Array.from({ length: 4 }, (_, i) => (

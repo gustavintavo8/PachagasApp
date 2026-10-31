@@ -267,9 +267,12 @@ function Resultado({
         maximo: recuento.maximo,
     });
     const votosGanador = ganador ? (recuento.votos[ganador.user_id] ?? 0) : 0;
+    // Quien ya sale arriba, en el campo o en las baldosas, no se repite en la lista
+    const arriba = (p: Participant) => p.user_id === ganador?.user_id || empatados.includes(p);
     const otrosVotados = participants
-        .filter((p) => (recuento.votos[p.user_id] ?? 0) > 0 && p.user_id !== ganador?.user_id)
+        .filter((p) => (recuento.votos[p.user_id] ?? 0) > 0 && !arriba(p))
         .sort((a, b) => (recuento.votos[b.user_id] ?? 0) - (recuento.votos[a.user_id] ?? 0));
+    const votado = participants.find((p) => p.user_id === miVoto?.voted_for);
     const nombresEmpate = nombresBaldosa(empatados.map((p) => p.profiles?.username));
     const columnasEmpate = Math.min(empatados.length, MAX_BALDOSAS);
 
@@ -313,7 +316,6 @@ function Resultado({
                                 key={p.user_id}
                                 tu={tuya}
                                 nombre={tuya ? `${nombreDe(p)}, tú` : nombreDe(p)}
-                                detalle={miVoto?.voted_for === p.user_id ? "Tu voto" : undefined}
                                 inicio={<Peto estado="lleno" equipo={equipoDeTeam(p.team ?? null)} size={22} />}
                                 cifra={recuento.votos[p.user_id]}
                             />
@@ -322,7 +324,12 @@ function Resultado({
                 </Filas>
             )}
 
-            {votos > 0 && <p className="t-meta mt-3 text-muted tabular-nums">{textoVotantes(votos, participants.length)}</p>}
+            {votos > 0 && (
+                <p className="t-meta mt-3 text-muted tabular-nums">
+                    {textoVotantes(votos, participants.length)}
+                    {votado && ` · Tu voto: ${nombreDe(votado)}`}
+                </p>
+            )}
         </>
     );
 }
