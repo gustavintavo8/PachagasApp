@@ -131,9 +131,14 @@ export function PartidoEnJuego({
                     <p
                         className={cn(
                             "t-titular flex-none whitespace-nowrap font-black leading-[0.95]",
-                            // «Falta el resultado» no cabe a tamaño «Faltan 3»: una línea antes que dos
-                            respuesta.length > 9 ? "text-[min(72px,18.4vw)]" : "text-[min(104px,26.6vw)]"
+                            respuesta.length <= 9 && "text-[min(104px,26.6vw)]"
                         )}
+                        // «Falta el resultado» mide 5,6 em: una línea antes que dos
+                        style={
+                            respuesta.length > 9
+                                ? { fontSize: "min(72px, calc((min(100vw, 640px) - 32px) / 5.7))" }
+                                : undefined
+                        }
                     >
                         {respuesta}
                     </p>

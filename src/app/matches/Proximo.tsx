@@ -36,7 +36,8 @@ export function HeroProximo(props: ProximoProps) {
         >
             <p
                 className="t-respuesta whitespace-nowrap"
-                style={{ "--chars": dia.length } as CSSProperties}
+                // La única que mide más que sus letras: M y ñ son anchas y no lleva ninguna i ni espacio
+                style={{ "--chars": dia === "Mañana" ? 6.8 : dia.length } as CSSProperties}
             >
                 {dia}
             </p>

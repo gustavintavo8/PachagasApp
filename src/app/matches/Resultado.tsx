@@ -44,7 +44,11 @@ export function MarcaResultado({ resultado }: { resultado: Resultado | null }) {
 }
 
 /** La temporada de un vistazo, el último a la derecha. Con muchos partidos, sin letras. */
-export function TiraForma({ resultados, className }: { resultados: Resultado[]; className?: string }) {
+// Por encima de esto los huecos ya no caben en un teléfono: se ven los últimos
+const MAX_TIRA = 60;
+
+export function TiraForma({ resultados: todos, className }: { resultados: Resultado[]; className?: string }) {
+    const resultados = todos.slice(-MAX_TIRA);
     const conLetra = resultados.length <= 14;
     return (
         <div
