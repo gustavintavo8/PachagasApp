@@ -120,7 +120,7 @@ export function PartidoEnJuego({
                         {respuesta}
                     </p>
                     {nota && (
-                        <p className="max-w-[92px] pb-2 text-right text-[15px] leading-tight text-muted">{nota}</p>
+                        <p className="min-w-0 flex-1 basis-16 pb-2 text-right text-[15px] leading-tight text-muted">{nota}</p>
                     )}
                 </div>
             </header>

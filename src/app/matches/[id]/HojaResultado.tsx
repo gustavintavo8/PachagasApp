@@ -167,6 +167,8 @@ export function HojaResultado({
             }
             toast("¡Partido finalizado! Resultado guardado.", "success");
             onClose();
+            // El partido pasa a ser su marcador: se ve desde arriba
+            window.scrollTo(0, 0);
         } catch {
             toast("No se ha guardado. Revisa la conexión e inténtalo otra vez.", "error");
         } finally {

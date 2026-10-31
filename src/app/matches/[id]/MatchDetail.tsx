@@ -175,11 +175,12 @@ export function MatchDetail({
                 market_value: null,
             },
         };
-        alMomento("apuntarse", { tipo: "entra", jugador }, () => joinMatch(match.id), "Estás dentro");
+        // Sin aviso: el peto se llena y la barra cambia, y un aviso taparía «Me borro»
+        alMomento("apuntarse", { tipo: "entra", jugador }, () => joinMatch(match.id));
     }
 
     function borrarme() {
-        alMomento("apuntarse", { tipo: "sale", id: currentUserId }, () => leaveMatch(match.id), "Te has borrado");
+        alMomento("apuntarse", { tipo: "sale", id: currentUserId }, () => leaveMatch(match.id));
     }
 
     function alternarPago(id: string) {
