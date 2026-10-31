@@ -2,6 +2,7 @@
 
 import { startTransition, useOptimistic, useState } from "react";
 import dynamic from "next/dynamic";
+import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/Toast";
 import { cancelMatch, generateTeams, joinMatch, kickPlayer, leaveMatch, markAsPaid } from "../actions";
 import { cn } from "@/lib/utils";
@@ -82,6 +83,7 @@ export function MatchDetail({
     ahora,
 }: MatchDetailProps) {
     const { toast } = useToast();
+    const router = useRouter();
     const [pestana, setPestana] = useState<PestanaPartido>("info");
     // Chat y Fotos se quedan montados: volver no pierde lo que estabas escribiendo
     const [abiertas, setAbiertas] = useState<PestanaPartido[]>([]);
@@ -112,21 +114,23 @@ export function MatchDetail({
     )}`;
 
     /** Toda acción acaba: si el servidor no contesta, el botón vuelve y se avisa. */
-    async function ejecutar(
-        accion: () => Promise<{ success: boolean; error?: string }>,
+    async function ejecutar<R extends { success: boolean; error?: string }>(
+        accion: () => Promise<R>,
         exito?: string
-    ): Promise<boolean> {
+    ): Promise<R | null> {
         try {
             const resultado = await accion();
             if (!resultado.success) {
                 toast(resultado.error ?? "No ha salido. Inténtalo otra vez.", "error");
-                return false;
+                // Si lo han rechazado, lo normal es que el partido haya cambiado: mejor enseñar cómo está ahora
+                router.refresh();
+                return null;
             }
             if (exito) toast(exito, "success");
-            return true;
+            return resultado;
         } catch {
             toast("No ha salido. Revisa la conexión e inténtalo otra vez.", "error");
-            return false;
+            return null;
         }
     }
 
@@ -175,7 +179,7 @@ export function MatchDetail({
                 market_value: null,
             },
         };
-        // Sin aviso: el peto se llena y la barra cambia, y un aviso taparía «Me borro»
+        // Sin aviso: el peto se llena y la barra cambia
         alMomento("apuntarse", { tipo: "entra", jugador }, () => joinMatch(match.id));
     }
 
@@ -206,9 +210,16 @@ export function MatchDetail({
     const cerrarFicha = () => setFicha((actual) => actual && { ...actual, abierta: false });
 
     const generarEquipos = () =>
-        conEspera("generar", () => ejecutar(() => generateTeams(match.id), "¡Equipos generados!"));
+        conEspera("generar", async () => {
+            const resultado = await ejecutar(() => generateTeams(match.id));
+            if (resultado?.success) {
+                if (!resultado.data.cambiado) toast("Con estos jugadores no hay otro reparto", "info");
+                else toast(hayEquipos ? "Equipos barajados" : "¡Equipos generados!", "success");
+            }
+            return !!resultado?.success;
+        });
     const cancelarPartido = () =>
-        conEspera("cancelar", () => ejecutar(() => cancelMatch(match.id), "Partido cancelado"));
+        conEspera("cancelar", async () => !!(await ejecutar(() => cancelMatch(match.id), "Partido cancelado")));
 
     function cambiarPestana(id: PestanaPartido) {
         window.scrollTo(0, 0);
@@ -311,6 +322,7 @@ export function MatchDetail({
                 hayEquipos={hayEquipos}
                 total={jugadores.length}
                 pagos={pagos}
+                pasado={new Date(match.date).getTime() < new Date(ahora).getTime()}
                 generando={ocupados.includes("generar")}
                 onGenerar={generarEquipos}
                 onAbrir={setHoja}

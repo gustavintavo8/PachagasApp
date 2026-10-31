@@ -170,22 +170,22 @@ test("portada: dentro de un partido cerrado sigues jugando", () => {
     assert.equal(estado.respuesta, "Juegas.");
 });
 
-test("portada: el día del partido manda la hora y no se repite debajo", () => {
+test("portada: el día del partido contesta si juegas y la hora va debajo", () => {
     const ahora = "2026-11-03T09:00:00.000Z";
-    for (const [partido, yo, estadoEsperado] of [
-        [partidoDe(11), "u1", "apuntado"],
-        [partidoDe(11), "fuera", "libre"],
-        [partidoDe(14), "fuera", "lleno"],
+    for (const [partido, yo, estadoEsperado, respuesta] of [
+        [partidoDe(11), "u1", "apuntado", "Juegas."],
+        [partidoDe(11), "fuera", "libre", "¿Juegas?"],
+        [partidoDe(14), "fuera", "lleno", "Sin plaza."],
     ]) {
         const estado = estadoPortada({ partido, yo, ahora });
         assert.equal(estado.estado, estadoEsperado);
-        assert.equal(estado.respuesta, "Hoy, 20:00.");
-        assert.equal(estado.linea, "Campus de Barredo");
+        assert.equal(estado.respuesta, respuesta);
+        assert.equal(estado.linea, "Hoy, 20:00, Campus de Barredo");
         assert.equal(estado.hoy, true);
     }
 });
 
-test("portada: el peto gana a la hora el día del partido", () => {
+test("portada: el día del partido el peto también sale en grande", () => {
     const participants = [{ user_id: "yo", team: "B" }];
     const estado = estadoPortada({
         partido: partidoDe(0, { participants }),
@@ -216,7 +216,8 @@ test("portada: sin partido, terminado, cancelado o de un día pasado", () => {
 
 test("portada: empezado el mismo día sigue siendo hoy", () => {
     const estado = estadoPortada({ partido: partidoDe(11), yo: "u1", ahora: "2026-11-03T20:00:00.000Z" });
-    assert.equal(estado.respuesta, "Hoy, 20:00.");
+    assert.equal(estado.hoy, true);
+    assert.equal(estado.linea, "Hoy, 20:00, Campus de Barredo");
 });
 
 test("portada: no asume que se juegue en martes", () => {
@@ -243,7 +244,6 @@ test("charsRespuesta: la línea más ancha de cada respuesta", () => {
         ["¿Juegas?", 8],
         ["De azul.", 7.4],
         ["Sin plaza.", 9.4],
-        ["Hoy, 20:00.", 10.4],
         ["No hay pachanga.", 9],
     ];
     for (const [respuesta, chars] of esperados) {
@@ -294,7 +294,10 @@ test("portada: elige tu partido, y si no, el abierto más cercano", () => {
     assert.equal(ajeno.partido?.id, "pronto");
     assert.deepEqual(ajeno.otros.map((p) => p.id), ["luego"]);
 
-    assert.equal(elegirPartidoPortada([cerrado], "otro", ANTES).partido, null);
+    // Cerrado y fuera sigue saliendo: dice «Sin plaza.», no «No hay pachanga.»
+    assert.equal(elegirPartidoPortada([cerrado], "otro", ANTES).partido?.id, "cerrado");
+    assert.equal(elegirPartidoPortada([cerrado, pronto], "otro", ANTES).partido?.id, "pronto");
+    assert.equal(elegirPartidoPortada([cerrado], "otro", "2026-11-01T20:00:00.000Z").partido, null);
     assert.equal(elegirPartidoPortada([], yo, ANTES).partido, null);
 });
 
@@ -352,7 +355,7 @@ test("Madrid: las 23:30 UTC ya son el día siguiente", () => {
 test("Madrid: las 23:30 UTC cuentan como el día de Madrid para saber si es hoy", () => {
     const estado = estadoPortada({ partido: partidoDe(3), yo: "u1", ahora: "2026-11-02T23:30:00.000Z" });
     assert.equal(estado.hoy, true);
-    assert.equal(estado.respuesta, "Hoy, 20:00.");
+    assert.equal(estado.linea, "Hoy, 20:00, Campus de Barredo");
     assert.equal(cuandoEs(MARTES, "2026-11-02T22:59:00.000Z"), "mañana");
 });
 

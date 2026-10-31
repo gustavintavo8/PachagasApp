@@ -8,9 +8,11 @@ import { AvisoError } from "@/components/AvisoError";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { useToast } from "@/components/ui/Toast";
+import { rutaInterna } from "@/lib/destino";
 import { frasePuerta } from "@/lib/titulares";
 
 import { signOut } from "../login/actions";
+import { puertaDeError } from "../login/errores";
 import { Portero } from "../login/Portero";
 import { redeemCommunityAccess } from "./actions";
 
@@ -51,7 +53,7 @@ export function AccessForm() {
                 }
 
                 toast("Acceso activado. Ya puedes entrar.", "success");
-                router.replace("/");
+                router.replace(rutaInterna(new URLSearchParams(window.location.search).get("next")) ?? "/");
                 router.refresh();
             } catch {
                 setError(GENERIC_ERROR);
@@ -64,7 +66,7 @@ export function AccessForm() {
     return (
         <>
             <div className="mt-4">
-                <Portero frase={frasePuerta(error ? "rechazo" : "acceso")} />
+                <Portero frase={frasePuerta(error ? (error === GENERIC_ERROR ? "averia" : puertaDeError(error)) : "acceso")} />
             </div>
 
             <div className="px-4 pt-5">

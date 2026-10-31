@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { AlertTriangle } from "lucide-react";
 import { joinMatch, leaveMatch } from "@/app/matches/actions";
 import { Flood } from "@/components/Flood";
+import { HojaBorrarme } from "@/components/HojaBorrarme";
 import { Panenka } from "@/components/Panenka";
 import { PetoFila } from "@/components/Peto";
 import { Button, buttonClasses } from "@/components/ui/Button";
@@ -13,6 +14,7 @@ import { useToast } from "@/components/ui/Toast";
 import { cn } from "@/lib/utils";
 import {
     PORTADA_SIN_DATOS,
+    avisoBorrarse,
     charsRespuesta,
     diaYMes,
     equipoDeTeam,
@@ -100,7 +102,7 @@ export function InicioPortada({
     miNombre: string | null;
     /** Del servidor: el mismo instante en los dos lados, para no romper la hidratación. */
     ahora: string;
-    /** Mismas reglas que el detalle del partido: abierto, y ni organizador ni admin. */
+    /** Mismas reglas que el detalle del partido: abierto, sin empezar y sin organizarlo tú. */
     puedeBorrarse: boolean;
     /** Quienes han jugado esta temporada, los que más juegan primero. */
     candidatos: { id: string; nombre: string }[];
@@ -113,6 +115,7 @@ export function InicioPortada({
     // y dejaba «Me borro» muerto y la pantalla diciendo lo que ya no era verdad.
     const [mov, setMov] = useState<{ tipo: Movimiento; partidoId: string; contestado: boolean } | null>(null);
     const enCurso = useRef(false);
+    const [confirmando, setConfirmando] = useState(false);
 
     // Llega partido nuevo del servidor y la acción ya contestó: lo pintado a mano sobra, manda él.
     const [partidoVisto, setPartidoVisto] = useState(partido);
@@ -163,6 +166,9 @@ export function InicioPortada({
         // Si lo han rechazado, lo normal es que el partido haya cambiado: mejor enseñar cómo está ahora
         router.refresh();
     }
+
+    const aviso = avisoBorrarse({ equipo: estado.equipo, lleno: estado.faltan === 0 });
+    const borrarme = () => (aviso ? setConfirmando(true) : mover("sale"));
 
     if (estado.estado === "sin-partido" || !partido) {
         return (
@@ -231,7 +237,7 @@ export function InicioPortada({
                     salida={puedeBorrarse ? estado.textoSalida : null}
                     acompanante={
                         puedeBorrarse ? (
-                            <Button variant="outline" size="sm" type="button" onClick={() => mover("sale")}>
+                            <Button variant="outline" size="sm" type="button" onClick={borrarme}>
                                 Me borro
                             </Button>
                         ) : undefined
@@ -241,6 +247,12 @@ export function InicioPortada({
                         Ver equipos
                     </Link>
                 </BarraAccion>
+                <HojaBorrarme
+                    open={confirmando}
+                    aviso={aviso}
+                    onClose={() => setConfirmando(false)}
+                    onConfirmar={() => mover("sale")}
+                />
             </div>
         );
     }
@@ -286,7 +298,7 @@ export function InicioPortada({
             )}
             {sigoDentro && puedeBorrarse && (
                 <BarraAccion salida={estado.textoSalida} acompanante={verPartido}>
-                    <Button variant="outline" size="lg" type="button" className="w-full" onClick={() => mover("sale")}>
+                    <Button variant="outline" size="lg" type="button" className="w-full" onClick={borrarme}>
                         Me borro
                     </Button>
                 </BarraAccion>
@@ -298,6 +310,12 @@ export function InicioPortada({
                     </Link>
                 </BarraAccion>
             )}
+            <HojaBorrarme
+                open={confirmando}
+                aviso={aviso}
+                onClose={() => setConfirmando(false)}
+                onConfirmar={() => mover("sale")}
+            />
         </div>
     );
 }

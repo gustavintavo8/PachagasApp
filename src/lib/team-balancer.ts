@@ -39,6 +39,23 @@ function eloDelta(teamA: TeamPlayer[], teamB: TeamPlayer[]): number {
     return Math.abs(avgElo(teamA) - avgElo(teamB));
 }
 
+function resultado(teamA: TeamPlayer[], teamB: TeamPlayer[]): BalanceResult {
+    const finalAvgA = avgElo(teamA);
+    const finalAvgB = avgElo(teamB);
+
+    return {
+        teamA,
+        teamB,
+        assignments: [
+            ...teamA.map((p) => ({ user_id: p.user_id, team: "A" as const })),
+            ...teamB.map((p) => ({ user_id: p.user_id, team: "B" as const })),
+        ],
+        avgEloA: Math.round(finalAvgA),
+        avgEloB: Math.round(finalAvgB),
+        eloDelta: Math.round(Math.abs(finalAvgA - finalAvgB)),
+    };
+}
+
 export function balanceTeams(participants: TeamPlayer[]): BalanceResult {
     // ── Phase 1: Draft ───────────────────────────────────────────────────────
     const groups: Record<Position, TeamPlayer[]> = { GK: [], DEF: [], MID: [], FWD: [] };
@@ -118,21 +135,90 @@ export function balanceTeams(participants: TeamPlayer[]): BalanceResult {
         }
     }
 
-    // ── Build output ─────────────────────────────────────────────────────────
-    const assignments: { user_id: string; team: "A" | "B" }[] = [
-        ...teamA.map((p) => ({ user_id: p.user_id, team: "A" as const })),
-        ...teamB.map((p) => ({ user_id: p.user_id, team: "B" as const })),
-    ];
+    return resultado(teamA, teamB);
+}
 
-    const finalAvgA = avgElo(teamA);
-    const finalAvgB = avgElo(teamB);
+// ── Barajar ──────────────────────────────────────────────────────────────────
 
-    return {
-        teamA,
-        teamB,
-        assignments,
-        avgEloA: Math.round(finalAvgA),
-        avgEloB: Math.round(finalAvgB),
-        eloDelta: Math.round(Math.abs(finalAvgA - finalAvgB)),
-    };
+/** Los mismos dos equipos con los colores cambiados siguen siendo el mismo reparto. */
+function huellaReparto(teamA: { user_id: string }[], teamB: { user_id: string }[]): string {
+    const ids = (equipo: { user_id: string }[]) => equipo.map((p) => p.user_id).sort();
+    return [ids(teamA).join(), ids(teamB).join()].sort().join("|");
+}
+
+function barajar<T>(lista: T[], azar: () => number): T[] {
+    const copia = [...lista];
+    for (let i = copia.length - 1; i > 0; i--) {
+        const j = Math.floor(azar() * (i + 1));
+        [copia[i], copia[j]] = [copia[j], copia[i]];
+    }
+    return copia;
+}
+
+/** Cada posición a medias entre los dos, en orden al azar. El sobrante va al equipo más corto. */
+function repartoAlAzar(participants: TeamPlayer[], azar: () => number) {
+    const teamA: TeamPlayer[] = [];
+    const teamB: TeamPlayer[] = [];
+
+    for (const pos of ["GK", "DEF", "MID", "FWD"] as const) {
+        let aCount = 0;
+        let bCount = 0;
+        for (const player of barajar(participants.filter((p) => p.position === pos), azar)) {
+            const alAzar = azar() < 0.5 ? teamA : teamB;
+            const corto = teamA.length === teamB.length ? alAzar : teamA.length < teamB.length ? teamA : teamB;
+            const destino = aCount === bCount ? corto : aCount < bCount ? teamA : teamB;
+            destino.push(player);
+            if (destino === teamA) aCount++;
+            else bCount++;
+        }
+    }
+    return { teamA, teamB };
+}
+
+/** Cambia jugadores de la misma posición mientras eso acerque las medias. */
+function afinar(teamA: TeamPlayer[], teamB: TeamPlayer[]) {
+    let mejora = true;
+    while (mejora) {
+        mejora = false;
+        for (let i = 0; i < teamA.length && !mejora; i++) {
+            for (let j = 0; j < teamB.length && !mejora; j++) {
+                if (teamA[i].position !== teamB[j].position) continue;
+                const previo = eloDelta(teamA, teamB);
+                [teamA[i], teamB[j]] = [teamB[j], teamA[i]];
+                if (eloDelta(teamA, teamB) < previo - 0.5) mejora = true;
+                else [teamA[i], teamB[j]] = [teamB[j], teamA[i]];
+            }
+        }
+    }
+}
+
+const INTENTOS_BARAJAR = 300;
+/** Diferencia de media que se acepta de más frente al reparto más igualado. */
+const HOLGURA_RP = 25;
+
+/**
+ * Otro reparto, distinto del actual e igual de repartido por posiciones.
+ * Se queda con el primero que no se aleje del más igualado; si no hay ninguno, con el
+ * mejor de los distintos. Null si no existe otro reparto posible: con dos jugadores, por ejemplo.
+ */
+export function barajarEquipos(
+    participants: TeamPlayer[],
+    actual: { user_id: string; team: "A" | "B" | null }[],
+    azar: () => number = Math.random
+): BalanceResult | null {
+    const delEquipo = (team: "A" | "B") => actual.filter((p) => p.team === team);
+    const huellaActual = huellaReparto(delEquipo("A"), delEquipo("B"));
+    const tope = balanceTeams(participants).eloDelta + HOLGURA_RP;
+
+    let mejor: BalanceResult | null = null;
+    for (let intento = 0; intento < INTENTOS_BARAJAR; intento++) {
+        const { teamA, teamB } = repartoAlAzar(participants, azar);
+        afinar(teamA, teamB);
+        if (huellaReparto(teamA, teamB) === huellaActual) continue;
+
+        const reparto = resultado(teamA, teamB);
+        if (reparto.eloDelta <= tope) return reparto;
+        if (!mejor || reparto.eloDelta < mejor.eloDelta) mejor = reparto;
+    }
+    return mejor;
 }

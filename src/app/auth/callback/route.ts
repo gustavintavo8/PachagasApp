@@ -1,4 +1,5 @@
 import { hasCommunityAccess } from "@/lib/access";
+import { COOKIE_DESTINO, conDestino, rutaInterna } from "@/lib/destino";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { createServerClient } from "@supabase/ssr";
 import { NextRequest, NextResponse } from "next/server";
@@ -94,8 +95,10 @@ export async function GET(request: NextRequest) {
                 }
             }
 
-            const targetPath = await hasCommunityAccess(data.user.id) ? "/" : "/access";
+            const destino = rutaInterna(decodeURIComponent(request.cookies.get(COOKIE_DESTINO)?.value ?? ""));
+            const targetPath = await hasCommunityAccess(data.user.id) ? destino ?? "/" : conDestino("/access", destino);
             response.headers.set("Location", `${origin}${targetPath}`);
+            response.cookies.delete(COOKIE_DESTINO);
         }
     }
 

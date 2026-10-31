@@ -134,7 +134,7 @@ export default async function HistoryPage({
                 <p className="t-titular text-balance">
                     {jugados === 0 && finishedMatches.length > 0
                         ? SIN_RESULTADOS
-                        : titularHistorial({ jugados, victorias, derrotas })}
+                        : titularHistorial({ jugados, victorias, derrotas, archivada: season.status !== "active" })}
                 </p>
 
                 {historial.length > 0 && (

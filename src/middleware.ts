@@ -1,15 +1,23 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import { conDestino, rutaInterna } from "@/lib/destino";
 
-function redirectTo(request: NextRequest, pathname: string) {
+function redirectTo(request: NextRequest, ruta: string) {
     const url = request.nextUrl.clone();
-    url.pathname = pathname;
-
-    if (pathname === "/login") {
-        url.search = "";
-    }
+    const corte = ruta.indexOf("?");
+    url.pathname = corte === -1 ? ruta : ruta.slice(0, corte);
+    url.search = corte === -1 ? "" : ruta.slice(corte);
 
     return NextResponse.redirect(url);
+}
+
+/** Adonde iba quien se ha topado con la puerta. Lo interno de Next y el código de OAuth no cuentan. */
+function destinoDe(request: NextRequest) {
+    const parametros = new URLSearchParams(request.nextUrl.search);
+    parametros.delete("_rsc");
+    parametros.delete("code");
+    const consulta = parametros.toString();
+    return rutaInterna(`${request.nextUrl.pathname}${consulta ? `?${consulta}` : ""}`);
 }
 
 export async function middleware(request: NextRequest) {
@@ -67,11 +75,11 @@ export async function middleware(request: NextRequest) {
 
     // If user is not authenticated and trying to access a protected route
     if (!user && !isPublicRoute && !isApiRoute) {
-        return redirectTo(request, "/login");
+        return redirectTo(request, conDestino("/login", destinoDe(request)));
     }
 
     if (user?.is_anonymous === true && !isPublicRoute && !isApiRoute) {
-        return redirectTo(request, "/login");
+        return redirectTo(request, conDestino("/login", destinoDe(request)));
     }
 
     const shouldCheckAccess = Boolean(
@@ -87,17 +95,17 @@ export async function middleware(request: NextRequest) {
         const hasAccess = accessError ? false : allowed === true;
 
         if (pathname === "/access" && hasAccess) {
-            return redirectTo(request, "/");
+            return redirectTo(request, rutaInterna(request.nextUrl.searchParams.get("next")) ?? "/");
         }
 
         if (!isPublicRoute && !hasAccess && !isApiRoute) {
-            return redirectTo(request, "/access");
+            return redirectTo(request, conDestino("/access", destinoDe(request)));
         }
     }
 
     // If user is authenticated and trying to access the login page
     if (user && user.is_anonymous !== true && isGuestOnlyRoute) {
-        return redirectTo(request, "/");
+        return redirectTo(request, rutaInterna(request.nextUrl.searchParams.get("next")) ?? "/");
     }
 
     return supabaseResponse;

@@ -51,10 +51,10 @@ test("la API de Panenka no acepta una cuenta sin permiso", async ({ page }) => {
 
 test("las rutas parecidas a públicas no omiten la protección", async ({ page }) => {
     await page.goto("/access-anything");
-    await expect(page).toHaveURL(/\/login$/);
+    await expect(page).toHaveURL(/\/login\?next=%2Faccess-anything$/);
 
     await page.goto("/login-anything");
-    await expect(page).toHaveURL(/\/login$/);
+    await expect(page).toHaveURL(/\/login\?next=%2Flogin-anything$/);
 });
 
 test("el código incorrecto no concede acceso y el correcto sí", async ({ page }) => {

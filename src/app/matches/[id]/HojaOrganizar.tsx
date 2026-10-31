@@ -17,6 +17,7 @@ export function HojaOrganizar({
     hayEquipos,
     total,
     pagos,
+    pasado,
     generando,
     onGenerar,
     onAbrir,
@@ -28,10 +29,13 @@ export function HojaOrganizar({
     hayEquipos: boolean;
     total: number;
     pagos: number;
+    pasado: boolean;
     generando: boolean;
     onGenerar: () => void;
     onAbrir: (hoja: HojaPartido) => void;
 }) {
+    const pocos = total < 2;
+
     return (
         <Hoja open={open} onClose={onClose} title="Organizar" description={fechaCorta(match.date)}>
             <Filas aria-label="Acciones del organizador">
@@ -40,13 +44,15 @@ export function HojaOrganizar({
                         inicio={<Shuffle {...ICONO} />}
                         nombre={hayEquipos ? "Barajar equipos" : "Generar equipos"}
                         detalle={
-                            generando
-                                ? "Repartiendo…"
-                                : hayEquipos
-                                  ? "Rehace los dos equipos"
-                                  : `Equilibrados por RP entre ${total}`
+                            pocos
+                                ? "Hacen falta dos jugadores"
+                                : generando
+                                  ? "Repartiendo…"
+                                  : hayEquipos
+                                    ? "Otro reparto igual de equilibrado"
+                                    : `Equilibrados por RP entre ${total}`
                         }
-                        onClick={generando ? undefined : onGenerar}
+                        onClick={generando || pocos ? undefined : onGenerar}
                     />
                 )}
                 {puede.resultado && hayEquipos && (
@@ -76,6 +82,7 @@ export function HojaOrganizar({
                     <Fila
                         inicio={<Ban {...ICONO} className="text-tarjeta" />}
                         nombre={<span className="text-tarjeta">Cancelar partido</span>}
+                        detalle={pasado && pocos ? "No se pudo jugar: así queda cerrado" : undefined}
                         onClick={() => onAbrir("cancelar")}
                     />
                 )}

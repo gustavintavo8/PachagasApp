@@ -15,6 +15,7 @@ import {
 import { cieloDeCodigo, diaIsoMadrid, diasHasta, lineaTiempo, type Cielo } from "@/lib/titulares";
 
 const DIAS_DE_PREVISION = 16;
+const ESPERA_MAXIMA_MS = 5000;
 
 const ICONOS: Record<Cielo, LucideIcon> = {
     despejado: Sun,
@@ -36,7 +37,7 @@ async function pedirPrevision(dia: string, signal: AbortSignal): Promise<Previsi
     // Mieres, Asturias
     const respuesta = await fetch(
         `https://api.open-meteo.com/v1/forecast?latitude=43.25&longitude=-5.7667&daily=temperature_2m_max,precipitation_probability_max,weathercode&timezone=Europe%2FMadrid&forecast_days=${DIAS_DE_PREVISION}`,
-        { signal }
+        { signal: AbortSignal.any([signal, AbortSignal.timeout(ESPERA_MAXIMA_MS)]) }
     );
     if (!respuesta.ok) return null;
 
@@ -82,12 +83,11 @@ export function WeatherWidget({ date }: { date: string }) {
 
     const prevision = previsiones.get(dia) ?? (recibida?.dia === dia ? recibida.prevision : null);
     const Icono = prevision?.cielo ? ICONOS[prevision.cielo] : null;
-    const cargando = !previsiones.has(dia) && recibida?.dia !== dia;
 
-    // La línea mide lo mismo cargando, con dato y sin él: la página no salta
+    // La línea mide lo mismo cargando, con dato y sin él: la página no salta. Mientras llega, nada:
+    // un bloque gris sobre «Copiar enlace» parecía un fallo, y el tiempo no es lo importante aquí.
     return (
         <p className="t-meta flex h-5 items-center gap-1.5 tabular-nums text-muted">
-            {cargando && <span aria-hidden="true" className="skeleton block h-4 w-40" />}
             {Icono && <Icono size={18} strokeWidth={1.75} aria-hidden="true" className="shrink-0" />}
             {prevision && <span>{prevision.texto}</span>}
         </p>

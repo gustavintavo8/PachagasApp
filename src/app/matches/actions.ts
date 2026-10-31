@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
-import { balanceTeams } from "@/lib/team-balancer";
+import { balanceTeams, barajarEquipos } from "@/lib/team-balancer";
 import { computeMatchEloUpdates, ELO_BASE } from "@/lib/elo";
 import { rateLimit } from "@/lib/rate-limit";
 import { isAdmin } from "@/lib/permissions";
@@ -58,7 +58,7 @@ export async function createMatch(formData: FormData): Promise<ActionResult> {
 
     const CreateMatchSchema = z.object({
         date: z.string().min(1, "La fecha es obligatoria"),
-        location: z.string().min(2, "La ubicación debe tener al menos 2 caracteres"),
+        location: z.string().trim().min(2, "La ubicación debe tener al menos 2 caracteres"),
         max_players: z.coerce.number().int().min(4, "Mínimo 4 jugadores").max(30, "Máximo 30 jugadores"),
     });
 
@@ -86,7 +86,7 @@ export async function createMatch(formData: FormData): Promise<ActionResult> {
         .from("matches")
         .insert({
             date: validDate,
-            location: validLocation.trim(),
+            location: validLocation,
             max_players,
             status: "open",
             created_by: currentUser.id,
@@ -207,12 +207,13 @@ export async function leaveMatch(matchId: string): Promise<ActionResult> {
 
     const { data: match } = await supabase
         .from("matches")
-        .select("status")
+        .select("status, date")
         .eq("id", matchId)
         .single();
 
     if (!match) return { success: false, error: "Partido no encontrado" };
     if (match.status === "finished") return { success: false, error: "No puedes abandonar un partido que ya ha finalizado" };
+    if (new Date(match.date).getTime() < Date.now()) return { success: false, error: "Este partido ya ha empezado" };
 
     const { error } = await supabase
         .from("match_participants")
@@ -447,7 +448,7 @@ export async function setScore(
     return { success: true, data: undefined };
 }
 
-export async function generateTeams(matchId: string): Promise<ActionResult> {
+export async function generateTeams(matchId: string): Promise<ActionResult<{ cambiado: boolean }>> {
     const supabase = await createClient();
     const {
         data: { user },
@@ -473,7 +474,7 @@ export async function generateTeams(matchId: string): Promise<ActionResult> {
     // Fetch participants with positions AND elo_rating
     const { data: participants } = await supabase
         .from("match_participants")
-        .select("user_id, profiles(position)")
+        .select("user_id, team, profiles(position)")
         .eq("match_id", matchId);
 
     if (!participants || participants.length < 2)
@@ -518,11 +519,14 @@ export async function generateTeams(matchId: string): Promise<ActionResult> {
         }
     }
 
-    const { assignments } = balanceTeams(playersWithPosition);
+    // Con equipos ya hechos se pide otro reparto: el balanceo es determinista y devolvería el mismo
+    const yaHabia = participants.some((p) => p.team !== null);
+    const reparto = yaHabia ? barajarEquipos(playersWithPosition, participants) : balanceTeams(playersWithPosition);
+    if (!reparto) return { success: true, data: { cambiado: false } };
 
     // Update each participant's team
     await Promise.all(
-        assignments.map((assignment) =>
+        reparto.assignments.map((assignment) =>
             supabase
                 .from("match_participants")
                 .update({ team: assignment.team })
@@ -541,14 +545,15 @@ export async function generateTeams(matchId: string): Promise<ActionResult> {
     await sendNotification(
         participantIds,
         "teams",
-        "¡Equipos generados!",
-        `Se han generado los equipos para ${matchForNotif?.location || "tu partido"}`,
+        yaHabia ? "Equipos nuevos" : "¡Equipos generados!",
+        `${yaHabia ? "Se han rehecho" : "Se han generado"} los equipos para ${matchForNotif?.location || "tu partido"}`,
         matchId
     );
 
     revalidatePath(`/matches/${matchId}`);
+    revalidatePath("/");
 
-    return { success: true, data: undefined };
+    return { success: true, data: { cambiado: true } };
 }
 
 export async function cancelMatch(matchId: string): Promise<ActionResult> {
@@ -743,11 +748,17 @@ export async function kickPlayer(
         .eq("id", matchId)
         .single();
 
+    const { data: quienExpulsa } = await supabase
+        .from("profiles")
+        .select("username")
+        .eq("id", currentUser.id)
+        .single();
+
     await sendNotification(
         [targetUserId],
         "kick",
-        "Expulsado del partido",
-        `Has sido eliminado del partido en ${match?.location || "un partido"}`,
+        "Te han sacado del partido",
+        `${quienExpulsa?.username || "Un administrador"} te ha sacado de ${match?.location || "un partido"}. Si hay plaza, puedes volver a apuntarte.`,
         matchId
     );
 

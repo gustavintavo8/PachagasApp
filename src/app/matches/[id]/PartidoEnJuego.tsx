@@ -1,12 +1,14 @@
 "use client";
 
-import { useEffect, useRef } from "react";
+import { useState } from "react";
 import { Button, buttonClasses } from "@/components/ui/Button";
 import { CampoEquipos, CampoPlantilla, nombreEnCampo } from "@/components/Campo";
+import { HojaBorrarme } from "@/components/HojaBorrarme";
 import { PanenkaDice } from "@/components/PanenkaDice";
 import { Peto, type EstadoPeto } from "@/components/Peto";
 import { cn } from "@/lib/utils";
 import {
+    avisoBorrarse,
     equipoDeTeam,
     estadoPortada,
     fechaCorta,
@@ -28,27 +30,6 @@ function Marca({ estado, children }: { estado: EstadoPeto; children: string }) {
             {children}
         </li>
     );
-}
-
-/** Publica el alto de la barra fija para que los avisos salgan por encima de ella. */
-function useAltoBarra(hayBarra: boolean) {
-    const barra = useRef<HTMLDivElement>(null);
-
-    useEffect(() => {
-        const elemento = barra.current;
-        if (!elemento) return;
-        const raiz = document.documentElement;
-        const medidor = new ResizeObserver(() => {
-            raiz.style.setProperty("--barra-accion", `${elemento.offsetHeight}px`);
-        });
-        medidor.observe(elemento);
-        return () => {
-            medidor.disconnect();
-            raiz.style.removeProperty("--barra-accion");
-        };
-    }, [hayBarra]);
-
-    return barra;
 }
 
 export function PartidoEnJuego({
@@ -80,6 +61,7 @@ export function PartidoEnJuego({
     onApuntarme: () => void;
     onBorrarme: () => void;
 }) {
+    const [confirmando, setConfirmando] = useState(false);
     const abierto = match.status === "open";
     const pasado = new Date(match.date).getTime() < new Date(ahora).getTime();
     const mostrarPagos = abierto;
@@ -90,6 +72,7 @@ export function PartidoEnJuego({
         faltan,
         equipo: yo ? equipoDeTeam(yo.team) : null,
         pasado,
+        jugadores: jugadores.length,
     });
     // Con dos cifras no cabe al lado de la respuesta, y con diez libres aún no dice nada
     const nota =
@@ -105,12 +88,12 @@ export function PartidoEnJuego({
         ahora,
     });
 
-    const sePuedeBorrar = abierto && !!yo && !isOrganizer && !isAdmin;
+    const sePuedeBorrar = abierto && !!yo && !isOrganizer && !pasado;
+    const aviso = avisoBorrarse({ equipo: yo ? equipoDeTeam(yo.team) : null, lleno: faltan === 0 });
     const sePuedeApuntar = abierto && !yo && faltan > 0;
     const seBusca = abierto && !!yo && faltan > 0 && !pasado;
     const principal = sePuedeApuntar ? "apuntarse" : seBusca ? "buscar" : null;
     const hayBarra = puede.gestiona || sePuedeBorrar || principal !== null;
-    const barra = useAltoBarra(hayBarra);
 
     const rojo = jugadores.filter((p) => p.team === "A");
     const azul = jugadores.filter((p) => p.team === "B");
@@ -221,7 +204,6 @@ export function PartidoEnJuego({
             {hayBarra && (
                 // pb-5: la cara de Panenka sobresale de la barra inferior y no puede pisar el botón
                 <div
-                    ref={barra}
                     className="sticky bottom-[var(--barra-inferior)] z-30 mt-4 border-t border-border bg-background px-4 pb-5 pt-2 md:pb-2"
                 >
                     {sePuedeBorrar && textoSalida && <p className="t-meta pb-1.5 text-muted">{textoSalida}</p>}
@@ -244,7 +226,7 @@ export function PartidoEnJuego({
                                 variant="outline"
                                 className={cn(principal ? "flex-none px-4" : "flex-1")}
                                 disabled={apuntandose}
-                                onClick={onBorrarme}
+                                onClick={() => (aviso ? setConfirmando(true) : onBorrarme())}
                             >
                                 Me borro
                             </Button>
@@ -277,6 +259,13 @@ export function PartidoEnJuego({
                     </div>
                 </div>
             )}
+
+            <HojaBorrarme
+                open={confirmando}
+                aviso={aviso}
+                onClose={() => setConfirmando(false)}
+                onConfirmar={onBorrarme}
+            />
         </div>
     );
 }

@@ -9,7 +9,6 @@ import { Panenka } from "@/components/Panenka";
 import { cn, getAvatarUrl } from "@/lib/utils";
 import { getActiveSeason } from "@/lib/seasons";
 import { requireCommunityAccess } from "@/lib/access";
-import { isAdmin } from "@/lib/permissions";
 import { ELO_BASE, PROVISIONAL_THRESHOLD } from "@/lib/elo";
 import {
   elegirPartidoPortada,
@@ -33,7 +32,7 @@ type FilaPlaza = Pick<MatchParticipant, "user_id" | "team"> & {
 
 type FilaPartido = Pick<PartidoInicio, "id" | "date" | "location" | "max_players"> & {
   status: MatchStatus;
-  created_by: string;
+  created_by: string | null;
   match_participants: FilaPlaza[];
 };
 
@@ -45,7 +44,7 @@ type FilaTemporada = {
   profiles: Pick<Profile, "username"> | null;
 };
 
-function aPartidoInicio(fila: FilaPartido): PartidoInicio & { created_by: string } {
+function aPartidoInicio(fila: FilaPartido): PartidoInicio & { created_by: string | null } {
   return {
     id: fila.id,
     date: fila.date,
@@ -187,10 +186,9 @@ function BandaResultado({ ultimo }: { ultimo: NonNullable<Awaited<ReturnType<typ
 
 async function Portada({ userId, seasonId }: { userId: string; seasonId: string }) {
   const ahora = new Date().toISOString();
-  const [{ partidos, error }, { filas: temporada }, admin, ultimo, perfil] = await Promise.all([
+  const [{ partidos, error }, { filas: temporada }, ultimo, perfil] = await Promise.all([
     leerPartidos(seasonId),
     leerTemporada(seasonId),
-    isAdmin(userId),
     leerUltimoResultado(seasonId),
     leerPerfil(userId),
   ]);
@@ -212,7 +210,7 @@ async function Portada({ userId, seasonId }: { userId: string; seasonId: string 
       yo={userId}
       miNombre={perfil?.username ?? null}
       ahora={ahora}
-      puedeBorrarse={partido?.status === "open" && !organizo && !admin}
+      puedeBorrarse={partido?.status === "open" && !organizo && new Date(partido.date).getTime() >= Date.now()}
       candidatos={candidatos}
       puesto={
         <Suspense fallback={<div className="skeleton h-5 w-32 min-w-0" />}>

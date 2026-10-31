@@ -6,6 +6,12 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { rateLimit } from "@/lib/rate-limit";
 import type { ActionResult } from "@/lib/types";
 
+/** Lo que va detrás del nombre del bucket en la URL pública. */
+function rutaEnBucket(url: string, bucket: string): string | null {
+    const [, ruta] = url.split(`/${bucket}/`);
+    return ruta ? decodeURIComponent(ruta.split("?")[0]) : null;
+}
+
 async function requireProfileDataAccess(
     user: { id: string; is_anonymous?: boolean } | null
 ): Promise<ActionResult<true>> {
@@ -29,10 +35,28 @@ export async function deleteAccount(): Promise<ActionResult> {
     const { allowed } = await rateLimit(`delete-account:${currentUser.id}`, 3, 3_600_000);
     if (!allowed) return { success: false, error: "Demasiados intentos. Espera un momento." };
 
-    // Borra el usuario de auth.users; el ON DELETE CASCADE limpia profiles y todo lo dependiente.
     const admin = createAdminClient();
+
+    // El cascade no llega a los ficheros, y se lleva las filas que dicen cuáles son: se leen antes.
+    const [{ data: avatares }, { data: fotos }] = await Promise.all([
+        admin.storage.from("avatars").list(currentUser.id, { limit: 1000 }),
+        admin.from("match_photos").select("photo_url").eq("user_id", currentUser.id),
+    ]);
+
+    // Borra el usuario de auth.users; el ON DELETE CASCADE limpia profiles y todo lo dependiente.
     const { error } = await admin.auth.admin.deleteUser(currentUser.id);
     if (error) return { success: false, error: "No se pudo eliminar la cuenta. Inténtalo de nuevo." };
+
+    // La cuenta ya no está: si esto falla se avisa en el log, pero no al usuario.
+    const borrados = await Promise.all([
+        admin.storage.from("avatars").remove((avatares ?? []).map((f) => `${currentUser.id}/${f.name}`)),
+        admin.storage
+            .from("match_photos")
+            .remove((fotos ?? []).flatMap((f) => rutaEnBucket(f.photo_url, "match_photos") ?? [])),
+    ]);
+    for (const { error: errorFichero } of borrados) {
+        if (errorFichero) console.error("[data-actions] deleteAccount storage error:", errorFichero.message);
+    }
 
     await supabase.auth.signOut();
     return { success: true, data: undefined };

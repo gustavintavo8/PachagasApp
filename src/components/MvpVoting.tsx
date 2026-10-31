@@ -461,9 +461,6 @@ export function MvpVoting({
             const result = await forceResolveMvp(matchId);
             if (!result.success) {
                 toast(result.error || "Error al finalizar", "error");
-            } else if (recuento.lideres.length > 1) {
-                // En empate el servidor no elige a nadie y la votación sigue abierta
-                toast("Hay empate, así que la votación sigue abierta", "info");
             } else {
                 toast("Votación finalizada", "success");
             }
@@ -481,6 +478,8 @@ export function MvpVoting({
     const ganadorId = resuelto?.user_id ?? (cerrada && recuento.lideres.length === 1 ? recuento.lideres[0] : null);
     const ganador = participants.find((p) => p.user_id === ganadorId);
     const huecos = Math.min(participants.length - (juegas ? 1 : 0), MAX_BALDOSAS);
+    // En empate el servidor no elige a nadie: la hoja lo dice en lugar de ofrecer lo que no va a pasar
+    const empate = recuento.lideres.length > 1;
 
     return (
         <section aria-label="Votación MVP" className={`${A_SANGRE} px-4 py-5`}>
@@ -542,8 +541,12 @@ export function MvpVoting({
             <Hoja
                 open={confirmarCierre}
                 onClose={() => setConfirmarCierre(false)}
-                title="¿Cerrar la votación?"
-                description="Se cierra ahora y se elige al MVP con los votos que haya."
+                title={empate ? "Ahora mismo hay empate" : "¿Cerrar la votación?"}
+                description={
+                    empate
+                        ? "Sigue abierta hasta que alguien desempate o acabe el plazo. Si sigue igual, no habrá MVP."
+                        : "Se cierra ahora y gana el más votado."
+                }
             >
                 <div className="flex gap-2 px-4 pt-2">
                     <Button
@@ -555,9 +558,11 @@ export function MvpVoting({
                     >
                         Volver
                     </Button>
-                    <Button type="button" size="lg" className="flex-1" loading={cerrando} onClick={handleForceResolve}>
-                        Finalizar ya
-                    </Button>
+                    {!empate && (
+                        <Button type="button" size="lg" className="flex-1" loading={cerrando} onClick={handleForceResolve}>
+                            Finalizar ya
+                        </Button>
+                    )}
                 </div>
             </Hoja>
         </section>

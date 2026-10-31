@@ -1,6 +1,7 @@
 "use client";
 
-import { useEffect } from "react";
+import { useEffect, useTransition } from "react";
+import { useRouter } from "next/navigation";
 import { Button } from "@/components/ui/Button";
 import { TriangleAlert } from "lucide-react";
 
@@ -11,9 +12,20 @@ export default function GlobalError({
     error: Error & { digest?: string };
     reset: () => void;
 }) {
+    const router = useRouter();
+    const [reintentando, empezar] = useTransition();
+
     useEffect(() => {
         console.error(error);
     }, [error]);
+
+    // reset() solo vuelve a pintar lo que ya había: el refresh pide los datos otra vez
+    function reintentar() {
+        empezar(() => {
+            router.refresh();
+            reset();
+        });
+    }
 
     return (
         <div className="flex min-h-[60dvh] flex-col justify-center px-4 py-8">
@@ -23,7 +35,7 @@ export default function GlobalError({
                 Se ha roto algo por el camino. Prueba otra vez o vuelve al inicio.
             </p>
             <div className="mt-6 flex flex-col gap-2 md:flex-row">
-                <Button onClick={reset} size="lg">
+                <Button onClick={reintentar} loading={reintentando} size="lg">
                     Reintentar
                 </Button>
                 <Button onClick={() => (window.location.href = "/")} variant="outline" size="lg">

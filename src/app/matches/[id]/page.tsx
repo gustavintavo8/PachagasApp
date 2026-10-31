@@ -102,7 +102,9 @@ export default async function MatchPage({
     const [{ data: participants }, { data: organizerProfile }, { data: currentProfile }, { data: season }, adminUserIds, userIsAdmin] =
         await Promise.all([
             supabase.from("match_participants").select("*, profiles(*)").eq("match_id", id),
-            supabase.from("profiles").select("username, avatar_url").eq("id", match.created_by).single(),
+            match.created_by
+                ? supabase.from("profiles").select("username, avatar_url").eq("id", match.created_by).single()
+                : { data: null },
             supabase.from("profiles").select("username, avatar_url").eq("id", user.id).single(),
             supabase.from("seasons").select("name").eq("id", match.season_id).single(),
             getAdminUserIds(),

@@ -3,14 +3,20 @@
 import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Check, Loader2 } from "lucide-react";
 import { login, signup } from "./actions";
-import { ERROR_CONEXION, ERROR_GENERICO, errorEnEspanol, esRedireccion } from "./errores";
+import { ERROR_CONEXION, ERROR_GENERICO, errorEnEspanol, esRedireccion, puertaDeError } from "./errores";
 import { Portero } from "./Portero";
 import { AvisoError } from "@/components/AvisoError";
 import { Button, buttonClasses } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { COOKIE_DESTINO, rutaInterna } from "@/lib/destino";
 import { createClient as createBrowserClient } from "@/lib/supabase/client";
 import { frasePuerta } from "@/lib/titulares";
 import { cn } from "@/lib/utils";
+
+// Se lee al enviar: esta pantalla se reutiliza oculta y el destino de antes ya no vale
+function destinoPedido() {
+    return rutaInterna(new URLSearchParams(window.location.search).get("next"));
+}
 
 export default function LoginPage() {
     const [isSignUp, setIsSignUp] = useState(false);
@@ -56,6 +62,7 @@ export default function LoginPage() {
         setLoading(true);
 
         const formData = new FormData(e.currentTarget);
+        formData.set("next", destinoPedido() ?? "");
         const action = isSignUp ? signup : login;
         // Si la action redirige, el botón sigue ocupado hasta que cambie la página
         let saliendo = false;
@@ -86,6 +93,12 @@ export default function LoginPage() {
         setOauthLoading(provider);
 
         try {
+            // Google vuelve a /auth/callback, y esa URL no admite parámetros: el destino espera en una cookie
+            const destino = destinoPedido();
+            if (destino) {
+                document.cookie = `${COOKIE_DESTINO}=${encodeURIComponent(destino)}; Path=/; Max-Age=600; SameSite=Lax`;
+            }
+
             const supabase = createBrowserClient();
             const { data, error: oauthError } = await supabase.auth.signInWithOAuth({
                 provider,
@@ -116,7 +129,7 @@ export default function LoginPage() {
         }
     }
 
-    const frase = error ? frasePuerta("rechazo") : frasePuerta(isSignUp ? "registro" : "login");
+    const frase = frasePuerta(error ? puertaDeError(error) : isSignUp ? "registro" : "login");
 
     return (
         <div className="pt-[calc(env(safe-area-inset-top,0px)+20px)]">
@@ -147,6 +160,20 @@ export default function LoginPage() {
                     )}
 
                     <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
+                        {isSignUp && (
+                            <Input
+                                id="username"
+                                name="username"
+                                label="Apodo"
+                                required
+                                minLength={2}
+                                maxLength={30}
+                                placeholder="Como te llaman en el campo"
+                                autoComplete="nickname"
+                                enterKeyHint="next"
+                            />
+                        )}
+
                         <Input
                             id="email"
                             name="email"
