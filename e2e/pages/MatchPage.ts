@@ -66,7 +66,7 @@ export class MatchPage {
         await this.page
             .locator('input[placeholder*="ubicación"], input[placeholder*="lugar"], input[name="location"]')
             .fill(location);
-        await this.page.locator('button[type="submit"]').click();
+        await this.page.getByRole("button", { name: /Crear Partido/i }).click();
 
         await this.page.waitForURL(/\/matches\/[a-f0-9-]+/, { timeout: 10_000 });
         return this.page.url().split("/matches/")[1];

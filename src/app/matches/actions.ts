@@ -14,6 +14,7 @@ import { getActiveSeason, SeasonNotFoundError } from "@/lib/seasons";
 import { MVP_VOTING_WINDOW_MS } from "@/lib/constantes";
 import { z } from "zod";
 import { sendNotification } from "@/lib/notifications";
+import { createFinalizeMatchRpcPayload } from "@/lib/match-finalization";
 import type { ActionResult, SeasonPlayerStats } from "@/lib/types";
 
 async function requireMatchAccess(
@@ -391,18 +392,14 @@ export async function setScore(
         // commits the trigger counters, seasonal ELO, and RP history together.
         const { data: didFinalize, error: finalizeError } = await adminSupabase.rpc(
             "finalize_match_with_elo",
-            {
-                p_match_id: validData.matchId,
-                p_team_a_score: validData.teamAScore,
-                p_team_b_score: validData.teamBScore,
-                p_finished_at: new Date().toISOString(),
-                p_goal_scorers: goalScorers,
-                p_elo_updates: eloUpdates.map((update) => ({
-                    user_id: update.userId,
-                    new_rating: update.newRating,
-                    rp_change: update.delta,
-                })),
-            }
+            createFinalizeMatchRpcPayload({
+                matchId: validData.matchId,
+                teamAScore: validData.teamAScore,
+                teamBScore: validData.teamBScore,
+                finishedAt: new Date().toISOString(),
+                goalScorers,
+                eloUpdates,
+            })
         );
         if (finalizeError) throw new Error(`No se pudo finalizar el partido: ${finalizeError.message}`);
         if (!didFinalize) {
