@@ -1,5 +1,6 @@
 // e2e/pages/MatchPage.ts
 import { type Page, type Locator, expect } from "@playwright/test";
+import { clearCreateMatchLimit } from "../helpers/db";
 
 export class MatchPage {
     readonly page: Page;
@@ -69,6 +70,7 @@ export class MatchPage {
 
     /** Crea un partido desde la UI y retorna su ID desde la URL */
     async createMatch(location: string, minutesFromNow = 2880): Promise<string> {
+        await clearCreateMatchLimit();
         await this.page.goto("/");
         await this.page.getByRole("link", { name: "Montar partido" }).click();
         await this.page.waitForURL("**/matches/new");

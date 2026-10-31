@@ -88,12 +88,13 @@ test.describe("Volver a donde ibas", () => {
             await page.goto("/profile");
             await page.getByRole("link", { name: /historial/i }).first().click();
             await page.waitForURL("**/history");
-            await expect(barra.getByRole("link", { name: "Perfil" })).toBeVisible();
+            // La primera es la flecha: en escritorio la barra también enlaza las pestañas
+            await expect(barra.getByRole("link", { name: "Perfil" }).first()).toHaveClass(/pulsable/);
 
             await page.goto(`/matches/${matchId}`);
             await page.getByRole("link", { name: "Organizas tú" }).click();
             await page.waitForURL("**/players/**");
-            await barra.getByRole("link", { name: "Partido" }).click();
+            await barra.getByRole("link", { name: "Partido", exact: true }).click();
             await page.waitForURL(`**/matches/${matchId}`);
         } finally {
             await deleteMatch(matchId);
@@ -276,7 +277,6 @@ test.describe("Organizar", () => {
 
 test.describe("Partido en directo", () => {
     test("si te quitan la última plaza, la pantalla se pone al día", async ({ page }) => {
-        const testUserId = await getTestUserId();
         const otros = await createDummyUsers(3);
         const matchId = await createTestMatch({ createdBy: otros[0], maxPlayers: 3 });
         await seedParticipants(matchId, otros.slice(0, 2).map((userId) => ({ userId })));
@@ -290,7 +290,6 @@ test.describe("Partido en directo", () => {
             await expect(page.getByText("El partido está completo")).toBeVisible();
             await expect(page.getByText("Completo", { exact: true })).toBeVisible({ timeout: 8_000 });
             await expect(matchPage.joinButton).toHaveCount(0);
-            expect(testUserId).toBeTruthy();
         } finally {
             await deleteMatch(matchId);
             await deleteDummyUsers(otros);

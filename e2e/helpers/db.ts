@@ -141,6 +141,16 @@ export async function createDummyUsers(count: number): Promise<string[]> {
     return ids;
 }
 
+/**
+ * La suite crea partidos más deprisa que nadie: el límite es para las personas, no para ella.
+ * Se recarga en vez de borrar: dos altas a la vez chocan al recrear la fila y el límite se cierra.
+ */
+export async function clearCreateMatchLimit() {
+    const db = getAdminClient();
+    const { error } = await db.from("rate_limits").update({ tokens: 1000 }).like("key", "create-match:%");
+    if (error) throw new Error(`clearCreateMatchLimit: ${error.message}`);
+}
+
 export const DUMMY_PASSWORD = "dummy-password-123";
 
 /** Un jugador con el que se puede entrar de verdad. Sin acceso, para probar la puerta. */

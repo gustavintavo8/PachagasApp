@@ -210,7 +210,7 @@ async function Portada({ userId, seasonId }: { userId: string; seasonId: string 
       yo={userId}
       miNombre={perfil?.username ?? null}
       ahora={ahora}
-      puedeBorrarse={partido?.status === "open" && !organizo && new Date(partido.date).getTime() >= Date.now()}
+      puedeBorrarse={partido?.status === "open" && !organizo && new Date(partido.date) >= new Date(ahora)}
       candidatos={candidatos}
       puesto={
         <Suspense fallback={<div className="skeleton h-5 w-32 min-w-0" />}>

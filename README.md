@@ -9,7 +9,7 @@
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/)
 [![Supabase](https://img.shields.io/badge/Supabase-Database%20%26%20Auth-3fcf8e?logo=supabase)](https://supabase.com/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?logo=typescript)](https://typescriptlang.org/)
-[![Playwright](https://img.shields.io/badge/Playwright-70%20E2E%20tests-45ba4b?logo=playwright)](https://playwright.dev/)
+[![Playwright](https://img.shields.io/badge/Playwright-87%20E2E%20tests-45ba4b?logo=playwright)](https://playwright.dev/)
 [![PWA](https://img.shields.io/badge/PWA-Installable-5a0fc8?logo=pwa)](https://web.dev/progressive-web-apps/)
 
 [Demo](#-demo) · [Flujos](#-flujos) · [Diseño](#-diseño) · [Highlights](#-highlights-técnicos) · [Características](#-características) · [Tech Stack](#️-tech-stack) · [Decisiones Técnicas](#-decisiones-técnicas) · [Instalación](#-instalación) · [Deploy](#-deploy)
@@ -166,7 +166,7 @@ Especificación completa en [docs/superpowers/specs/2026-10-31-rediseno-focos-de
 | 📱 **PWA** | Instalable en el móvil con manifest. `public/sw.js` existe, pero no está registrado |
 | 🔦 **Diseño Focos** | Negro de campo de noche; los petos rojo y azul inundan la pantalla cuando hay equipos o resultado |
 | 🛡️ **Rate Limiting** | Protección contra spam en acciones críticas |
-| 🧪 **E2E Tests** | 70 tests de Playwright, con comprobaciones de accesibilidad (axe-core). Los marcados `@smoke` y `@mobile` se repiten en Pixel 5 y iPhone 13 |
+| 🧪 **E2E Tests** | 87 tests de Playwright, con comprobaciones de accesibilidad (axe-core). Los marcados `@smoke` y `@mobile` se repiten en Pixel 5 y iPhone 13 |
 
 ---
 
@@ -232,8 +232,7 @@ Crea las siguientes tablas en tu Supabase Dashboard o via SQL Editor:
 | `notifications` | id, user_id, type, title, message, match_id, read, created_at |
 | `rate_limits` | key, tokens, last_refill |
 
-> **Storage buckets:** `avatars` y `match_photos` (públicos). Las migraciones no los crean: hay que crearlos a mano.
-> **Realtime:** Habilitar replicación para `notifications`, `mvp_votes` y `match_comments`
+> **Storage y Realtime:** las migraciones crean los buckets públicos `avatars` y `match_photos`, y publican `notifications`, `mvp_votes` y `match_comments`.
 
 `profiles` almacena la identidad y los datos básicos del jugador. Los contadores competitivos son estacionales y su fuente principal es `season_player_stats`; las columnas legacy de `profiles` se conservan durante la transición. El acceso a la comunidad es privado: una cuenta autenticada sin un grant activo debe canjear `PACHANGA_ACCESS_CODE` en `/access`. El código se configura únicamente en el entorno server-side y nunca debe publicarse ni commitearse. Fantasy permanece desactivado aunque sus tablas se conserven para una futura reactivación.
 

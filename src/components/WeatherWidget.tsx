@@ -37,7 +37,7 @@ async function pedirPrevision(dia: string, signal: AbortSignal): Promise<Previsi
     // Mieres, Asturias
     const respuesta = await fetch(
         `https://api.open-meteo.com/v1/forecast?latitude=43.25&longitude=-5.7667&daily=temperature_2m_max,precipitation_probability_max,weathercode&timezone=Europe%2FMadrid&forecast_days=${DIAS_DE_PREVISION}`,
-        { signal: AbortSignal.any([signal, AbortSignal.timeout(ESPERA_MAXIMA_MS)]) }
+        { signal }
     );
     if (!respuesta.ok) return null;
 
@@ -67,6 +67,8 @@ export function WeatherWidget({ date }: { date: string }) {
         if (!enVentana || previsiones.has(dia)) return;
 
         const peticion = new AbortController();
+        // A mano y no con AbortSignal.any: iOS no lo tiene hasta la 17.4
+        const limite = window.setTimeout(() => peticion.abort(), ESPERA_MAXIMA_MS);
         pedirPrevision(dia, peticion.signal)
             .then((prevision) => {
                 previsiones.set(dia, prevision);
@@ -76,7 +78,10 @@ export function WeatherWidget({ date }: { date: string }) {
                 if (!peticion.signal.aborted) setRecibida({ dia, prevision: null });
             });
 
-        return () => peticion.abort();
+        return () => {
+            window.clearTimeout(limite);
+            peticion.abort();
+        };
     }, [dia, enVentana]);
 
     if (!enVentana) return null;

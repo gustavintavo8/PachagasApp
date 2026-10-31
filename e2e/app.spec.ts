@@ -19,7 +19,7 @@ test.describe("Public pages", () => {
 
     test("matches page redirects to login", async ({ page }) => {
         await page.goto("/matches");
-        await page.waitForURL("**/login");
+        await page.waitForURL(/\/login\?next=%2Fmatches$/);
     });
 });
 

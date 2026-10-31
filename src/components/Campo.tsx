@@ -202,7 +202,15 @@ function Banda({ equipo, children }: { equipo: Equipo; children: ReactNode }) {
     );
 }
 
-/** Con equipos: el Rojo arriba y el Azul abajo, cada uno en su mitad y entre sus dos bandas. */
+/** En el área solo caben los porteros: con más, o sin ellos, los nombres pisarían sus líneas. */
+function cabeEnArea(fila: JugadorCampo[] | undefined) {
+    return !!fila && fila.length <= 2 && fila[0].posicion === "GK";
+}
+
+/**
+ * Con equipos: el Rojo arriba y el Azul abajo, cada uno en su mitad y entre sus dos bandas.
+ * Los márgenes salen de las líneas: 42 de radio del círculo y 68 de área, más un hueco.
+ */
 export function CampoEquipos({
     rojo,
     azul,
@@ -224,12 +232,22 @@ export function CampoEquipos({
             <Banda equipo="rojo">{bandaRojo}</Banda>
             <div className="relative grid [grid-template-rows:1fr_1fr]">
                 <LineasCampo aSangre />
-                <div className="relative flex min-h-[176px] flex-col justify-between gap-2 px-2 pb-5 pt-1.5">
+                <div
+                    className={cn(
+                        "relative flex min-h-[176px] flex-col justify-between gap-2 px-2 pb-[52px]",
+                        cabeEnArea(filasRojo[0]) ? "pt-1.5" : "pt-[76px]"
+                    )}
+                >
                     {filasRojo.map((fila, i) => (
                         <Linea key={i} plazas={fila} equipo="rojo" onPulsar={onPulsar} />
                     ))}
                 </div>
-                <div className="relative flex min-h-[176px] flex-col justify-between gap-2 px-2 pb-1.5 pt-5">
+                <div
+                    className={cn(
+                        "relative flex min-h-[176px] flex-col justify-between gap-2 px-2 pt-[52px]",
+                        cabeEnArea(filasAzul.at(-1)) ? "pb-1.5" : "pb-[76px]"
+                    )}
+                >
                     {filasAzul.map((fila, i) => (
                         <Linea key={i} plazas={fila} equipo="azul" onPulsar={onPulsar} />
                     ))}
