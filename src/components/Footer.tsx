@@ -1,14 +1,35 @@
+"use client";
+
 import Link from "next/link";
+import { usePathname } from "next/navigation";
+
+// El pie legal no sale en cada pantalla: solo donde alguien lo va a buscar
+const rutasConPie = ["/login", "/privacidad", "/aviso-legal", "/terminos", "/profile"];
+
+const enlaces = [
+    { href: "/privacidad", label: "Privacidad" },
+    { href: "/aviso-legal", label: "Aviso legal" },
+    { href: "/terminos", label: "Términos" },
+];
 
 export function Footer() {
+    const pathname = usePathname();
+    if (!rutasConPie.includes(pathname)) return null;
+
     return (
-        <footer className="border-t border-border bg-surface px-4 py-6 pb-20 text-center text-xs text-muted md:pb-6">
-            <nav className="flex flex-wrap items-center justify-center gap-x-4 gap-y-2">
-                <Link href="/privacidad" className="transition-colors hover:text-accent">Privacidad</Link>
-                <Link href="/aviso-legal" className="transition-colors hover:text-accent">Aviso legal</Link>
-                <Link href="/terminos" className="transition-colors hover:text-accent">Términos</Link>
+        <footer className="mx-auto w-full border-t border-border px-4 py-4 text-sm text-muted md:max-w-[640px]">
+            <nav aria-label="Legal" className="flex flex-wrap items-center gap-x-5">
+                {enlaces.map(({ href, label }) => (
+                    <Link
+                        key={href}
+                        href={href}
+                        className="inline-flex min-h-11 items-center hover:text-foreground active:text-foreground"
+                    >
+                        {label}
+                    </Link>
+                ))}
             </nav>
-            <p className="mt-3 text-muted/70">Pachanga · Organiza tus partidos de fútbol</p>
+            <p>Pachanga · Organiza tus partidos de fútbol</p>
         </footer>
     );
 }

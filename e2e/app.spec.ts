@@ -75,6 +75,6 @@ test.describe("SEO", () => {
     test("theme-color meta tag is present", async ({ page }) => {
         await page.goto("/login");
         const themeColor = page.locator('meta[name="theme-color"]');
-        await expect(themeColor).toHaveAttribute("content", "#ccff00");
+        await expect(themeColor).toHaveAttribute("content", "#000000");
     });
 });

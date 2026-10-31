@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { TextoLegal, TituloLegal } from "@/components/TextoLegal";
 import { LEGAL_CONTACT_EMAIL } from "@/lib/legal";
 
 export const metadata: Metadata = {
@@ -8,8 +9,8 @@ export const metadata: Metadata = {
 
 export default function TerminosPage() {
     return (
-        <article className="mx-auto max-w-2xl px-4 py-10 text-sm leading-relaxed text-foreground [&_h2]:mt-8 [&_h2]:mb-2 [&_h2]:text-lg [&_h2]:font-semibold [&_p]:mb-3 [&_ul]:mb-3 [&_ul]:ml-5 [&_ul]:list-disc [&_a]:text-accent">
-            <h1 className="text-2xl font-bold">Términos de Uso</h1>
+        <TextoLegal>
+            <TituloLegal>Términos de Uso</TituloLegal>
 
             <h2>1. Uso del servicio</h2>
             <p>Debes tener al menos 14 años para usar Pachanga. Te comprometes a usar la app de
@@ -33,6 +34,6 @@ export default function TerminosPage() {
 
             <h2>5. Cambios</h2>
             <p>Podemos actualizar estos términos. Si el cambio es relevante, te lo indicaremos en la app.</p>
-        </article>
+        </TextoLegal>
     );
 }

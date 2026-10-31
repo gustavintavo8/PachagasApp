@@ -2,216 +2,273 @@
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Suspense } from "react";
-import { Card } from "@/components/ui/Card";
-import { Button } from "@/components/ui/Button";
+import { cache, Suspense } from "react";
 import { Avatar } from "@/components/ui/Avatar";
-import { formatDate, getAvatarUrl } from "@/lib/utils";
-import { Calendar, Users, Zap, PlusCircle, ChevronRight } from "lucide-react";
+import { Fila, Filas } from "@/components/Filas";
+import { Panenka } from "@/components/Panenka";
+import { getAvatarUrl } from "@/lib/utils";
 import { getActiveSeason } from "@/lib/seasons";
 import { requireCommunityAccess } from "@/lib/access";
+import { isAdmin } from "@/lib/permissions";
+import { ELO_BASE, PROVISIONAL_THRESHOLD } from "@/lib/elo";
+import {
+  elegirPartidoPortada,
+  fechaCorta,
+  lineaPuesto,
+  participanteCronica,
+  plural,
+  preguntaPortada,
+  titularCronica,
+} from "@/lib/titulares";
+import type { MatchParticipant, MatchStatus, Profile } from "@/lib/types";
+import { InicioPortada, PortadaSinDatos, type PartidoInicio } from "./InicioPortada";
+import Loading from "./loading";
 
-// --- Hero Card ---
+const MAX_OTROS_PARTIDOS = 5;
+const UN_DIA_MS = 24 * 60 * 60 * 1000;
 
-async function HeroCard({ userId, seasonId }: { userId: string; seasonId: string }) {
-  const supabase = await createClient();
+type FilaPlaza = Pick<MatchParticipant, "user_id" | "team"> & {
+  profiles: Pick<Profile, "username"> | null;
+};
 
-  const [{ data: profile }, { data: stats }] = await Promise.all([
-    supabase
-    .from("profiles")
-    .select("username, avatar_url")
-    .eq("id", userId)
-    .single(),
-    supabase
-      .from("season_player_stats")
-      .select("elo_rating, matches_played, goals_scored")
-      .eq("season_id", seasonId)
-      .eq("user_id", userId)
-      .maybeSingle(),
-  ]);
+type FilaPartido = Pick<PartidoInicio, "id" | "date" | "location" | "max_players"> & {
+  status: MatchStatus;
+  created_by: string;
+  match_participants: FilaPlaza[];
+};
 
-  const { count: rankAbove } = await supabase
-    .from("season_player_stats")
-    .select("user_id", { count: "exact", head: true })
-    .eq("season_id", seasonId)
-    .gt("elo_rating", stats?.elo_rating ?? 1000)
-    .gte("matches_played", 3);
+type FilaTemporada = {
+  user_id: string;
+  elo_rating: number | null;
+  matches_played: number | null;
+  goals_scored: number | null;
+  profiles: Pick<Profile, "username" | "avatar_url"> | null;
+};
 
-  const rank = (rankAbove ?? 0) + 1;
-  const avatarUrl = getAvatarUrl(process.env.NEXT_PUBLIC_SUPABASE_URL!, profile?.avatar_url ?? null);
-
-  return (
-    <Card className="relative overflow-hidden border-border/80 bg-gradient-to-br from-surface to-surface-hover/50">
-      <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-accent/5" />
-      <div className="relative z-10 flex items-center gap-4">
-        <Avatar src={avatarUrl} fallback={profile?.username || "P"} size="lg" priority />
-        <div className="flex-1 min-w-0">
-          <p className="text-xl font-bold text-foreground truncate">
-            {profile?.username || "Jugador"}
-          </p>
-          <div className="flex items-center gap-1.5 text-accent">
-            <Zap size={14} />
-            <span className="text-sm font-semibold">{stats?.elo_rating ?? 1000} RP</span>
-          </div>
-        </div>
-        <span className="shrink-0 rounded-lg border border-accent/20 bg-accent/10 px-2.5 py-1 text-xs font-bold text-accent">
-          #{rank}
-        </span>
-      </div>
-      <div className="relative z-10 mt-4 grid grid-cols-3 divide-x divide-border border-t border-border pt-4">
-        <div className="px-4 text-center first:pl-0 last:pr-0">
-          <p className="text-xl font-bold text-foreground">{stats?.matches_played ?? 0}</p>
-          <p className="text-[10px] uppercase tracking-wider text-muted">Partidos</p>
-        </div>
-        <div className="px-4 text-center">
-          <p className="text-xl font-bold text-foreground">{stats?.goals_scored ?? 0}</p>
-          <p className="text-[10px] uppercase tracking-wider text-muted">Goles</p>
-        </div>
-        <div className="px-4 text-center first:pl-0 last:pr-0">
-          <Link href="/leaderboard" className="block transition-opacity hover:opacity-80">
-            {(stats?.matches_played ?? 0) >= 3 ? (
-              <p className="text-xl font-bold text-accent">#{rank}</p>
-            ) : (
-              <p className="text-sm font-bold text-muted">Prov.</p>
-            )}
-            <p className="text-[10px] uppercase tracking-wider text-muted">Ranking</p>
-          </Link>
-        </div>
-      </div>
-    </Card>
-  );
+function aPartidoInicio(fila: FilaPartido): PartidoInicio & { created_by: string } {
+  return {
+    id: fila.id,
+    date: fila.date,
+    location: fila.location,
+    max_players: fila.max_players,
+    status: fila.status,
+    created_by: fila.created_by,
+    participants: fila.match_participants.map((plaza) => ({
+      user_id: plaza.user_id,
+      team: plaza.team,
+      nombre: plaza.profiles?.username ?? null,
+    })),
+  };
 }
 
-function HeroCardSkeleton() {
-  return <div className="h-40 rounded-xl bg-surface/50 animate-pulse" />;
-}
+// --- Lecturas, compartidas entre los tres bloques con cache() ---
 
-// --- Próximo partido destacado ---
-
-async function NextMatchCard({ userId, seasonId }: { userId: string; seasonId: string }) {
+/** Abiertos y cerrados desde ayer: elegirPartidoPortada decide qué sigue vigente en hora de Madrid. */
+const leerPartidos = cache(async (seasonId: string) => {
   const supabase = await createClient();
-
-  const { data: openMatches } = await supabase
+  const { data, error } = await supabase
     .from("matches")
-    .select("*, match_participants(user_id)")
-    .eq("status", "open")
+    .select("id, date, location, max_players, status, created_by, match_participants(user_id, team, profiles(username))")
+    .in("status", ["open", "closed"])
     .eq("season_id", seasonId)
-    .gte("date", new Date().toISOString())
+    .gte("date", new Date(Date.now() - UN_DIA_MS).toISOString())
     .order("date", { ascending: true })
+    .limit(20);
+  return { partidos: ((data ?? []) as unknown as FilaPartido[]).map(aPartidoInicio), error };
+});
+
+/** En el mismo orden que el ranking, para que el puesto de aquí sea el de allí. */
+const leerTemporada = cache(async (seasonId: string) => {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("season_player_stats")
+    .select("user_id, elo_rating, matches_played, goals_scored, profiles!inner(username, avatar_url)")
+    .eq("season_id", seasonId)
+    .order("elo_rating", { ascending: false })
+    .order("matches_played", { ascending: false });
+  return (data ?? []) as unknown as FilaTemporada[];
+});
+
+async function leerUltimoResultado(seasonId: string) {
+  const supabase = await createClient();
+  const { data } = await supabase
+    .from("matches")
+    .select("id, team_a_score, team_b_score, match_participants(team, goals, profiles(username, position))")
+    .eq("status", "finished")
+    .eq("season_id", seasonId)
+    .not("team_a_score", "is", null)
+    .not("team_b_score", "is", null)
+    .order("date", { ascending: false })
+    .limit(1)
     .maybeSingle();
+  return data as unknown as {
+    id: string;
+    team_a_score: number;
+    team_b_score: number;
+    match_participants: Parameters<typeof participanteCronica>[0][];
+  } | null;
+}
 
-  if (!openMatches) {
-    return (
-      <Card className="border-border/50 text-center">
-        <p className="text-sm text-muted">No hay partidos abiertos ahora mismo.</p>
-        <Link href="/matches/new" className="mt-2 inline-block">
-          <Button variant="outline" size="sm">
-            <PlusCircle size={14} />
-            Crear partido
-          </Button>
-        </Link>
-      </Card>
-    );
-  }
+// --- Tu sitio, sin hacer ruido ---
 
-  const hasJoined = openMatches.match_participants.some((p: { user_id: string }) => p.user_id === userId);
-  const playerCount = openMatches.match_participants.length;
+async function TuPuesto({ userId, seasonId }: { userId: string; seasonId: string }) {
+  const temporada = await leerTemporada(seasonId);
+  const mia = temporada.find((fila) => fila.user_id === userId);
+  const cuentan = temporada.filter((fila) => (fila.matches_played ?? 0) >= PROVISIONAL_THRESHOLD);
+  const indice = cuentan.findIndex((fila) => fila.user_id === userId);
 
   return (
-    <Link href={`/matches/${openMatches.id}`} prefetch={false}>
-      <Card className="border-accent/25 bg-gradient-to-r from-accent/8 to-transparent transition-all hover:border-accent/40 hover:shadow-[0_4px_24px_rgba(204,255,0,0.08)]">
-        <div className="mb-3 flex items-start justify-between gap-2">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-wider text-accent">
-              {hasJoined ? "✓ Apuntado" : "Próximo partido"}
-            </p>
-            <p className="mt-0.5 font-semibold text-foreground">{openMatches.location}</p>
-          </div>
-          <ChevronRight size={18} className="mt-0.5 shrink-0 text-muted" />
-        </div>
-        <div className="flex items-center gap-4 text-sm text-muted">
-          <span className="flex items-center gap-1.5">
-            <Calendar size={13} />
-            {formatDate(openMatches.date)}
-          </span>
-          <span className="flex items-center gap-1.5">
-            <Users size={13} />
-            {playerCount}/{openMatches.max_players}
-          </span>
-        </div>
-        <div className="mt-3 h-1.5 overflow-hidden rounded-full bg-surface-hover">
-          <div
-            className="h-full rounded-full bg-accent transition-all"
-            style={{ width: `${Math.min((playerCount / openMatches.max_players) * 100, 100)}%` }}
-          />
-        </div>
-      </Card>
+    <Link
+      href="/leaderboard"
+      className="pulsable t-meta flex min-h-11 flex-none items-center whitespace-nowrap text-muted tabular-nums"
+    >
+      {lineaPuesto({ posicion: indice === -1 ? null : indice + 1, rp: mia?.elo_rating ?? ELO_BASE })}
     </Link>
   );
 }
 
-function NextMatchCardSkeleton() {
-  return <div className="h-28 rounded-xl bg-surface/50 animate-pulse" />;
-}
+// --- El último resultado: más pequeño que «Faltan 3», siempre ---
 
-// --- Lista de partidos abiertos ---
-
-async function MoreOpenMatches({ userId, seasonId }: { userId: string; seasonId: string }) {
-  const supabase = await createClient();
-
-  const { data: matches } = await supabase
-    .from("matches")
-    .select("*, match_participants(user_id)")
-    .eq("status", "open")
-    .eq("season_id", seasonId)
-    .gte("date", new Date().toISOString())
-    .order("date", { ascending: true })
-    .range(1, 5); // skip the first (shown in NextMatchCard)
-
-  if (!matches || matches.length === 0) return null;
+function BandaResultado({ ultimo }: { ultimo: NonNullable<Awaited<ReturnType<typeof leerUltimoResultado>>> }) {
+  const { team_a_score: rojo, team_b_score: azul } = ultimo;
+  const { frasePanenka } = titularCronica({
+    id: ultimo.id,
+    rojo,
+    azul,
+    participantes: ultimo.match_participants.map(participanteCronica),
+  });
+  const total = rojo + azul;
+  const costura = total === 0 ? 50 : Math.min(72, Math.max(28, (rojo / total) * 100));
 
   return (
-    <div className="space-y-2">
-      <div className="flex items-center justify-between">
-        <p className="text-xs font-semibold uppercase tracking-wider text-muted">Más partidos</p>
-        <Link href="/matches" className="text-xs font-medium text-accent hover:underline">
-          Ver todos →
-        </Link>
+    <Link
+      href={`/matches/${ultimo.id}`}
+      prefetch={false}
+      aria-label={`Último resultado: Rojo ${rojo}, Azul ${azul}. ${frasePanenka}`}
+      className="relative mt-6 block select-none"
+    >
+      <div className="grid h-14 text-white" style={{ gridTemplateColumns: `${costura}% 1fr` }}>
+        <div className="flex items-center justify-end bg-rojo pr-3.5">
+          <span className="t-cifra text-[42px]">{rojo}</span>
+        </div>
+        <div className="flex items-center border-l-2 border-white bg-azul pl-3.5">
+          <span className="t-cifra text-[42px]">{azul}</span>
+        </div>
       </div>
-      {matches.map((match) => {
-        const hasJoined = match.match_participants.some((p: { user_id: string }) => p.user_id === userId);
-        return (
-          <Link key={match.id} href={`/matches/${match.id}`} prefetch={false}>
-            <Card className="flex items-center gap-3 border-border/60 py-3 transition-colors hover:border-accent/30">
-              <div className="h-2 w-2 shrink-0 rounded-full bg-accent" />
-              <div className="flex-1 min-w-0">
-                <p className="truncate text-sm font-medium text-foreground">{match.location}</p>
-                <p className="text-xs text-muted">{formatDate(match.date)}</p>
-              </div>
-              <div className="flex items-center gap-2 shrink-0">
-                {hasJoined && (
-                  <span className="text-[10px] font-bold text-accent">✓</span>
-                )}
-                <span className="rounded-md border border-border px-2 py-0.5 text-xs text-muted">
-                  {match.match_participants.length}/{match.max_players}
-                </span>
-              </div>
-            </Card>
-          </Link>
-        );
-      })}
-    </div>
+      <Panenka size={84} className="absolute right-3 top-0" />
+      <p className="min-h-[60px] py-2.5 pl-4 pr-[108px] text-[15px] font-medium leading-snug">{frasePanenka}</p>
+    </Link>
   );
 }
 
-function MoreOpenMatchesSkeleton() {
+// --- Portada ---
+
+async function Portada({ userId, seasonId }: { userId: string; seasonId: string }) {
+  const ahora = new Date().toISOString();
+  const [{ partidos, error }, temporada, admin, ultimo] = await Promise.all([
+    leerPartidos(seasonId),
+    leerTemporada(seasonId),
+    isAdmin(userId),
+    leerUltimoResultado(seasonId),
+  ]);
+
+  if (error) return <PortadaSinDatos pregunta={preguntaPortada(null, ahora)} />;
+
+  const { partido } = elegirPartidoPortada(partidos, userId, ahora);
+  const organizo = partido?.created_by === userId;
+
+  const candidatos = temporada.flatMap((fila) =>
+    (fila.matches_played ?? 0) > 0 && fila.profiles?.username
+      ? [{ id: fila.user_id, nombre: fila.profiles.username, partidos: fila.matches_played ?? 0 }]
+      : []
+  ).sort((a, b) => b.partidos - a.partidos);
+
   return (
-    <div className="space-y-2">
-      <div className="h-4 w-24 rounded bg-surface/50 animate-pulse" />
-      {Array.from({ length: 3 }, (_, i) => (
-        <div key={`skeleton-more-${i}`} className="h-16 rounded-xl bg-surface/50 animate-pulse" />
-      ))}
-    </div>
+    <InicioPortada
+      partido={partido}
+      yo={userId}
+      miNombre={temporada.find((fila) => fila.user_id === userId)?.profiles?.username ?? null}
+      ahora={ahora}
+      puedeBorrarse={partido?.status === "open" && !organizo && !admin}
+      candidatos={candidatos}
+      puesto={
+        <Suspense fallback={<div className="skeleton h-5 w-32 flex-none" />}>
+          <TuPuesto userId={userId} seasonId={seasonId} />
+        </Suspense>
+      }
+      banda={ultimo && <BandaResultado ultimo={ultimo} />}
+    />
+  );
+}
+
+// --- Bajo el pliegue ---
+
+async function OtrosPartidos({ userId, seasonId }: { userId: string; seasonId: string }) {
+  const { partidos } = await leerPartidos(seasonId);
+  const { otros } = elegirPartidoPortada(partidos, userId, new Date().toISOString());
+  if (otros.length === 0) return null;
+
+  return (
+    <section className="pt-8">
+      <div className="flex items-center justify-between gap-3 px-4 pb-1">
+        <h2 className="t-seccion">Más partidos</h2>
+        <Link href="/matches" className="pulsable t-meta flex min-h-11 items-center pl-3 text-muted">
+          Ver todos
+        </Link>
+      </div>
+      <Filas aria-label="Más partidos">
+        {otros.slice(0, MAX_OTROS_PARTIDOS).map((otro) => {
+          const apuntado = otro.participants.some((plaza) => plaza.user_id === userId);
+          return (
+            <li key={otro.id} className="border-b border-border">
+              {/* Fila no deja pasar prefetch, y estos enlaces siguen sin precargar */}
+              <Link
+                href={`/matches/${otro.id}`}
+                prefetch={false}
+                className="flex min-h-14 select-none items-center gap-3 px-4 py-2 active:bg-surface"
+              >
+                <span className="min-w-0 flex-1">
+                  <span className="block truncate font-medium">{fechaCorta(otro.date)}</span>
+                  <span className="t-meta block truncate text-muted">
+                    {apuntado ? `Apuntado, ${otro.location}` : otro.location}
+                  </span>
+                </span>
+                <span
+                  className="t-cifra flex-none text-[26px]"
+                  aria-label={`${otro.participants.length} de ${otro.max_players} plazas`}
+                >
+                  {otro.participants.length}/{otro.max_players}
+                </span>
+              </Link>
+            </li>
+          );
+        })}
+      </Filas>
+    </section>
+  );
+}
+
+async function TuTemporada({ userId, seasonId }: { userId: string; seasonId: string }) {
+  const temporada = await leerTemporada(seasonId);
+  const { partidos } = await leerPartidos(seasonId);
+  const { partido } = elegirPartidoPortada(partidos, userId, new Date().toISOString());
+  const mia = temporada.find((fila) => fila.user_id === userId);
+  const nombre = mia?.profiles?.username || "Jugador";
+  const avatarUrl = getAvatarUrl(process.env.NEXT_PUBLIC_SUPABASE_URL!, mia?.profiles?.avatar_url ?? null);
+
+  return (
+    <section className="pb-8 pt-8">
+      <Filas aria-label="Tu temporada">
+        <Fila
+          href={`/players/${userId}`}
+          inicio={<Avatar src={avatarUrl} fallback={nombre} size="md" />}
+          nombre={nombre}
+          detalle={`${plural(mia?.matches_played ?? 0, "partido")}, ${plural(mia?.goals_scored ?? 0, "gol")}`}
+        />
+        {/* En «No hay pachanga» esta acción ya es el botón principal, y solo puede haber una */}
+        {partido && <Fila href="/matches/new" nombre="Montar partido" />}
+      </Filas>
+    </section>
   );
 }
 
@@ -227,31 +284,25 @@ async function DashboardContent() {
   const season = await getActiveSeason();
 
   return (
-    <div className="mx-auto max-w-2xl space-y-4 px-4 py-6">
-      <Suspense fallback={<HeroCardSkeleton />}>
-        <HeroCard userId={user.id} seasonId={season.id} />
+    <>
+      <Suspense fallback={<Loading />}>
+        <Portada userId={user.id} seasonId={season.id} />
       </Suspense>
 
-      <Suspense fallback={<NextMatchCardSkeleton />}>
-        <NextMatchCard userId={user.id} seasonId={season.id} />
+      <Suspense fallback={null}>
+        <OtrosPartidos userId={user.id} seasonId={season.id} />
       </Suspense>
 
-      <Suspense fallback={<MoreOpenMatchesSkeleton />}>
-        <MoreOpenMatches userId={user.id} seasonId={season.id} />
+      <Suspense fallback={null}>
+        <TuTemporada userId={user.id} seasonId={season.id} />
       </Suspense>
-    </div>
+    </>
   );
 }
 
 export default function Dashboard() {
   return (
-    <Suspense fallback={
-      <div className="mx-auto max-w-2xl space-y-4 px-4 py-6">
-        <HeroCardSkeleton />
-        <NextMatchCardSkeleton />
-        <MoreOpenMatchesSkeleton />
-      </div>
-    }>
+    <Suspense fallback={<Loading />}>
       <DashboardContent />
     </Suspense>
   );

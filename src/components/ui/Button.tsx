@@ -10,24 +10,39 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
     loading?: boolean;
 }
 
+// Al pulsar, inversión: tinta por suelo
 const variantStyles: Record<ButtonVariant, string> = {
     primary:
-        "bg-accent text-zinc-950 font-semibold hover:bg-accent-hover hover:shadow-lg hover:shadow-accent-glow active:scale-[0.98]",
+        "border-2 border-foreground bg-foreground font-bold text-background hover:border-accent-hover hover:bg-accent-hover active:bg-background active:text-foreground",
     outline:
-        "border border-border text-foreground hover:border-border-hover hover:bg-surface-hover",
+        "border-2 border-foreground font-bold text-foreground hover:bg-surface active:bg-foreground active:text-background",
     ghost:
-        "text-muted hover:text-foreground hover:bg-surface-hover",
+        "font-medium text-foreground hover:bg-surface active:bg-surface-hover",
     danger:
-        "bg-danger/10 text-danger border border-danger/30 hover:bg-danger/20",
+        "border-2 border-tarjeta font-bold text-tarjeta active:bg-tarjeta active:text-background",
     secondary:
-        "bg-surface-hover text-foreground border border-border hover:border-border-hover hover:bg-surface",
+        "bg-surface font-medium text-foreground hover:bg-surface-hover active:bg-foreground active:text-background",
 };
 
 const sizeStyles: Record<ButtonSize, string> = {
-    sm: "px-3 py-1.5 text-sm rounded-lg",
-    md: "px-5 py-2.5 text-sm rounded-xl",
-    lg: "px-6 py-3.5 text-base rounded-xl",
+    sm: "min-h-11 px-3 text-[15px]",
+    md: "min-h-12 px-5 text-base",
+    lg: "min-h-[52px] px-6 text-[17px]",
 };
+
+// Para enlaces que tienen que parecer botones: <Link className={buttonClasses("outline", "lg")}>
+export function buttonClasses(
+    variant: ButtonVariant = "primary",
+    size: ButtonSize = "md",
+    className?: string
+) {
+    return cn(
+        "pulsable inline-flex select-none items-center justify-center gap-2 text-center disabled:cursor-not-allowed disabled:opacity-50",
+        variantStyles[variant],
+        sizeStyles[size],
+        className
+    );
+}
 
 const Button = forwardRef<HTMLButtonElement, ButtonProps>(
     (
@@ -46,12 +61,8 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
             <button
                 ref={ref}
                 disabled={disabled || loading}
-                className={cn(
-                    "inline-flex items-center justify-center gap-2 font-medium transition-all disabled:cursor-not-allowed disabled:opacity-50",
-                    variantStyles[variant],
-                    sizeStyles[size],
-                    className
-                )}
+                aria-busy={loading || undefined}
+                className={buttonClasses(variant, size, className)}
                 {...props}
             >
                 {loading && (
@@ -59,6 +70,7 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
                         className="h-4 w-4 animate-spin"
                         viewBox="0 0 24 24"
                         fill="none"
+                        aria-hidden="true"
                     >
                         <circle
                             className="opacity-25"

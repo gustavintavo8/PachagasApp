@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import { CalendarPlus, Download, ExternalLink } from "lucide-react";
 import {
     canAddMatchToCalendar,
@@ -12,11 +12,24 @@ import {
     type CalendarEventData,
 } from "@/lib/calendar-event";
 import type { Match } from "@/lib/types";
+import { buttonClasses } from "@/components/ui/Button";
 import { useToast } from "@/components/ui/Toast";
+import { Hoja } from "@/components/Hoja";
 
 interface AddToCalendarProps {
     match: Pick<Match, "id" | "date" | "location" | "status">;
 }
+
+const ESCRITORIO = "(min-width: 768px)";
+
+function suscribirEscritorio(aviso: () => void) {
+    const consulta = window.matchMedia(ESCRITORIO);
+    consulta.addEventListener("change", aviso);
+    return () => consulta.removeEventListener("change", aviso);
+}
+
+const OPCION =
+    "flex min-h-14 w-full select-none items-center gap-3 border-b border-border px-4 text-left text-base font-medium text-foreground last:border-b-0 hover:bg-surface active:bg-surface md:min-h-12";
 
 export function AddToCalendar({ match }: AddToCalendarProps): React.JSX.Element | null {
     const { toast } = useToast();
@@ -27,6 +40,12 @@ export function AddToCalendar({ match }: AddToCalendarProps): React.JSX.Element 
     const triggerRef = useRef<HTMLButtonElement>(null);
     const firstItemRef = useRef<HTMLAnchorElement>(null);
     const menuItemRefs = useRef<Array<HTMLElement | null>>([]);
+    // En el teléfono, hoja. En escritorio, menú junto al botón.
+    const escritorio = useSyncExternalStore(
+        suscribirEscritorio,
+        () => window.matchMedia(ESCRITORIO).matches,
+        () => false
+    );
 
     // The origin must be read after hydration so the server and client markup match.
     // eslint-disable-next-line react-hooks/set-state-in-effect
@@ -46,8 +65,9 @@ export function AddToCalendar({ match }: AddToCalendarProps): React.JSX.Element 
         };
     }, [event]);
 
+    // La hoja ya atrapa el foco, cierra con Escape y al tocar fuera
     useEffect(() => {
-        if (!open) return;
+        if (!open || !escritorio) return;
 
         firstItemRef.current?.focus();
 
@@ -72,7 +92,7 @@ export function AddToCalendar({ match }: AddToCalendarProps): React.JSX.Element 
             document.removeEventListener("pointerdown", handlePointerDown);
             document.removeEventListener("keydown", handleKeyDown);
         };
-    }, [open]);
+    }, [open, escritorio]);
 
     if (!available) return null;
 
@@ -150,6 +170,62 @@ export function AddToCalendar({ match }: AddToCalendarProps): React.JSX.Element 
         setOpen(true);
     };
 
+    const menu = calendarUrls && (
+        <div
+            id="calendar-options-menu"
+            role="menu"
+            aria-label="Opciones de calendario"
+            onKeyDown={handleMenuKeyDown}
+            className={
+                escritorio
+                    ? "absolute right-0 top-full z-50 mt-1 w-64 border border-border-hover bg-background"
+                    : "border-t border-border"
+            }
+        >
+            <a
+                ref={(element) => {
+                    firstItemRef.current = element;
+                    menuItemRefs.current[0] = element;
+                }}
+                href={calendarUrls.google}
+                target="_blank"
+                rel="noopener noreferrer"
+                role="menuitem"
+                onClick={() => setOpen(false)}
+                className={OPCION}
+            >
+                <ExternalLink size={18} strokeWidth={1.75} aria-hidden="true" className="shrink-0 text-muted" />
+                Google Calendar
+            </a>
+            <a
+                ref={(element) => {
+                    menuItemRefs.current[1] = element;
+                }}
+                href={calendarUrls.outlook}
+                target="_blank"
+                rel="noopener noreferrer"
+                role="menuitem"
+                onClick={() => setOpen(false)}
+                className={OPCION}
+            >
+                <ExternalLink size={18} strokeWidth={1.75} aria-hidden="true" className="shrink-0 text-muted" />
+                Outlook
+            </a>
+            <button
+                ref={(element) => {
+                    menuItemRefs.current[2] = element;
+                }}
+                type="button"
+                role="menuitem"
+                onClick={handleDownload}
+                className={OPCION}
+            >
+                <Download size={18} strokeWidth={1.75} aria-hidden="true" className="shrink-0 text-muted" />
+                Descargar archivo .ics
+            </button>
+        </div>
+    );
+
     return (
         <div ref={rootRef} className="relative">
             <button
@@ -159,62 +235,18 @@ export function AddToCalendar({ match }: AddToCalendarProps): React.JSX.Element 
                 aria-expanded={open}
                 aria-controls="calendar-options-menu"
                 onClick={handleTriggerClick}
-                className="flex items-center gap-1.5 rounded-xl border border-border bg-surface px-3 py-2 text-xs font-medium text-muted transition-all hover:border-accent hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
+                className={buttonClasses("outline", "sm")}
             >
-                <CalendarPlus size={14} />
+                <CalendarPlus size={18} strokeWidth={1.75} aria-hidden="true" />
                 Añadir al calendario
             </button>
 
-            {open && calendarUrls && (
-                <div
-                    id="calendar-options-menu"
-                    role="menu"
-                    aria-label="Opciones de calendario"
-                    onKeyDown={handleMenuKeyDown}
-                    className="absolute right-0 top-full z-50 mt-2 w-56 rounded-xl border border-border bg-surface p-1 shadow-xl shadow-black/20"
-                >
-                    <a
-                        ref={(element) => {
-                            firstItemRef.current = element;
-                            menuItemRefs.current[0] = element;
-                        }}
-                        href={calendarUrls.google}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        role="menuitem"
-                        onClick={() => setOpen(false)}
-                        className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs text-muted transition-colors hover:bg-surface-hover hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                    >
-                        <ExternalLink size={14} />
-                        Google Calendar
-                    </a>
-                    <a
-                        ref={(element) => {
-                            menuItemRefs.current[1] = element;
-                        }}
-                        href={calendarUrls.outlook}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        role="menuitem"
-                        onClick={() => setOpen(false)}
-                        className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-xs text-muted transition-colors hover:bg-surface-hover hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                    >
-                        <ExternalLink size={14} />
-                        Outlook
-                    </a>
-                    <button
-                        ref={(element) => {
-                            menuItemRefs.current[2] = element;
-                        }}
-                        type="button"
-                        role="menuitem"
-                        onClick={handleDownload}
-                        className="flex w-full items-center gap-2 rounded-lg px-3 py-2 text-left text-xs text-muted transition-colors hover:bg-surface-hover hover:text-accent focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
-                    >
-                        <Download size={14} />
-                        Descargar archivo .ics
-                    </button>
-                </div>
+            {escritorio ? (
+                open && menu
+            ) : (
+                <Hoja open={open} onClose={() => setOpen(false)} title="Añadir al calendario">
+                    {menu}
+                </Hoja>
             )}
         </div>
     );

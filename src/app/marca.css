@@ -1,0 +1,196 @@
+/* Marca: Panenka, Peto y Marcador. Solo keyframes y CSS de componente. */
+
+/* Parpadeo cansado cada casi 10 segundos y humo que se va despacio */
+@keyframes panenka-parpadea {
+  0%,
+  93% {
+    opacity: 0;
+    transform: scaleY(0.05);
+  }
+  93.1% {
+    opacity: 1;
+  }
+  94.8%,
+  95.4% {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+  97.9% {
+    opacity: 1;
+    transform: scaleY(0.05);
+  }
+  98%,
+  100% {
+    opacity: 0;
+    transform: scaleY(0.05);
+  }
+}
+
+@keyframes panenka-humea {
+  0%,
+  35% {
+    opacity: 1;
+    transform: none;
+  }
+  70% {
+    opacity: 0;
+    transform: translate(-1.5px, -8px);
+  }
+  71% {
+    opacity: 0;
+    transform: translate(0, 3px);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .panenka-vivo .panenka-parpado {
+    transform-box: fill-box;
+    transform-origin: 50% 0;
+    animation: panenka-parpadea 9.7s ease-in-out infinite;
+  }
+
+  .panenka-vivo .panenka-humo {
+    animation: panenka-humea 13s ease-in-out infinite;
+  }
+}
+
+/* El peto libre se llena en su sitio */
+.peto-cuerpo {
+  transition:
+    fill-opacity 160ms var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1)),
+    stroke-opacity 160ms var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1));
+}
+
+/* Los campos se abren desde la costura una sola vez */
+@keyframes marcador-abre-rojo {
+  from {
+    clip-path: inset(0 0 0 100%);
+  }
+  to {
+    clip-path: inset(0);
+  }
+}
+
+@keyframes marcador-abre-azul {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0);
+  }
+}
+
+/* En una capa para que pt-*, -mt-* y compañía puedan ajustarlo desde fuera */
+@layer components {
+  .marcador {
+    position: relative;
+    isolation: isolate;
+    container-type: inline-size;
+    overflow: hidden;
+    background: #000;
+    color: #fff;
+  }
+
+  .marcador-campo {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    z-index: -1;
+  }
+
+  .marcador-rojo {
+    left: 0;
+    width: var(--costura);
+    background: var(--color-rojo, #d8141e);
+  }
+
+  .marcador-azul {
+    left: var(--costura);
+    right: 0;
+    background: var(--color-azul, #0a55d8);
+  }
+
+  .marcador-costura {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: var(--costura);
+    z-index: -1;
+    width: 4px;
+    transform: translateX(-50%);
+    background: #fff;
+  }
+
+  .marcador-tanteo {
+    /* cqw solo vale por debajo del contenedor, por eso las cuentas viven aquí */
+    --holgura: 16px; /* lo que queda libre en el campo, a repartir entre los dos lados de la cifra */
+    --ancho-cifra: 0.46; /* ancho de una cifra tabular de 900, en em */
+    --campo-rojo: calc(var(--costura-n) * 1cqw - var(--holgura));
+    --campo-azul: calc((100 - var(--costura-n)) * 1cqw - var(--holgura));
+    /* Un solo tamaño para las dos cifras: el que quepa en el campo más justo */
+    --cuerpo: min(
+      270px,
+      68cqw,
+      calc(var(--campo-rojo) / (var(--cifras-rojo) * var(--ancho-cifra))),
+      calc(var(--campo-azul) / (var(--cifras-azul) * var(--ancho-cifra)))
+    );
+    display: grid;
+    grid-template-columns: var(--costura) minmax(0, 1fr);
+    padding-top: 16px;
+  }
+
+  .marcador-equipo {
+    padding-left: 16px;
+    font-family: var(--font-display), sans-serif;
+    font-size: 24px;
+    font-weight: 800;
+    line-height: 1;
+  }
+
+  .marcador-tanteo > div + div .marcador-equipo {
+    padding-left: 18px;
+  }
+
+  .marcador-cifra {
+    margin-top: 8px;
+    font-family: var(--font-display), sans-serif;
+    font-size: var(--cuerpo);
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+    line-height: 0.86;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .marcador-pie {
+    position: relative;
+    margin-top: 16px;
+  }
+
+  /* Se sienta en la parte baja del campo, como en el mockup */
+  .marcador-centro {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 116px;
+    height: 116px;
+    margin-top: 12px;
+    margin-left: calc(var(--costura) - 58px);
+    border-radius: 50%;
+    box-shadow: inset 0 0 0 2px #fff;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .marcador-rojo {
+      animation: marcador-abre-rojo 220ms var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1)) both;
+    }
+
+    .marcador-azul {
+      animation: marcador-abre-azul 220ms var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1)) both;
+    }
+  }
+}

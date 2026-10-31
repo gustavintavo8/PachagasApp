@@ -1,172 +1,184 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
-import { Card } from "@/components/ui/Card";
+import { Search, X } from "lucide-react";
+import { Fila, Filas } from "@/components/Filas";
+import { PanenkaDice } from "@/components/PanenkaDice";
 import { Avatar } from "@/components/ui/Avatar";
-import { getAvatarUrl } from "@/lib/utils";
-import { Search, Trophy, Target, Users, Crown } from "lucide-react";
-import { POSITION_ICONS, POSITION_SHORT } from "@/lib/positions";
-import type { Profile } from "@/lib/types";
+import { buttonClasses } from "@/components/ui/Button";
+import { POSITION_FULL } from "@/lib/positions";
+import { fraseVacio, plural } from "@/lib/titulares";
+import { cn, getAvatarUrl } from "@/lib/utils";
+import type { FilaRanking } from "@/app/leaderboard/tabla";
 
-const positions = ["ALL", "GK", "DEF", "MID", "FWD"] as const;
-const positionLabels: Record<string, string> = {
-    ALL: "Todos",
-    GK: "POR",
-    DEF: "DEF",
-    MID: "MED",
-    FWD: "DEL",
-};
+const POSICIONES = [
+    { clave: "ALL", etiqueta: "Todos" },
+    { clave: "GK", etiqueta: "Porteros" },
+    { clave: "DEF", etiqueta: "Defensas" },
+    { clave: "MID", etiqueta: "Medios" },
+    { clave: "FWD", etiqueta: "Delanteros" },
+] as const;
 
-interface PlayersListProps {
-    profiles: Profile[];
-    currentUserId: string;
-    adminUserIds: string[];
+type Posicion = (typeof POSICIONES)[number]["clave"];
+
+/** Sin mayúsculas ni tildes: «ruben» encuentra a Rubén. */
+function normalizar(texto: string): string {
+    return texto.normalize("NFD").replace(/\p{M}/gu, "").toLocaleLowerCase("es");
 }
 
-export function PlayersList({ profiles, currentUserId, adminUserIds }: PlayersListProps) {
-    const [search, setSearch] = useState("");
-    const [positionFilter, setPositionFilter] = useState<string>("ALL");
+export function PlayersList({
+    jugadores,
+    yo,
+    adminUserIds,
+    semilla,
+}: {
+    jugadores: FilaRanking[];
+    yo: string;
+    adminUserIds: string[];
+    semilla: string;
+}) {
+    const [busqueda, setBusqueda] = useState("");
+    const [posicion, setPosicion] = useState<Posicion>("ALL");
 
-    const filtered = profiles.filter((p) => {
-        const matchesSearch =
-            !search ||
-            (p.username ?? "").toLowerCase().includes(search.toLowerCase());
-        const matchesPosition =
-            positionFilter === "ALL" || p.position === positionFilter;
-        return matchesSearch && matchesPosition;
-    });
+    const texto = normalizar(busqueda.trim());
+    const visibles = jugadores.filter(
+        (jugador) =>
+            (!texto || normalizar(jugador.username ?? "").includes(texto)) &&
+            (posicion === "ALL" || jugador.position === posicion)
+    );
 
+    const filtrando = texto !== "" || posicion !== "ALL";
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
 
+    function limpiar() {
+        setBusqueda("");
+        setPosicion("ALL");
+    }
+
     return (
-        <div>
-            {/* Search & Filters */}
-            <div className="mb-6 space-y-4">
-                {/* Search Input */}
+        <div className="mt-4">
+            <div className="px-4">
                 <div className="relative">
                     <Search
                         size={18}
-                        className="absolute left-4 top-1/2 -translate-y-1/2 text-muted"
+                        strokeWidth={1.75}
+                        aria-hidden="true"
+                        className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted"
                     />
                     <input
-                        type="text"
+                        type="search"
+                        inputMode="search"
+                        enterKeyHint="search"
+                        autoCapitalize="none"
+                        autoCorrect="off"
+                        spellCheck={false}
+                        aria-label="Buscar jugadores"
                         placeholder="Buscar jugadores..."
-                        value={search}
-                        onChange={(e) => setSearch(e.target.value)}
-                        className="w-full rounded-xl border border-border bg-surface px-4 py-3 pl-11 text-foreground placeholder:text-muted/60 transition-colors focus:border-accent focus:outline-none"
+                        value={busqueda}
+                        onChange={(e) => setBusqueda(e.target.value)}
+                        className="h-[52px] w-full appearance-none border border-transparent bg-surface pr-12 pl-10 text-base text-foreground outline-none placeholder:text-muted focus:border-foreground [&::-webkit-search-cancel-button]:hidden"
                     />
-                </div>
-
-                {/* Position Filter */}
-                <div className="flex flex-wrap gap-2">
-                    {positions.map((pos) => (
+                    {busqueda && (
                         <button
-                            key={pos}
-                            onClick={() => setPositionFilter(pos)}
-                            className={`rounded-full border px-3 py-1.5 text-xs font-medium transition-all ${positionFilter === pos
-                                ? "border-accent bg-accent/10 text-accent"
-                                : "border-border bg-surface text-muted hover:border-border-hover hover:text-foreground"
-                                }`}
+                            type="button"
+                            aria-label="Borrar la búsqueda"
+                            onClick={() => setBusqueda("")}
+                            className="absolute top-0 right-0 flex h-[52px] w-12 items-center justify-center text-muted"
                         >
-                            {positionLabels[pos]}
+                            <X size={18} strokeWidth={1.75} aria-hidden="true" />
                         </button>
-                    ))}
+                    )}
                 </div>
             </div>
 
-            {/* Results Count */}
-            <p className="mb-4 text-sm text-muted">
-                {filtered.length} jugador{filtered.length !== 1 ? "es" : ""} encontrado{filtered.length !== 1 ? "s" : ""}
+            <div
+                role="group"
+                aria-label="Filtrar por posición"
+                className="sticky top-0 z-10 mt-2 flex justify-between border-b border-border bg-background px-4 pt-[env(safe-area-inset-top)]"
+            >
+                {POSICIONES.map(({ clave, etiqueta }) => {
+                    const activo = clave === posicion;
+                    return (
+                        <button
+                            key={clave}
+                            type="button"
+                            aria-pressed={activo}
+                            onClick={() => setPosicion(clave)}
+                            className={cn(
+                                "min-h-12 min-w-11 font-display text-[length:min(22px,5.3vw)] leading-none",
+                                activo
+                                    ? "font-extrabold text-foreground underline decoration-2 underline-offset-[6px]"
+                                    : "font-semibold text-muted"
+                            )}
+                        >
+                            {etiqueta}
+                        </button>
+                    );
+                })}
+            </div>
+
+            <p role="status" className="t-meta px-4 pt-4 pb-2 text-muted">
+                {plural(visibles.length, "jugador")}
             </p>
 
-            {/* Players Grid */}
-            {filtered.length > 0 ? (
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-                    {filtered.map((profile) => {
-                        const isYou = profile.id === currentUserId;
-                        const avatarUrl = getAvatarUrl(supabaseUrl, profile.avatar_url);
-
-                        const posColors: Record<string, string> = {
-                            GK: "text-blue-400 bg-blue-500/10 border-blue-500/20",
-                            DEF: "text-emerald-400 bg-emerald-500/10 border-emerald-500/20",
-                            MID: "text-amber-400 bg-amber-500/10 border-amber-500/20",
-                            FWD: "text-rose-400 bg-rose-500/10 border-rose-500/20",
-                        };
-
-                        const posColor = profile.position ? posColors[profile.position] || "text-muted" : "text-muted";
+            {visibles.length > 0 ? (
+                <Filas aria-label="Jugadores">
+                    {visibles.map((jugador) => {
+                        const nombre = jugador.username || "Desconocido";
+                        const tu = jugador.id === yo;
+                        const detalle = [
+                            jugador.position && POSITION_FULL[jugador.position],
+                            plural(jugador.matches_played, "partido"),
+                            plural(jugador.goals_scored, "gol"),
+                        ]
+                            .filter(Boolean)
+                            .join(" · ");
 
                         return (
-                            <Link key={profile.id} href={`/players/${profile.id}`} className="group relative">
-                                <Card className="h-full transition-all border-border/80 bg-gradient-to-br from-surface to-surface-hover/30 hover:border-accent/40 hover:-translate-y-1 hover:shadow-[0_8px_30px_rgba(204,255,0,0.08)]">
-                                    {/* Player Header */}
-                                    <div className="mb-3 flex items-center gap-3">
-                                        <div className="relative">
-                                            <Avatar
-                                                src={avatarUrl}
-                                                fallback={profile.username || "P"}
-                                                size="md"
-                                            />
-                                            <div className="absolute inset-0 rounded-full ring-2 ring-border ring-offset-2 ring-offset-surface transition-all group-hover:ring-accent/50"></div>
-                                        </div>
-                                        <div className="min-w-0 flex-1">
-                                            <div className="flex items-center gap-2">
-                                                <p className="truncate font-semibold text-foreground">
-                                                    {profile.username || "Desconocido"}
-                                                </p>
-                                                {isYou && (
-                                                    <span className="shrink-0 rounded-full bg-accent/10 px-2 py-0.5 text-xs font-medium text-accent">
-                                                        Tú
-                                                    </span>
-                                                )}
-                                                {adminUserIds.includes(profile.id) && (
-                                                    <span className="shrink-0 flex items-center gap-1 rounded-full bg-red-500/10 px-2 py-0.5 text-xs font-medium text-red-400">
-                                                        <Crown size={10} />
-                                                        Admin
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <div className="flex items-center gap-2 text-xs">
-                                                {profile.position && (
-                                                    <span className={`flex items-center gap-1 rounded-full border px-2 py-0.5 font-medium ${posColor}`}>
-                                                        {POSITION_ICONS[profile.position]}
-                                                        {POSITION_SHORT[profile.position] || profile.position}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Stats */}
-                                    <div className="flex items-center justify-between border-t border-border/50 bg-black/10 px-6 py-3 -mx-6 -mb-6 mt-3 rounded-b-2xl">
-                                        <div className="flex items-center gap-2 text-foreground font-semibold">
-                                            <div className="flex items-center justify-center w-6 h-6 rounded-full bg-accent/10">
-                                                <Trophy size={12} className="text-accent" />
-                                            </div>
-                                            <span>{profile.matches_played} <span className="text-muted/70 font-normal text-xs uppercase tracking-wider">PJ</span></span>
-                                        </div>
-                                        <div className="flex items-center gap-2 text-foreground font-semibold">
-                                            <div className="flex items-center justify-center w-6 h-6 rounded-full bg-accent/10">
-                                                <Target size={14} className="text-accent" />
-                                            </div>
-                                            <span>{profile.goals_scored} <span className="text-muted/70 font-normal text-xs uppercase tracking-wider">GL</span></span>
-                                        </div>
-                                    </div>
-                                </Card>
-                            </Link>
+                            <Fila
+                                key={jugador.id}
+                                href={`/players/${jugador.id}`}
+                                tu={tu}
+                                aria-current={tu ? "true" : undefined}
+                                inicio={
+                                    <Avatar
+                                        src={getAvatarUrl(supabaseUrl, jugador.avatar_url)}
+                                        fallback={nombre}
+                                        size="md"
+                                    />
+                                }
+                                nombre={
+                                    <>
+                                        {tu ? `${nombre}, tú` : nombre}
+                                        {adminUserIds.includes(jugador.id) && (
+                                            <span className="t-meta ml-2 font-medium">Admin</span>
+                                        )}
+                                    </>
+                                }
+                                detalle={detalle}
+                                cifra={
+                                    <>
+                                        {jugador.elo_rating}
+                                        <span className="sr-only"> RP</span>
+                                    </>
+                                }
+                            />
                         );
                     })}
-                </div>
+                </Filas>
             ) : (
-                <Card className="text-center">
-                    <div className="py-8">
-                        <Users size={48} className="mx-auto mb-4 text-muted/30" />
-                        <p className="text-lg font-medium text-muted">No se encontraron jugadores</p>
-                        <p className="mt-1 text-sm text-muted/70">
-                            Intenta ajustar tu búsqueda o filtros
-                        </p>
-                    </div>
-                </Card>
+                <div className="px-4 pt-4">
+                    <PanenkaDice>{fraseVacio("jugadores", filtrando ? texto + posicion : semilla)}</PanenkaDice>
+                    {filtrando && (
+                        <button
+                            type="button"
+                            onClick={limpiar}
+                            className={buttonClasses("outline", "lg", "mt-6 w-full")}
+                        >
+                            Ver a todos
+                        </button>
+                    )}
+                </div>
             )}
         </div>
     );

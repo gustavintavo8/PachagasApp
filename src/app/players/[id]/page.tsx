@@ -1,33 +1,65 @@
-import { createClient } from "@/lib/supabase/server";
-import { redirect, notFound } from "next/navigation";
-import Link from "next/link";
-import Image from "next/image";
-import { Card, CardHeader, CardTitle } from "@/components/ui/Card";
-import { Avatar } from "@/components/ui/Avatar";
-import { PlayerCharts } from "@/components/PlayerCharts";
-import { formatDate, getAvatarUrl } from "@/lib/utils";
-import { getAdminUserIds } from "@/lib/permissions";
-import { getActiveSeason } from "@/lib/seasons";
-import {
-    Calendar,
-    MapPin,
-    Target,
-    ArrowLeft,
-    Crown,
-    Swords,
-} from "lucide-react";
-import { POSITION_FULL, POSITION_ICONS, POSITION_COLORS } from "@/lib/positions";
-
+import type { CSSProperties } from "react";
 import type { Metadata } from "next";
-
-const POSITION_LABELS: Record<string, string> = {
-    GK: "Portero",
-    DEF: "Defensa",
-    MID: "Centrocampista",
-    FWD: "Delantero",
-};
+import { redirect, notFound } from "next/navigation";
+import { Trophy } from "lucide-react";
+import { Fila, Filas } from "@/components/Filas";
+import { Flood } from "@/components/Flood";
+import { PanenkaDice } from "@/components/PanenkaDice";
+import { Peto } from "@/components/Peto";
+import { GolesPorMes, GraficoRP, type GolesMes, type PuntoRP } from "@/components/PlayerCharts";
+import { Avatar } from "@/components/ui/Avatar";
+import { getTemporada } from "@/app/leaderboard/datos";
+import { clasificados, ordenar } from "@/app/leaderboard/tabla";
+import { PROVISIONAL_THRESHOLD } from "@/lib/elo";
+import { POSITION_FULL } from "@/lib/positions";
+import { getActiveSeason } from "@/lib/seasons";
+import { createClient } from "@/lib/supabase/server";
+import {
+    calcularRacha,
+    conSigno,
+    diaYMes,
+    diasHasta,
+    elegirPlural,
+    equipoDeTeam,
+    frasePanenkaJugador,
+    fraseVacio,
+    lineasCartel,
+    mesMadrid,
+    ordinalCorto,
+    plural,
+    resultadoDe,
+    titularJugador,
+    titularPetoJugador,
+    type DatosJugador,
+} from "@/lib/titulares";
+import type { MatchParticipant } from "@/lib/types";
+import { cn, getAvatarUrl } from "@/lib/utils";
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://pachanga.app";
+
+const NOMBRE_RESULTADO = { V: "Victoria", E: "Empate", D: "Derrota" } as const;
+
+// Lo que va bajo el campo de color vuelve a los valores de suelo: el Flood los cambia en <main>
+const SUELO =
+    "[--border-hover:#4a4a4a] [--border:#2a2a2a] [--foreground:#f4f4f4] [--muted:#a8a8a8] [--surface-hover:#1f1f1f] [--surface:#141414]";
+
+type PartidoFicha = {
+    id: string;
+    date: string;
+    location: string;
+    status: string;
+    team_a_score: number | null;
+    team_b_score: number | null;
+};
+
+/** Dentro de un <script> un nombre puede cerrar la etiqueta: «<» nunca sale tal cual. */
+function jsonLd(datos: unknown): string {
+    return JSON.stringify(datos).replace(/</g, "\\u003c");
+}
+
+function posicionDe(position: string | null | undefined): string {
+    return (position && POSITION_FULL[position]) || "Jugador";
+}
 
 export async function generateMetadata({
     params,
@@ -39,11 +71,7 @@ export async function generateMetadata({
 
     const season = await getActiveSeason();
     const [{ data: profile }, { data: seasonStats }] = await Promise.all([
-        supabase
-        .from("profiles")
-        .select("username, elo_rating, matches_played, position")
-        .eq("id", id)
-        .single(),
+        supabase.from("profiles").select("username, position").eq("id", id).single(),
         supabase
             .from("season_player_stats")
             .select("elo_rating, matches_played")
@@ -56,9 +84,8 @@ export async function generateMetadata({
         return { title: "Jugador — Pachanga" };
     }
 
-    const posLabel = POSITION_LABELS[profile.position ?? ""] ?? "Jugador";
-    const title = `${profile.username ?? "Jugador"} — ${posLabel} · Pachanga`;
-    const description = `ELO ${seasonStats?.elo_rating ?? 1000} · ${seasonStats?.matches_played ?? 0} partidos jugados`;
+    const title = `${profile.username ?? "Jugador"} — ${posicionDe(profile.position)} · Pachanga`;
+    const description = `${seasonStats?.elo_rating ?? 1000} RP · ${plural(seasonStats?.matches_played ?? 0, "partido")}`;
 
     return {
         title,
@@ -86,425 +113,373 @@ export default async function PlayerProfilePage({
 
     if (!user) redirect("/login");
 
-    // Fetch the player's profile
-    const { data: profile } = await supabase
-        .from("profiles")
-        .select("*")
-        .eq("id", id)
-        .single();
+    const season = await getActiveSeason();
+    const isYou = id === user.id;
+
+    const [
+        { data: profile },
+        { data: stats },
+        { data: participations },
+        { data: rpHistory },
+        { data: conPeto },
+        { data: viewerParticipations },
+        temporada,
+    ] = await Promise.all([
+        supabase.from("profiles").select("id, username, avatar_url, position").eq("id", id).single(),
+        supabase
+            .from("season_player_stats")
+            .select("elo_rating, matches_played, goals_scored, wins, draws, losses, mvps")
+            .eq("season_id", season.id)
+            .eq("user_id", id)
+            .maybeSingle(),
+        supabase
+            .from("match_participants")
+            .select("match_id, team, goals, is_mvp, matches!inner(id, season_id, date, location, status, team_a_score, team_b_score)")
+            .eq("user_id", id)
+            .eq("matches.season_id", season.id),
+        supabase
+            .from("rp_history")
+            .select("match_id, new_rp, rp_change, created_at")
+            .eq("user_id", id)
+            .eq("season_id", season.id)
+            .order("created_at", { ascending: true }),
+        supabase
+            .from("match_participants")
+            .select("team, matches!inner(date, status)")
+            .eq("user_id", id)
+            .not("team", "is", null)
+            .in("matches.status", ["open", "closed"]),
+        isYou
+            ? Promise.resolve({ data: null })
+            : supabase
+                  .from("match_participants")
+                  .select("match_id, team, matches!inner(season_id)")
+                  .eq("user_id", user.id)
+                  .eq("matches.season_id", season.id),
+        getTemporada(season.id),
+    ]);
 
     if (!profile) notFound();
 
-    const season = await getActiveSeason();
-    const { data: seasonalStats } = await supabase
-        .from("season_player_stats")
-        .select("elo_rating, matches_played, goals_scored, wins, draws, losses, mvps")
-        .eq("season_id", season.id)
-        .eq("user_id", id)
-        .maybeSingle();
+    const ahora = new Date();
+    const nombre = profile.username || "Desconocido";
+    const lineas = lineasCartel(nombre);
+    const rp = stats?.elo_rating ?? 1000;
+    const partidosJugados = stats?.matches_played ?? 0;
+    const goles = stats?.goals_scored ?? 0;
+    const mvps = stats?.mvps ?? 0;
+    const victorias = stats?.wins ?? 0;
+    const empates = stats?.draws ?? 0;
+    const derrotas = stats?.losses ?? 0;
 
-    // Fetch the player's finished matches
-    const { data: participations } = await supabase
-        .from("match_participants")
-        .select("match_id, team, goals, is_mvp, matches!inner(id, season_id, date, location, status, team_a_score, team_b_score)")
-        .eq("user_id", id)
-        .eq("matches.season_id", season.id);
-
-    const finishedMatches = participations
-        ?.map((p) => {
-            const match = p.matches as unknown as {
-                id: string;
-                date: string;
-                location: string;
-                status: string;
-                team_a_score: number | null;
-                team_b_score: number | null;
-            };
+    // ─── Partidos terminados, el último primero ───────────────────────────────
+    const terminados = (participations ?? [])
+        .map((p) => {
+            const match = p.matches as unknown as PartidoFicha;
             return {
                 ...match,
-                userTeam: p.team,
-                userGoals: p.goals,
-                userMvp: p.is_mvp,
+                team: p.team as MatchParticipant["team"],
+                goles: p.goals ?? 0,
+                mvp: !!p.is_mvp,
+                resultado: resultadoDe(p.team, match.team_a_score, match.team_b_score),
             };
         })
         .filter((m) => m.status === "finished")
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-        ?? [];
-
-    // Fetch MVP trophies
-    const { data: mvpTrophies } = await supabase
-        .from("match_participants")
-        .select("match_id, matches!inner(id, season_id, date, location, team_a_score, team_b_score)")
-        .eq("user_id", id)
-        .eq("is_mvp", true)
-        .eq("matches.season_id", season.id);
-
-    const trophies = (mvpTrophies || [])
-        .map((t) => {
-            const match = t.matches as unknown as {
-                id: string;
-                date: string;
-                location: string;
-                team_a_score: number | null;
-                team_b_score: number | null;
-            };
-            return match;
-        })
         .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const avatarUrl = getAvatarUrl(supabaseUrl, profile.avatar_url);
-    const isYou = id === user.id;
-    const adminUserIds = await getAdminUserIds();
-    const isProfileAdmin = adminUserIds.includes(id);
+    const trofeos = terminados.filter((m) => m.mvp);
 
-    const positionLabels = POSITION_FULL;
+    const racha = calcularRacha(
+        terminados.flatMap((m) => (m.resultado ? [{ resultado: m.resultado, goles: m.goles }] : []))
+    );
 
-    // Head-to-Head (H2H) Logic
-    const h2h = { playedTogether: 0, playedAgainst: 0, viewerWins: 0, profileWins: 0 };
-    if (!isYou) {
-        const { data: viewerParticipations } = await supabase
-            .from("match_participants")
-            .select("match_id, team, matches!inner(season_id)")
-            .eq("user_id", user.id)
-            .eq("matches.season_id", season.id);
+    const datosJugador: DatosJugador = {
+        nombre: profile.username,
+        partidos: partidosJugados,
+        goles,
+        mvps,
+        victorias,
+        empates,
+        derrotas,
+        racha,
+        posicion: profile.position,
+    };
 
-        if (viewerParticipations && participations) {
-            const viewerMatchMap = new Map(viewerParticipations.map(p => [p.match_id, p.team]));
+    // ─── La curva: cada punto se cruza con su partido por match_id ────────────
+    const porId = new Map(terminados.map((m) => [m.id, m]));
+    const puntos: PuntoRP[] = (rpHistory ?? []).map((fila) => {
+        const partido = porId.get(fila.match_id);
+        return {
+            matchId: fila.match_id,
+            rp: fila.new_rp,
+            delta: fila.rp_change,
+            fecha: partido?.date ?? fila.created_at,
+            resultado: partido?.resultado ?? null,
+        };
+    });
+    const inicio = puntos.length > 0 ? puntos[0].rp - puntos[0].delta : rp;
+    const pico = puntos.reduce((maximo, punto) => Math.max(maximo, punto.rp), inicio);
 
-            for (const p of finishedMatches) {
-                const viewerTeam = viewerMatchMap.get(p.id);
-                if (viewerTeam && p.userTeam && p.team_a_score !== null && p.team_b_score !== null) {
-                    if (viewerTeam === p.userTeam) {
-                        h2h.playedTogether++;
-                    } else {
-                        h2h.playedAgainst++;
-                        // Determine who won
-                        const profileWon =
-                            (p.userTeam === "A" && p.team_a_score > p.team_b_score) ||
-                            (p.userTeam === "B" && p.team_b_score > p.team_a_score);
-                        const viewerWon =
-                            (viewerTeam === "A" && p.team_a_score > p.team_b_score) ||
-                            (viewerTeam === "B" && p.team_b_score > p.team_a_score);
+    // ─── Su peto en el próximo partido con equipos ────────────────────────────
+    const proximo = (conPeto ?? [])
+        .map((p) => ({
+            equipo: equipoDeTeam(p.team),
+            fecha: (p.matches as unknown as { date: string }).date,
+        }))
+        .filter((p) => diasHasta(p.fecha, ahora) >= 0)
+        .sort((a, b) => new Date(a.fecha).getTime() - new Date(b.fecha).getTime())[0];
+    const equipo = proximo?.equipo ?? null;
 
-                        if (viewerWon) h2h.viewerWins++;
-                        else if (profileWon) h2h.profileWins++;
-                    }
-                }
+    // ─── Puestos ──────────────────────────────────────────────────────────────
+    const indiceRanking = clasificados(temporada.filas).findIndex((fila) => fila.id === id);
+    const puesto = indiceRanking === -1 ? null : indiceRanking + 1;
+    const puestoGoles = ordenar(temporada.filas, "goles").findIndex((fila) => fila.id === id) + 1;
+    const esAdmin = temporada.adminUserIds.includes(id);
+
+    const identidad = [
+        isYou ? "Tú" : null,
+        puesto
+            ? `${posicionDe(profile.position)}, ${ordinalCorto(puesto)} del ranking`
+            : posicionDe(profile.position),
+        partidosJugados < PROVISIONAL_THRESHOLD ? "Provisional" : null,
+        esAdmin ? "Admin" : null,
+        season.name,
+    ].filter((dato) => dato !== null);
+
+    // ─── Historial vs ti ──────────────────────────────────────────────────────
+    const h2h = { juntos: 0, contra: 0, tuyas: 0, suyas: 0, empates: 0 };
+    if (viewerParticipations) {
+        const equipoViewer = new Map(viewerParticipations.map((p) => [p.match_id, p.team]));
+        for (const partido of terminados) {
+            const miEquipo = equipoViewer.get(partido.id);
+            if (!miEquipo || !partido.team || !partido.resultado) continue;
+            if (miEquipo === partido.team) {
+                h2h.juntos++;
+                continue;
             }
+            h2h.contra++;
+            if (partido.resultado === "V") h2h.suyas++;
+            else if (partido.resultado === "D") h2h.tuyas++;
+            else h2h.empates++;
         }
     }
 
-    // Fetch RP History
-    const { data: rpHistoryData } = await supabase
-        .from("rp_history")
-        .select("new_rp, created_at")
-        .eq("user_id", id)
-        .eq("season_id", season.id)
-        .order("created_at", { ascending: true });
+    // ─── Goles por mes ────────────────────────────────────────────────────────
+    const golesPorMes = new Map<string, GolesMes>();
+    for (const partido of [...terminados].reverse()) {
+        const { clave, nombre: mes } = mesMadrid(partido.date);
+        const actual = golesPorMes.get(clave) ?? { clave, nombre: mes, goles: 0 };
+        golesPorMes.set(clave, { ...actual, goles: actual.goles + partido.goles });
+    }
+
+    const resumenGrafico =
+        puntos.length === 0
+            ? `Sin partidos: ${rp} RP`
+            : `RP de ${nombre}: de ${inicio} a ${rp} en ${plural(puntos.length, "partido")}, con un pico de ${pico}.`;
+
+    const porcentaje = partidosJugados > 0 ? Math.round((victorias / partidosJugados) * 100) : 0;
+    const cifras = [
+        { valor: partidosJugados, etiqueta: elegirPlural(partidosJugados, "Partido") },
+        {
+            valor: goles,
+            etiqueta:
+                goles === 0 || puestoGoles > 10
+                    ? elegirPlural(goles, "Gol")
+                    : puestoGoles === 1
+                      ? `${elegirPlural(goles, "Gol")}, pichichi`
+                      : `${elegirPlural(goles, "Gol")}, ${ordinalCorto(puestoGoles)} pichichi`,
+        },
+        { valor: mvps, etiqueta: elegirPlural(mvps, "MVP", "MVPs") },
+        {
+            valor: `${victorias}-${empates}-${derrotas}`,
+            etiqueta: partidosJugados > 0 ? `V-E-D, ${porcentaje} % ganados` : "V-E-D",
+        },
+    ];
 
     return (
-        <div className="mx-auto max-w-3xl px-4 py-8">
-            {profile && (
-                <script
-                    type="application/ld+json"
-                    dangerouslySetInnerHTML={{
-                        __html: JSON.stringify({
-                            "@context": "https://schema.org",
-                            "@type": "Person",
-                            name: profile.username ?? "",
-                            url: `${BASE_URL}/players/${id}`,
-                            description: `${POSITION_LABELS[profile.position ?? ""] ?? "Jugador"} con ELO ${seasonalStats?.elo_rating ?? 1000}`,
-                        }),
-                    }}
-                />
-            )}
-            {/* Back Link */}
-            <Link
-                href="/players"
-                className="mb-6 inline-flex items-center gap-2 text-sm text-muted transition-colors hover:text-foreground"
-            >
-                <ArrowLeft size={16} />
-                Volver a Jugadores
-            </Link>
+        <div className="flex min-h-[calc(100dvh-var(--barra-superior)-var(--barra-inferior))] flex-col">
+            <script
+                type="application/ld+json"
+                dangerouslySetInnerHTML={{
+                    __html: jsonLd({
+                        "@context": "https://schema.org",
+                        "@type": "Person",
+                        name: profile.username ?? "",
+                        url: `${BASE_URL}/players/${id}`,
+                        description: `${posicionDe(profile.position)} con ${rp} RP`,
+                    }),
+                }}
+            />
+            {equipo && <Flood color={equipo} />}
 
-            {/* Profile Header */}
-            <Card className="mb-6 overflow-hidden relative border border-border/80 bg-gradient-to-br from-surface to-surface-hover/30 shadow-md">
-                <div className="absolute top-0 left-0 right-0 h-32 bg-gradient-to-b from-accent/10 to-transparent pointer-events-none" />
-                <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start relative z-10">
-                    <div className="relative group">
-                        <div className="absolute -inset-0.5 rounded-full bg-gradient-to-br from-accent to-accent/20 opacity-0 blur transition duration-500 group-hover:opacity-100 animate-pulse-slow"></div>
-                        <Avatar
-                            src={avatarUrl}
-                            fallback={profile.username || "P"}
-                            size="lg"
-                            priority={true}
-                            className="relative border-2 border-surface shadow-[0_0_20px_rgba(0,0,0,0.5)] transition-transform duration-300 group-hover:scale-105"
-                        />
-                    </div>
-                    <div className="flex-1 text-center sm:text-left">
-                        <div className="flex flex-col items-center gap-2 sm:flex-row">
-                            <h1 className="text-2xl font-bold text-foreground">
-                                {profile.username || "Desconocido"}
-                            </h1>
-                            {isYou && (
-                                <span className="rounded-full bg-accent/10 px-2.5 py-0.5 text-xs font-medium text-accent">
-                                    Tú
-                                </span>
-                            )}
-                            {isProfileAdmin && (
-                                <span className="flex items-center gap-1 rounded-full bg-red-500/10 px-2.5 py-0.5 text-xs font-medium text-red-400">
-                                    <Crown size={12} />
-                                    Admin
-                                </span>
-                            )}
-                        </div>
-                        <div className="mt-2 flex flex-wrap items-center justify-center gap-3 text-sm text-muted sm:justify-start">
-                            {profile.position && (
-                                <span className={`flex items-center gap-1.5 rounded-full border px-3 py-1 font-semibold text-[11px] uppercase tracking-wider ${POSITION_COLORS[profile.position as keyof typeof POSITION_COLORS] || "bg-accent/10 border-accent/30 text-accent"}`}>
-                                    <span>{POSITION_ICONS[profile.position as keyof typeof POSITION_ICONS]}</span>
-                                    {positionLabels[profile.position as keyof typeof positionLabels] || profile.position}
-                                </span>
-                            )}
-                            <span className="flex items-center gap-1.5 rounded-full border border-accent/40 bg-accent/10 px-3 py-1 font-bold text-accent shadow-[0_0_10px_rgba(204,255,0,0.1)]">
-                                {seasonalStats?.elo_rating ?? 1000} RP
-                            </span>
-                            <span className="rounded-full border border-border/50 bg-black/20 px-3 py-1 text-xs font-medium text-muted">
-                                {season.name}
-                            </span>
-                            {profile.market_value !== null && (
-                                <span className="flex items-center gap-1.5 rounded-full border border-green-500/40 bg-green-500/10 px-3 py-1 text-xs font-semibold text-green-400">
-                                    {new Intl.NumberFormat("es-ES", { style: "currency", currency: "EUR", maximumFractionDigits: 0 }).format(profile.market_value)}
-                                </span>
-                            )}
-                            {(seasonalStats?.matches_played ?? 0) < 3 && (
-                                <span className="rounded-full border border-yellow-500/30 bg-yellow-500/10 px-3 py-1 text-xs font-medium text-yellow-400">
-                                    Provisional
-                                </span>
-                            )}
-                        </div>
+            <section className="px-4 pt-2 pb-6">
+                {equipo && proximo && (
+                    <p className="t-seccion mb-3">
+                        {titularPetoJugador({ equipo, fecha: proximo.fecha, ahora })}
+                    </p>
+                )}
 
-                        {/* Trophies Section - Under Name */}
-                        {trophies.length > 0 && (
-                            <div className="mt-5 border-t border-border/50 pt-4">
-                                <h3 className="mb-3 text-sm font-semibold text-yellow-400/90 flex items-center justify-center sm:justify-start gap-1.5">
-                                    <Crown size={14} className="text-yellow-400" />
-                                    Trofeos ({trophies.length})
-                                </h3>
-                                <div className="flex flex-wrap gap-4 justify-center sm:justify-start">
-                                    {trophies.map((trophy) => (
-                                        <Link
-                                            key={trophy.id}
-                                            href={`/matches/${trophy.id}`}
-                                            className="group relative flex flex-col items-center gap-2 rounded-2xl bg-surface p-4 transition-transform hover:-translate-y-1 hover:bg-surface-hover"
-                                        >
-                                            <div className="relative h-28 w-28 drop-shadow-[0_0_15px_rgba(250,204,21,0.3)] group-hover:drop-shadow-[0_0_30px_rgba(250,204,21,0.6)] transition-all">
-                                                <Image
-                                                    src="/mvp-trophy.png"
-                                                    alt="MVP Trophy"
-                                                    fill
-                                                    priority={true}
-                                                    sizes="112px"
-                                                    className="object-contain transition-transform duration-300 hover:scale-110"
-                                                />
-                                            </div>
-                                            <div className="text-center mt-1">
-                                                <p className="text-[11px] tracking-wider uppercase font-bold text-yellow-500/90">MVP</p>
-                                                <p className="text-xs font-medium text-foreground capitalize">
-                                                    {new Intl.DateTimeFormat('es-ES', { day: 'numeric', month: 'short', year: 'numeric' }).format(new Date(trophy.date))}
-                                                </p>
-                                            </div>
-                                        </Link>
-                                    ))}
-                                </div>
+                <h1
+                    className="t-cartel"
+                    style={{ "--chars": Math.max(...lineas.map((l) => l.length)) } as CSSProperties}
+                >
+                    {lineas.map((linea) => (
+                        <span key={linea} className="block">
+                            {linea}
+                        </span>
+                    ))}
+                </h1>
+
+                <div className="mt-4 flex items-center gap-3">
+                    <Avatar
+                        src={getAvatarUrl(process.env.NEXT_PUBLIC_SUPABASE_URL!, profile.avatar_url)}
+                        fallback={nombre}
+                        size="lg"
+                        priority
+                    />
+                    <p className="min-w-0 text-[15px] leading-snug font-medium">
+                        {identidad.map((dato, i) => (
+                            <span key={dato} className="whitespace-nowrap">
+                                {i > 0 && " · "}
+                                {dato}
+                            </span>
+                        ))}
+                    </p>
+                </div>
+
+                <p className="t-titular mt-4 text-balance">{titularJugador(datosJugador)}</p>
+
+                <p className="mt-4 flex flex-wrap items-baseline gap-x-3">
+                    <span className="t-cifra text-[56px] font-black">{rp} RP</span>
+                    {puntos.length > 0 && (
+                        <span className="text-[15px] font-medium">
+                            {conSigno(rp - inicio)} en {plural(puntos.length, "partido")}
+                        </span>
+                    )}
+                </p>
+
+                <div className="mt-2">
+                    <GraficoRP inicio={inicio} puntos={puntos} resumen={resumenGrafico} />
+                </div>
+            </section>
+
+            <div className={cn("flex-1 bg-background pb-8 text-foreground", SUELO)}>
+                <section className="px-4 pt-6">
+                    <div className="grid grid-cols-2 gap-x-4 gap-y-5">
+                        {cifras.map(({ valor, etiqueta }) => (
+                            <div key={etiqueta}>
+                                <p className="t-cifra text-[56px] font-black">{valor}</p>
+                                <p className="t-meta mt-1 text-muted">{etiqueta}</p>
                             </div>
-                        )}
+                        ))}
                     </div>
-                </div>
-            </Card>
 
-            {/* Stats Grid */}
-            <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
-                <Card className="relative overflow-hidden text-center border-border/80 bg-gradient-to-br from-surface to-surface-hover/30 hover:border-accent/40 transition-colors">
-                    <p className="text-sm text-muted">Partidos</p>
-                    <p className="mt-1 text-3xl font-bold text-foreground">{seasonalStats?.matches_played ?? 0}</p>
-                </Card>
-                <Card className="relative overflow-hidden text-center border-border/80 bg-gradient-to-br from-surface to-surface-hover/30 hover:border-accent/40 transition-colors">
-                    <p className="text-sm text-muted">Goles</p>
-                    <p className="mt-1 text-3xl font-bold text-foreground">{seasonalStats?.goals_scored ?? 0}</p>
-                </Card>
-                <Card className="relative overflow-hidden text-center border-border/80 bg-gradient-to-br from-surface to-surface-hover/30 hover:border-green-500/40 transition-colors">
-                    <div className="absolute top-0 right-1/2 translate-x-1/2 w-4/5 h-px bg-gradient-to-r from-transparent via-green-500/30 to-transparent"></div>
-                    <p className="text-sm text-muted">Victorias</p>
-                    <p className="mt-1 text-3xl font-bold text-green-400">{seasonalStats?.wins ?? 0}</p>
-                </Card>
-                <Card className="relative overflow-hidden text-center border-border/80 bg-gradient-to-br from-surface to-surface-hover/30 hover:border-red-500/40 transition-colors">
-                    <div className="absolute top-0 right-1/2 translate-x-1/2 w-4/5 h-px bg-gradient-to-r from-transparent via-red-500/30 to-transparent"></div>
-                    <p className="text-sm text-muted">Derrotas</p>
-                    <p className="mt-1 text-3xl font-bold text-red-500">{seasonalStats?.losses ?? 0}</p>
-                </Card>
+                    <PanenkaDice size={56} className="mt-6">
+                        {frasePanenkaJugador({
+                            id: `${id}:${terminados[0]?.id ?? season.id}`,
+                            ...datosJugador,
+                        })}
+                    </PanenkaDice>
+                </section>
+
+                {(h2h.juntos > 0 || h2h.contra > 0) && (
+                    <section className="px-4 pt-10">
+                        <div className="flex items-baseline justify-between gap-4">
+                            <h2 className="t-seccion">Historial vs ti</h2>
+                            <p className="t-meta text-muted">{h2h.contra} en contra</p>
+                        </div>
+                        <div className="mt-3 grid grid-cols-4 gap-x-2">
+                            {[
+                                { valor: h2h.tuyas, etiqueta: "Tuyas" },
+                                { valor: h2h.suyas, etiqueta: "Suyas" },
+                                { valor: h2h.empates, etiqueta: elegirPlural(h2h.empates, "Empate") },
+                                { valor: h2h.juntos, etiqueta: "Juntos" },
+                            ].map(({ valor, etiqueta }) => (
+                                <div key={etiqueta}>
+                                    <p className="t-cifra text-[44px] font-black">{valor}</p>
+                                    <p className="t-meta mt-1 text-muted">{etiqueta}</p>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+                )}
+
+                <section className="pt-10">
+                    <div className="flex items-baseline justify-between gap-4 px-4 pb-2">
+                        <h2 className="t-seccion">Trofeos</h2>
+                        {trofeos.length > 0 && <p className="t-cifra text-[30px]">{trofeos.length}</p>}
+                    </div>
+                    {trofeos.length > 0 ? (
+                        <Filas aria-label="Trofeos">
+                            {trofeos.map((trofeo) => (
+                                <Fila
+                                    key={trofeo.id}
+                                    href={`/matches/${trofeo.id}`}
+                                    inicio={<Trophy size={18} strokeWidth={1.75} aria-hidden="true" />}
+                                    nombre="MVP"
+                                    detalle={`${diaYMes(trofeo.date)}, ${trofeo.location}`}
+                                />
+                            ))}
+                        </Filas>
+                    ) : (
+                        <p className="px-4 text-muted">{fraseVacio("trofeos", id)}</p>
+                    )}
+                </section>
+
+                <section className="px-4 pt-10">
+                    <h2 className="t-seccion">Goles por mes</h2>
+                    {goles > 0 ? (
+                        <GolesPorMes meses={[...golesPorMes.values()]} />
+                    ) : (
+                        <p className="mt-2 text-muted">{fraseVacio("goles", id)}</p>
+                    )}
+                </section>
+
+                <section className="pt-10">
+                    <h2 className="t-seccion px-4 pb-2">Partidos recientes</h2>
+                    {terminados.length > 0 ? (
+                        <Filas aria-label="Partidos recientes">
+                            {terminados.slice(0, 10).map((partido) => {
+                                const suEquipo = equipoDeTeam(partido.team);
+                                const marcador =
+                                    partido.team_a_score !== null && partido.team_b_score !== null
+                                        ? `${partido.team_a_score}-${partido.team_b_score}`
+                                        : undefined;
+                                return (
+                                    <Fila
+                                        key={partido.id}
+                                        href={`/matches/${partido.id}`}
+                                        inicio={
+                                            suEquipo ? (
+                                                <Peto estado="lleno" equipo={suEquipo} size={20} />
+                                            ) : undefined
+                                        }
+                                        nombre={
+                                            <>
+                                                {suEquipo && <span className="sr-only">De {suEquipo}. </span>}
+                                                {partido.resultado
+                                                    ? NOMBRE_RESULTADO[partido.resultado]
+                                                    : "Sin resultado"}
+                                                {partido.mvp && ", MVP"}
+                                            </>
+                                        }
+                                        detalle={[
+                                            diaYMes(partido.date),
+                                            partido.goles > 0 ? plural(partido.goles, "gol") : null,
+                                            partido.location,
+                                        ]
+                                            .filter(Boolean)
+                                            .join(" · ")}
+                                        cifra={marcador}
+                                    />
+                                );
+                            })}
+                        </Filas>
+                    ) : (
+                        <p className="px-4 text-muted">{fraseVacio("historial", id)}</p>
+                    )}
+                </section>
             </div>
-
-            {/* H2H Stats (Only if viewing someone else) */}
-            {!isYou && (h2h.playedTogether > 0 || h2h.playedAgainst > 0) && (
-                <Card className="mb-8 overflow-hidden border border-border/80 bg-gradient-to-br from-surface to-surface-hover/30 hover:border-accent/40 hover:shadow-[0_8px_30px_rgba(204,255,0,0.06)] transition-all">
-                    <CardHeader className="border-b border-border/50 pb-4 bg-black/20">
-                        <CardTitle className="flex items-center gap-2 text-lg text-foreground">
-                            <Swords size={20} className="text-accent" />
-                            Historial vs Ti
-                        </CardTitle>
-                    </CardHeader>
-                    <div className="grid grid-cols-3 divide-x divide-border/50 p-4 bg-black/10">
-                        <div className="text-center px-2 group">
-                            <p className="truncate text-[10px] uppercase tracking-wider text-muted mb-1 group-hover:text-green-400 transition-colors">Victoria Tuya</p>
-                            <p className="text-3xl font-bold text-green-400">{h2h.viewerWins}</p>
-                        </div>
-                        <div className="text-center px-2 group">
-                            <p className="truncate text-[10px] uppercase tracking-wider text-muted mb-1 group-hover:text-red-500 transition-colors">Victoria Suya</p>
-                            <p className="text-3xl font-bold text-red-500">{h2h.profileWins}</p>
-                        </div>
-                        <div className="text-center px-2 group">
-                            <p className="truncate text-[10px] uppercase tracking-wider text-muted mb-1 group-hover:text-blue-400 transition-colors">Juntos</p>
-                            <p className="text-3xl font-bold text-blue-400">{h2h.playedTogether}</p>
-                        </div>
-                    </div>
-                </Card>
-            )}
-
-            {/* Charts */}
-            {(() => {
-                // Goals per month
-                const monthMap: Record<string, number> = {};
-                const chronological = [...finishedMatches].sort(
-                    (a, b) => new Date(a.date).getTime() - new Date(b.date).getTime()
-                );
-                for (const m of chronological) {
-                    const d = new Date(m.date);
-                    const key = `${d.toLocaleString("es-ES", { month: "short" })} ${String(d.getFullYear()).slice(2)}`;
-                    monthMap[key] = (monthMap[key] || 0) + (m.userGoals || 0);
-                }
-                const goalsPerMonth = Object.entries(monthMap).map(([month, goals]) => ({ month, goals }));
-
-                // Win rate over time
-                let w = 0;
-                const winRateOverTime = chronological
-                    .filter((m) => m.team_a_score !== null && m.team_b_score !== null && m.userTeam)
-                    .map((m, i) => {
-                        const my = m.userTeam === "A" ? m.team_a_score! : m.team_b_score!;
-                        const opp = m.userTeam === "A" ? m.team_b_score! : m.team_a_score!;
-                        if (my > opp) w++;
-                        return { match: i + 1, rate: Math.round((w / (i + 1)) * 100) };
-                    });
-
-                let matchCounter = 1;
-                const rpOverTime = rpHistoryData?.map((entry) => ({
-                    match: matchCounter++,
-                    rp: entry.new_rp,
-                })) || [];
-
-                return (
-                    <div className="mb-8">
-                        <PlayerCharts goalsPerMonth={goalsPerMonth} winRateOverTime={winRateOverTime} rpOverTime={rpOverTime} />
-                    </div>
-                );
-            })()}
-
-
-
-            {/* Recent Matches */}
-            <h2 className="mb-4 text-lg font-semibold text-foreground">
-                Partidos Recientes
-            </h2>
-            {finishedMatches.length > 0 ? (
-                <div className="space-y-3">
-                    {finishedMatches.slice(0, 10).map((match) => {
-                        const myScore = match.userTeam === "A" ? match.team_a_score : match.team_b_score;
-                        const oppScore = match.userTeam === "A" ? match.team_b_score : match.team_a_score;
-                        let result: "win" | "draw" | "loss" | null = null;
-                        if (myScore !== null && oppScore !== null && match.userTeam) {
-                            if (myScore > oppScore) result = "win";
-                            else if (myScore === oppScore) result = "draw";
-                            else result = "loss";
-                        }
-
-                        const resultConfig = {
-                            win: { label: "VICTORIA", bg: "bg-green-500/10", text: "text-green-400", border: "border-green-500/30" },
-                            draw: { label: "EMPATE", bg: "bg-zinc-500/10", text: "text-zinc-400", border: "border-zinc-500/30" },
-                            loss: { label: "DERROTA", bg: "bg-red-500/10", text: "text-red-400", border: "border-red-500/30" },
-                        };
-
-                        const config = result ? resultConfig[result] : null;
-
-                        return (
-                            <Link key={match.id} href={`/matches/${match.id}`} className="group block">
-                                <Card className="transition-all border border-border/80 bg-gradient-to-br from-surface to-surface-hover/30 hover:border-accent/40 hover:-translate-y-0.5 hover:shadow-[0_8px_30px_rgba(204,255,0,0.08)]">
-                                    <div className="flex items-center justify-between">
-                                        <div className="min-w-0 flex-1 space-y-2">
-                                            <div className="flex items-center gap-2">
-                                                {config && (
-                                                    <span className={`rounded-full border px-2.5 py-0.5 text-[10px] font-bold ${config.bg} ${config.text} ${config.border}`}>
-                                                        {config.label}
-                                                    </span>
-                                                )}
-                                                {match.userMvp && (
-                                                    <span className="rounded-full bg-yellow-500/10 px-2 py-0.5 text-[10px] font-bold text-yellow-500/90 border border-yellow-500/30 shadow-[0_0_8px_rgba(234,179,8,0.2)]">
-                                                        MVP
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <div className="flex items-center gap-2 text-foreground">
-                                                <MapPin size={14} className="shrink-0 text-accent" />
-                                                <span className="truncate font-medium">{match.location}</span>
-                                            </div>
-                                            <div className="flex items-center gap-4 text-sm text-muted">
-                                                <span className="flex items-center gap-1.5">
-                                                    <Calendar size={14} />
-                                                    {formatDate(match.date)}
-                                                </span>
-                                                {match.userGoals > 0 && (
-                                                    <span className="flex items-center gap-1 text-accent font-semibold">
-                                                        <Target size={14} />
-                                                        {match.userGoals} gol{match.userGoals !== 1 ? "es" : ""}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {match.team_a_score !== null && match.team_b_score !== null && (
-                                        <div className="mt-4 flex items-center justify-between border-t border-border/50 bg-black/10 px-6 py-3 -mx-6 -mb-6 rounded-b-2xl">
-                                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted group-hover:text-foreground transition-colors relative z-10 pointer-events-none">Ver Detalles →</span>
-                                            <div className="flex items-center justify-end gap-3 text-center shrink-0 min-w-[70px]">
-                                                <div>
-                                                    <p className={`text-[9px] uppercase tracking-wider font-bold mb-0.5 text-red-400 flex items-center`}>
-                                                        Rojo {match.userTeam === "A" && <span className="text-accent ml-1">(P)</span>}
-                                                    </p>
-                                                    <p className={`text-xl font-bold leading-none ${match.userTeam === "A" && result === "win" ? "text-accent drop-shadow-[0_0_8px_rgba(204,255,0,0.5)] scale-110" : "text-foreground"}`}>
-                                                        {match.team_a_score}
-                                                    </p>
-                                                </div>
-                                                <span className="text-sm font-bold text-muted/50">-</span>
-                                                <div className="flex flex-col items-end">
-                                                    <p className={`text-[9px] uppercase tracking-wider font-bold mb-0.5 text-blue-400 flex items-center`}>
-                                                        {match.userTeam === "B" && <span className="text-accent mr-1">(P)</span>} Azul
-                                                    </p>
-                                                    <p className={`text-xl font-bold leading-none ${match.userTeam === "B" && result === "win" ? "text-accent drop-shadow-[0_0_8px_rgba(204,255,0,0.5)] scale-110" : "text-foreground"}`}>
-                                                        {match.team_b_score}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-                                </Card>
-                            </Link>
-                        );
-                    })}
-                </div>
-            ) : (
-                <Card className="text-center">
-                    <p className="py-4 text-muted">Aún sin partidos finalizados</p>
-                </Card>
-            )}
         </div>
     );
 }

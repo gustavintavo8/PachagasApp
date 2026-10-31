@@ -14,9 +14,5 @@ export default async function AsistentePage() {
 
     if (!user) redirect("/login");
 
-    return (
-        <div className="mx-auto max-w-2xl px-4 py-6">
-            <AsistenteChat />
-        </div>
-    );
+    return <AsistenteChat />;
 }

@@ -7,6 +7,8 @@ export function cn(...inputs: ClassValue[]) {
 
 export function getAvatarUrl(supabaseUrl: string, path: string | null) {
     if (!path) return null;
+    // Los perfiles de Google guardan la URL absoluta de su foto
+    if (/^https?:\/\//i.test(path)) return path;
     return `${supabaseUrl}/storage/v1/object/public/avatars/${path}`;
 }
 

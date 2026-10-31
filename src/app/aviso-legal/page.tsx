@@ -1,4 +1,5 @@
 import type { Metadata } from "next";
+import { TextoLegal, TituloLegal } from "@/components/TextoLegal";
 import { LEGAL_CONTROLLER_NAME, LEGAL_CONTACT_EMAIL } from "@/lib/legal";
 
 export const metadata: Metadata = {
@@ -8,8 +9,8 @@ export const metadata: Metadata = {
 
 export default function AvisoLegalPage() {
     return (
-        <article className="mx-auto max-w-2xl px-4 py-10 text-sm leading-relaxed text-foreground [&_h2]:mt-8 [&_h2]:mb-2 [&_h2]:text-lg [&_h2]:font-semibold [&_p]:mb-3 [&_a]:text-accent">
-            <h1 className="text-2xl font-bold">Aviso Legal</h1>
+        <TextoLegal>
+            <TituloLegal>Aviso Legal</TituloLegal>
 
             <h2>Titular del servicio</h2>
             <p>{LEGAL_CONTROLLER_NAME}.</p>
@@ -26,6 +27,6 @@ export default function AvisoLegalPage() {
             <h2>Propiedad intelectual</h2>
             <p>El código y la marca del proyecto pertenecen a su autor. El contenido subido por
                 cada usuario sigue siendo de quien lo aporta.</p>
-        </article>
+        </TextoLegal>
     );
 }

@@ -2,72 +2,84 @@
 "use client";
 
 import Link from "next/link";
-import Image from "next/image";
 import { usePathname } from "next/navigation";
-import { Home, Calendar, BarChart3, Users, Bot } from "lucide-react";
+import { ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { barrasVisibles, tabActiva, tabs } from "./BottomNav";
 
 interface NavbarClientProps {
-  desktopUserMenu?: React.ReactNode;
-  mobileRight?: React.ReactNode;
+  enlaces?: React.ReactNode;
+  acciones?: React.ReactNode;
 }
 
-const navLinks = [
-  { href: "/",           label: "Inicio",    icon: Home      },
-  { href: "/matches",    label: "Partidos",  icon: Calendar  },
-  { href: "/leaderboard",label: "Ranking",   icon: BarChart3 },
-  { href: "/players",    label: "Jugadores", icon: Users     },
-  { href: "/asistente",  label: "Panenka",   icon: Bot       },
-];
+// Detalle: flecha de vuelta y contexto en lugar de la palabra
+function vuelta(pathname: string) {
+  if (pathname.startsWith("/matches/") || pathname === "/history") {
+    return { href: "/matches", label: "Partidos" };
+  }
+  if (pathname === "/players" || pathname.startsWith("/players/")) {
+    return { href: "/leaderboard", label: "Ranking" };
+  }
+  return null;
+}
 
-export function NavbarClient({ desktopUserMenu, mobileRight }: NavbarClientProps) {
+// Mismos enlaces que la barra inferior, en md+
+export function EnlacesBarra({ sesion }: { sesion?: boolean }) {
   const pathname = usePathname();
+  if (!barrasVisibles(pathname, sesion)) return null;
 
   return (
-    <nav aria-label="Navegación principal" className="sticky top-0 z-50 border-b border-border bg-surface/80 backdrop-blur-xl">
-      <div className="mx-auto flex h-16 max-w-5xl items-center justify-between px-4">
-        {/* Logo */}
-        <Link href="/" className="flex items-center gap-2">
-          <Image src="/icon-192.png" alt="Pachanga" width={32} height={32} className="rounded-lg" />
-          <span className="text-lg font-bold text-foreground">Pachanga</span>
-        </Link>
-
-        {/* Desktop Nav Links */}
-        <div className="hidden items-center gap-1 md:flex">
-          {navLinks.map((link) => {
-            const Icon = link.icon;
-            const active =
-              pathname === link.href ||
-              (link.href === "/matches" && pathname === "/history");
-            return (
-              <Link
-                key={link.href}
-                href={link.href}
-                aria-current={active ? "page" : undefined}
-                className={cn(
-                  "flex items-center gap-2 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
-                  active
-                    ? "bg-accent/10 text-accent"
-                    : "text-muted hover:bg-surface-hover hover:text-foreground"
-                )}
-              >
-                <Icon size={16} aria-hidden="true" />
-                {link.label}
-              </Link>
-            );
-          })}
-        </div>
-
-        {/* Desktop: User menu (avatar + notifications + logout) */}
-        <div className="hidden items-center gap-3 md:flex">
-          {desktopUserMenu}
-        </div>
-
-        {/* Mobile: solo campana de notificaciones */}
-        <div className="flex items-center md:hidden">
-          {mobileRight}
-        </div>
-      </div>
+    <nav aria-label="Navegación principal" className="hidden items-stretch gap-4 self-stretch md:flex">
+      {tabs.map(({ href, label }) => {
+        const active = tabActiva(href, pathname);
+        return (
+          <Link
+            key={href}
+            href={href}
+            aria-current={active ? "page" : undefined}
+            className={cn(
+              "relative flex items-center font-display text-[21px] font-semibold",
+              active
+                ? "text-foreground before:absolute before:inset-x-0 before:top-0 before:h-0.5 before:bg-foreground"
+                : "text-muted hover:text-foreground active:text-foreground"
+            )}
+          >
+            {label}
+          </Link>
+        );
+      })}
     </nav>
+  );
+}
+
+export function NavbarClient({ enlaces, acciones }: NavbarClientProps) {
+  const pathname = usePathname();
+  if (pathname === "/login" || pathname === "/access") return null;
+
+  const atras = vuelta(pathname);
+
+  return (
+    // Sin fondo y con z: los campos de color pasan por debajo. No flota, se va con el scroll.
+    <header className="barra-superior relative z-40 pt-[env(safe-area-inset-top,0px)]">
+      <div className="mx-auto flex h-12 w-full items-center justify-between gap-4 px-4 md:max-w-[640px]">
+        {atras ? (
+          <Link
+            href={atras.href}
+            className="-ml-1 flex min-h-11 items-center gap-0.5 pr-3 text-[15px] font-medium text-foreground active:text-muted"
+          >
+            <ChevronLeft size={18} strokeWidth={1.75} aria-hidden="true" />
+            {atras.label}
+          </Link>
+        ) : (
+          <Link href="/" className="flex min-h-11 items-center font-display text-[30px] font-black leading-none">
+            Pachanga
+          </Link>
+        )}
+
+        {enlaces}
+
+        <div className="-mr-2.5 flex items-center">{acciones}</div>
+      </div>
+    </header>
   );
 }

@@ -1,12 +1,22 @@
 import type { Metadata } from "next";
 import { requireCommunityAccess } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
+import { headers } from "next/headers";
 import { redirect, notFound } from "next/navigation";
 import { MatchDetail } from "./MatchDetail";
 import { isAdmin, getAdminUserIds } from "@/lib/permissions";
 import { createAdminClient } from "@/lib/supabase/admin";
 
 const BASE_URL = process.env.NEXT_PUBLIC_APP_URL ?? "https://pachanga.app";
+
+// El mismo origen en servidor y cliente: el enlace de WhatsApp no puede salir distinto al hidratar
+async function origenPeticion(): Promise<string> {
+    const cabeceras = await headers();
+    const host = cabeceras.get("x-forwarded-host") ?? cabeceras.get("host");
+    if (!host) return BASE_URL;
+    const protocolo = cabeceras.get("x-forwarded-proto")?.split(",")[0] ?? "https";
+    return `${protocolo}://${host}`;
+}
 
 export async function generateMetadata({
     params,
@@ -46,6 +56,7 @@ export async function generateMetadata({
         month: "long",
         hour: "2-digit",
         minute: "2-digit",
+        timeZone: "Europe/Madrid",
     });
 
     const title = `Partido en ${match.location} — Pachanga`;
@@ -115,25 +126,25 @@ export default async function MatchPage({
         },
     }));
 
+    const origen = await origenPeticion();
+
+    // Sin escapar, una ubicación con </script> se saldría del bloque y se ejecutaría para todos
+    const datosEstructurados = JSON.stringify({
+        "@context": "https://schema.org",
+        "@type": "SportsEvent",
+        name: `Partido de fútbol en ${match.location}`,
+        startDate: match.date,
+        location: {
+            "@type": "Place",
+            name: match.location,
+        },
+        sport: "Fútbol",
+        url: `${BASE_URL}/matches/${id}`,
+    }).replace(/</g, "\\u003c");
+
     return (
         <>
-            <script
-                type="application/ld+json"
-                dangerouslySetInnerHTML={{
-                    __html: JSON.stringify({
-                        "@context": "https://schema.org",
-                        "@type": "SportsEvent",
-                        name: `Partido de fútbol en ${match.location}`,
-                        startDate: match.date,
-                        location: {
-                            "@type": "Place",
-                            name: match.location,
-                        },
-                        sport: "Fútbol",
-                        url: `${BASE_URL}/matches/${id}`,
-                    }),
-                }}
-            />
+            <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: datosEstructurados }} />
             <MatchDetail
                 match={match}
                 participants={seasonalParticipants}
@@ -147,6 +158,8 @@ export default async function MatchPage({
                 }}
                 isAdmin={userIsAdmin}
                 adminUserIds={adminUserIds}
+                origen={origen}
+                ahora={new Date().toISOString()}
             />
         </>
     );

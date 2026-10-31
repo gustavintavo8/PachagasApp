@@ -1,25 +1,32 @@
 import { createClient } from "@/lib/supabase/server";
-import { createAdminClient } from "@/lib/supabase/admin";
 import { redirect } from "next/navigation";
-import { LeaderboardTabs } from "./LeaderboardTabs";
-import { getAdminUserIds } from "@/lib/permissions";
-import { cacheLife, cacheTag } from "next/cache";
 import type { Metadata } from "next";
-import Link from "next/link";
+import { PanenkaDice } from "@/components/PanenkaDice";
+import { PROVISIONAL_THRESHOLD } from "@/lib/elo";
 import { getActiveSeason } from "@/lib/seasons";
+import {
+    frasePanenkaRanking,
+    MAX_TITULAR,
+    lineaPorDetras,
+    rachaDeEquipo,
+    titularRanking,
+} from "@/lib/titulares";
+import { cn } from "@/lib/utils";
+import { LeaderboardTabs } from "./LeaderboardTabs";
+import { getTemporada } from "./datos";
+import { clasificados, ordenar, type FilaRanking } from "./tabla";
 
 export const metadata: Metadata = {
     title: "Ranking — Pachanga",
     description: "Clasificación de los mejores jugadores de la comunidad.",
 };
 
-const PAGE_SIZE = 20;
+function rival(fila: FilaRanking | undefined, yo: FilaRanking) {
+    if (!fila) return null;
+    return { nombre: fila.username, distancia: fila.elo_rating - yo.elo_rating };
+}
 
-export default async function LeaderboardPage({
-    searchParams,
-}: {
-    searchParams: Promise<{ page?: string }>;
-}) {
+export default async function LeaderboardPage() {
     const supabase = await createClient();
     const {
         data: { user },
@@ -27,93 +34,78 @@ export default async function LeaderboardPage({
 
     if (!user) redirect("/login");
 
-    const { page: pageParam } = await searchParams;
-    const page = Math.max(1, parseInt(pageParam ?? "1", 10));
     const season = await getActiveSeason();
+    const { filas, ultimoPartidoId, resultados } = await getTemporada(season.id);
 
-    const { leaderboardData, totalPages, adminUserIds } = await getLeaderboardData(page, season.id);
+    const tabla = clasificados(filas);
+    const miFila = filas.find((fila) => fila.id === user.id);
+    const indice = tabla.findIndex((fila) => fila.id === user.id);
+    const puesto = indice === -1 ? null : indice + 1;
+    const partidos = miFila?.matches_played ?? 0;
 
-    return (
-        <div className="mx-auto max-w-5xl px-4 py-8">
-            <div className="mb-8">
-                <h1 className="text-2xl font-bold text-foreground">Ranking</h1>
-                <p className="text-muted">Los mejores jugadores de la comunidad · {season.name}</p>
-            </div>
-            <LeaderboardTabs data={leaderboardData} currentUserId={user.id} adminUserIds={adminUserIds} />
-            {totalPages > 1 && (
-                <div className="mt-8 flex items-center justify-center gap-2">
-                    {page > 1 && (
-                        <Link
-                            href={`/leaderboard?page=${page - 1}`}
-                            className="rounded-lg border border-border px-4 py-2 text-sm text-muted transition-colors hover:border-accent/30 hover:text-foreground"
-                        >
-                            ← Anterior
-                        </Link>
-                    )}
-                    <span className="text-sm text-muted">{page} / {totalPages}</span>
-                    {page < totalPages && (
-                        <Link
-                            href={`/leaderboard?page=${page + 1}`}
-                            className="rounded-lg border border-border px-4 py-2 text-sm text-muted transition-colors hover:border-accent/30 hover:text-foreground"
-                        >
-                            Siguiente →
-                        </Link>
-                    )}
-                </div>
-            )}
-        </div>
-    );
-}
+    const anterior = miFila && indice > 0 ? rival(tabla[indice - 1], miFila) : null;
+    const siguiente = miFila && puesto ? rival(tabla[indice + 1], miFila) : null;
 
-async function getLeaderboardData(page: number, seasonId: string) {
-    "use cache";
-    cacheLife("hours");
-    cacheTag("leaderboard", `leaderboard:${seasonId}`);
-
-    const admin = createAdminClient();
-    const from = (page - 1) * PAGE_SIZE;
-    const to = from + PAGE_SIZE - 1;
-
-    const [{ data: stats, count }, adminUserIds] = await Promise.all([
-        admin
-            .from("season_player_stats")
-            .select(`
-                season_id, user_id, elo_rating, matches_played, goals_scored,
-                wins, draws, losses, mvps,
-                profiles!inner(id, username, avatar_url, position, skill_level)
-            `, { count: "exact" })
-            .eq("season_id", seasonId)
-            .order("elo_rating", { ascending: false })
-            .order("matches_played", { ascending: false })
-            .range(from, to),
-        getAdminUserIds(),
-    ]);
-
-    const totalPages = Math.ceil((count ?? 0) / PAGE_SIZE);
-
-    const leaderboardData = (stats || []).map((stat) => {
-        const profile = (Array.isArray(stat.profiles) ? stat.profiles[0] : stat.profiles) as {
-            username: string | null;
-            avatar_url: string | null;
-            position: string | null;
-            skill_level: number | null;
-        } | null | undefined;
-
-        return {
-            id: stat.user_id,
-            username: profile?.username ?? null,
-            avatar_url: profile?.avatar_url ?? null,
-            position: profile?.position ?? null,
-            skill_level: profile?.skill_level ?? null,
-            elo_rating: stat.elo_rating ?? 1000,
-            matches_played: stat.matches_played ?? 0,
-            goals_scored: stat.goals_scored ?? 0,
-            wins: stat.wins ?? 0,
-            draws: stat.draws ?? 0,
-            losses: stat.losses ?? 0,
-            mvps: stat.mvps ?? 0,
-        };
+    const titular = titularRanking({
+        posicion: puesto,
+        totalEnTabla: tabla.length,
+        partidos,
+        anterior,
+        siguiente,
     });
 
-    return { leaderboardData, totalPages, adminUserIds };
+    const [pichichi, segundo] = ordenar(filas, "goles").filter((fila) => fila.goals_scored > 0);
+    const frase = frasePanenkaRanking({
+        id: ultimoPartidoId ?? season.id,
+        pichichi: pichichi && { posicion: pichichi.position },
+        segundoGoleador: segundo && { posicion: segundo.position },
+        rachaEquipo: rachaDeEquipo(resultados),
+        posicion: puesto,
+        totalEnTabla: tabla.length,
+        partidos,
+    });
+
+    // El líder ya dice en el titular quién viene detrás
+    const porDetras = puesto && puesto > 1 ? lineaPorDetras(siguiente) : null;
+    const balance = miFila ? `${miFila.wins}-${miFila.draws}-${miFila.losses}, V-E-D` : null;
+
+    return (
+        <>
+            <header className="px-4 pt-2">
+                <div className="flex items-baseline justify-between gap-4">
+                    <h1 className="t-seccion font-black">Ranking</h1>
+                    <p className="text-[15px] leading-tight text-muted">{season.name}</p>
+                </div>
+
+                <p
+                    className={cn(
+                        "t-titular mt-6 font-black text-balance [overflow-wrap:anywhere]",
+                        // La frase larga de quien aún no cuenta no puede empujar la tabla fuera de la pantalla
+                        titular.length <= MAX_TITULAR && "text-[length:min(84px,21.5vw)] leading-[0.92]"
+                    )}
+                >
+                    {titular}
+                </p>
+
+                <div className="mt-6 grid grid-cols-[auto_1fr] gap-x-8">
+                    {/* Sin .º: por encima de décimo el titular ya lo dice con esa misma cifra */}
+                    <p className="t-cifra text-[64px] font-black">
+                        {puesto ?? partidos}
+                        <span className="t-meta ml-1.5 font-sans text-muted">
+                            de {puesto ? tabla.length : PROVISIONAL_THRESHOLD}
+                        </span>
+                    </p>
+                    <p className="t-cifra text-[64px] font-black">{miFila?.elo_rating ?? 1000} RP</p>
+                    <p className="t-meta mt-1 text-muted">{puesto ? "En la tabla" : "Para contar"}</p>
+                    <p className="t-meta mt-1 text-muted">{puesto ? (porDetras ?? balance) : "Provisional"}</p>
+                </div>
+
+                <PanenkaDice size={56} className="mt-6">
+                    {frase}
+                </PanenkaDice>
+            </header>
+
+            <LeaderboardTabs filas={filas} yo={user.id} vacio={ultimoPartidoId ?? season.id} />
+        </>
+    );
 }

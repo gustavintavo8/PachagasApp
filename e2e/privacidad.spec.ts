@@ -51,8 +51,10 @@ test.describe("Bloque 1 — exportacion de datos", () => {
 });
 
 test.describe("Bloque 2 — enlaces legales", () => {
+    // Con sesión, /login redirige a Inicio, que ya no lleva el pie.
+    test.use({ storageState: { cookies: [], origins: [] } });
     test("el footer enlaza las paginas legales", async ({ page }) => {
-        await page.goto("/");
+        await page.goto("/login");
         await expect(page.getByRole("link", { name: "Privacidad" })).toBeVisible();
         await expect(page.getByRole("link", { name: "Aviso legal" })).toBeVisible();
         await expect(page.getByRole("link", { name: "Términos" })).toBeVisible();
