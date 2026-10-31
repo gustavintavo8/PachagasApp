@@ -1,4 +1,3 @@
-
 // Redibujo de public/panenka.png. Las coordenadas salen de calcar el PNG, por eso
 // no son redondas. El viewBox centra el balón para poder ponerlo en el punto de saque.
 type Mood = "harto" | "dormido" | "contento";
