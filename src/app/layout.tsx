@@ -6,6 +6,7 @@ import { Navbar, BottomNavSesion } from "@/components/Navbar";
 import { NavbarSkeleton } from "@/components/NavbarSkeleton";
 import { Footer } from "@/components/Footer";
 import { BottomNav } from "@/components/BottomNav";
+import { RecortesPanenka } from "@/components/Panenka";
 import { ToastProvider } from "@/components/ui/Toast";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
@@ -44,6 +45,7 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
       </head>
       <body className="flex min-h-dvh flex-col antialiased">
+        <RecortesPanenka />
         {/* Skip link para usuarios de teclado/lectores de pantalla */}
         <a
           href="#main-content"

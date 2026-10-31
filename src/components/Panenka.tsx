@@ -1,4 +1,3 @@
-import { useId } from "react";
 
 // Redibujo de public/panenka.png. Las coordenadas salen de calcar el PNG, por eso
 // no son redondas. El viewBox centra el balón para poder ponerlo en el punto de saque.
@@ -179,18 +178,34 @@ function CaraContento({ vivo }: { vivo: boolean }) {
     );
 }
 
+const RECORTE_COMPLETO = "panenka-recorte-completo";
+const RECORTE_PEQUENO = "panenka-recorte-pequeno";
+
+// Los recortes viven una sola vez en el layout raíz. Un <clipPath> dentro de cada dibujo no
+// sirve: con id fijo, una copia en una ruta oculta (Activity) o bajo `hidden` deja sin recorte
+// a las visibles, y con useId el id cambia entre servidor y cliente.
+export function RecortesPanenka() {
+    return (
+        <svg width={0} height={0} aria-hidden="true" focusable="false" className="absolute">
+            <clipPath id={RECORTE_COMPLETO}>
+                <ellipse cx={96.5} cy={101} rx={67.4} ry={68.9} />
+            </clipPath>
+            <clipPath id={RECORTE_PEQUENO}>
+                <ellipse cx={96.5} cy={101} rx={65.5} ry={67} />
+            </clipPath>
+        </svg>
+    );
+}
+
 // Hasta 72px se quitan mechones y engordan las líneas finas
-function Completo({ mood, vivo, clip, medio }: { mood: Mood; vivo: boolean; clip: string; medio: boolean }) {
+function Completo({ mood, vivo, medio }: { mood: Mood; vivo: boolean; medio: boolean }) {
     const pelo = (medio ? PELO.filter((_, i) => i % 3 !== 1) : PELO).map((d) => <path key={d} d={d} />);
     const trazo = medio ? 2.8 : 1.9;
     return (
         <>
-            <clipPath id={clip}>
-                <ellipse cx={96.5} cy={101} rx={67.4} ry={68.9} />
-            </clipPath>
             <g fill="none" stroke="currentColor" strokeWidth={trazo} strokeLinecap="round">{pelo}</g>
             <ellipse cx={96.5} cy={101} rx={70} ry={71.5} fill={TINTA} stroke="currentColor" strokeWidth={2.4} />
-            <g clipPath={`url(#${clip})`}>
+            <g clipPath={`url(#${RECORTE_COMPLETO})`}>
                 <rect x={26} y={29} width={141} height={144} fill={SOMBRA} />
                 <ellipse cx={96.5} cy={94} rx={60} ry={65} fill="#fff" />
                 <g fill={PANEL}>
@@ -217,17 +232,14 @@ function Completo({ mood, vivo, clip, medio }: { mood: Mood; vivo: boolean; clip
 }
 
 // A 24-40px se empasta: mismo dibujo, con menos pelo, sin costuras y con todo más gordo.
-function Pequeno({ mood, vivo, clip }: { mood: Mood; vivo: boolean; clip: string }) {
+function Pequeno({ mood, vivo }: { mood: Mood; vivo: boolean }) {
     return (
         <>
-            <clipPath id={clip}>
-                <ellipse cx={96.5} cy={101} rx={65.5} ry={67} />
-            </clipPath>
             <g fill="none" stroke="currentColor" strokeWidth={4.8} strokeLinecap="round">
                 {PELO_CORTO.map((d) => <path key={d} d={d} />)}
             </g>
             <ellipse cx={96.5} cy={101} rx={71} ry={72.5} fill={TINTA} stroke="currentColor" strokeWidth={4.4} />
-            <g clipPath={`url(#${clip})`}>
+            <g clipPath={`url(#${RECORTE_PEQUENO})`}>
                 <rect x={26} y={29} width={141} height={144} fill="#fff" />
                 <g fill={PANEL}>
                     <path d="M76 30L83.5 42.5C92 41 101 41 110 42.5L119 30Z" />
@@ -288,18 +300,13 @@ export function Panenka({
     animated = false,
     className,
     title,
-    idClip,
 }: {
     size?: number;
     mood?: Mood;
     animated?: boolean;
     className?: string;
     title?: string;
-    /** Para un dibujo que sale en dos ramas de Suspense: useId daría un id distinto en cada una. */
-    idClip?: string;
 }) {
-    const id = useId();
-    const clip = idClip ?? `panenka-${id.replace(/[^a-zA-Z0-9_-]/g, "")}`;
     const pequeno = size <= 40;
     const clases = [animated ? "panenka-vivo" : "", className].filter(Boolean).join(" ") || undefined;
 
@@ -316,9 +323,9 @@ export function Panenka({
         >
             {title && <title>{title}</title>}
             {pequeno ? (
-                <Pequeno mood={mood} vivo={animated} clip={clip} />
+                <Pequeno mood={mood} vivo={animated} />
             ) : (
-                <Completo mood={mood} vivo={animated} clip={clip} medio={size < 72} />
+                <Completo mood={mood} vivo={animated} medio={size < 72} />
             )}
         </svg>
     );
