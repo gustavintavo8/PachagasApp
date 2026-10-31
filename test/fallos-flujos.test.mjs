@@ -101,6 +101,8 @@ test("barajar no se queda sin reparto si afinar siempre lleva al actual", () => 
     const nuevo = barajarEquipos(cuatro, conEquipos(actual));
     assert.ok(nuevo);
     assert.equal(mismoReparto(actual, nuevo), false);
+    // De los otros dos repartos posibles, el más igualado: 1200+1050 contra 1150+1000
+    assert.equal(nuevo.eloDelta, 50);
 });
 
 test("barajar con dos no tiene otro reparto, y lo dice", () => {

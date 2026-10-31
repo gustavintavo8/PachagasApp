@@ -86,7 +86,7 @@ export function NavbarClient({ enlaces, acciones }: NavbarClientProps) {
 
   // El camino dentro de la app. Se recuerda al renderizar, no en un efecto, para que la flecha
   // salga bien desde el primer pintado. Volver al penúltimo es ir atrás: no cuenta como venir de allí.
-  const [ruta, setRuta] = useState({ pila: [pathname], origenes: {} as Record<string, string> });
+  const [ruta, setRuta] = useState({ pila: [pathname], avanzo: false, origenes: {} as Record<string, string> });
   const anterior = ruta.pila.at(-2);
   if (ruta.pila.at(-1) !== pathname) {
     const actual = ruta.pila[ruta.pila.length - 1];
@@ -94,6 +94,7 @@ export function NavbarClient({ enlaces, acciones }: NavbarClientProps) {
     const [desde, aqui] = [pantalla(actual), pantalla(pathname)];
     setRuta({
       pila: vuelve ? ruta.pila.slice(0, -1) : [...ruta.pila, pathname],
+      avanzo: !vuelve,
       origenes: !vuelve && desde && aqui && desde.nivel < aqui.nivel ? { ...ruta.origenes, [pathname]: actual } : ruta.origenes,
     });
   }
@@ -110,8 +111,9 @@ export function NavbarClient({ enlaces, acciones }: NavbarClientProps) {
           <Link
             href={atras.href}
             onClick={(e) => {
-              // Volver de verdad: la lista conserva su búsqueda en la URL y su scroll
-              if (atras.href.split("?")[0] !== anterior) return;
+              // Volver de verdad: la lista conserva su búsqueda en la URL y su scroll. Solo justo después
+              // de avanzar: tras volver, un enlace y el atrás del sistema se ven igual y la pila ya no es fiable.
+              if (!ruta.avanzo || atras.href.split("?")[0] !== anterior) return;
               e.preventDefault();
               router.back();
             }}

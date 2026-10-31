@@ -215,7 +215,10 @@ export function barajarEquipos(
     let reserva: BalanceResult | null = null;
     for (let intento = 0; intento < INTENTOS_BARAJAR; intento++) {
         const { teamA, teamB } = repartoAlAzar(participants, azar);
-        if (!reserva && huellaReparto(teamA, teamB) !== huellaActual) reserva = resultado([...teamA], [...teamB]);
+        const crudo = resultado([...teamA], [...teamB]);
+        if (huellaReparto(teamA, teamB) !== huellaActual && (!reserva || crudo.eloDelta < reserva.eloDelta)) {
+            reserva = crudo;
+        }
 
         afinar(teamA, teamB);
         if (huellaReparto(teamA, teamB) === huellaActual) continue;

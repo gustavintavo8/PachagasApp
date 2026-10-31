@@ -75,7 +75,8 @@ export async function deleteAccount(): Promise<ActionResult> {
 
     // Sin su fila, un partido resuelto parecería sin resolver y los votos que quedan elegirían a otro MVP
     if (mvps.data.length > 0) {
-        await admin.from("mvp_votes").delete().in("match_id", mvps.data.map((m) => m.match_id));
+        const { error: errorVotos } = await admin.from("mvp_votes").delete().in("match_id", mvps.data.map((m) => m.match_id));
+        if (errorVotos) console.error("[data-actions] deleteAccount mvp_votes error:", errorVotos.message);
     }
 
     await supabase.auth.signOut();
