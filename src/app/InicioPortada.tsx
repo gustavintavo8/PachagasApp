@@ -253,7 +253,7 @@ export function InicioPortada({
                     <Respuesta texto={estado.respuesta} />
                     <p className="mt-3.5 text-balance text-lg font-medium leading-snug">{estado.linea}</p>
 
-                    <div className="mt-5 flex flex-wrap items-baseline justify-between gap-x-3">
+                    <div className="mt-5 flex flex-wrap items-baseline justify-between gap-x-2">
                         <p className="t-titular whitespace-nowrap text-[length:min(80px,20vw)]">{faltanTexto}</p>
                         {!conEquipos && <p className="t-meta whitespace-nowrap text-muted">Sin equipos todavía</p>}
                     </div>

@@ -2,7 +2,7 @@
 
 import { PanenkaDice } from "@/components/PanenkaDice";
 import { fechaCorta, fraseCancelado, respuestaPartido } from "@/lib/titulares";
-import { Compartir, PieInfo, type PropsInfo } from "./Compartir";
+import { Compartir, PieInfo, WeatherWidget, type PropsInfo } from "./Compartir";
 import { ListaJugadores } from "./jugadores";
 
 export function PartidoCancelado({
@@ -35,6 +35,10 @@ export function PartidoCancelado({
 
             <PanenkaDice className="mt-6 px-4">{fraseCancelado(match.id)}</PanenkaDice>
 
+            <div className="px-4 pt-3">
+                <WeatherWidget date={match.date} />
+            </div>
+
             {jugadores.length > 0 && (
                 <ListaJugadores titulo="Se habían apuntado" jugadores={jugadores} onVerJugador={onVerJugador} />
             )}
@@ -46,6 +50,7 @@ export function PartidoCancelado({
                 organizerName={organizerName}
                 organizerAvatarUrl={organizerAvatarUrl}
                 organizasTu={puede.organiza}
+                eresAdmin={puede.gestiona && !puede.organiza}
             />
         </div>
     );

@@ -1,9 +1,10 @@
 "use client";
 
-import type { CSSProperties, ReactNode } from "react";
+import type { CSSProperties } from "react";
 import dynamic from "next/dynamic";
+import Link from "next/link";
 import { ChevronRight } from "lucide-react";
-import { Button } from "@/components/ui/Button";
+import { buttonClasses } from "@/components/ui/Button";
 import { CampoEquipos, nombreEnCampo } from "@/components/Campo";
 import { Flood } from "@/components/Flood";
 import { Marcador } from "@/components/Marcador";
@@ -12,7 +13,7 @@ import { cn } from "@/lib/utils";
 import { fechaCorta, participanteCronica, titularCronica } from "@/lib/titulares";
 import { Compartir, PieInfo, type PropsInfo } from "./Compartir";
 import { aJugadorCampo, bandaEquipo, ListaSinEquipo } from "./jugadores";
-import { nombreDe, type Participante, type PestanaPartido } from "./datos";
+import { enlaceRepetir, nombreDe, type Participante, type PestanaPartido } from "./datos";
 
 const MvpVoting = dynamic(() => import("@/components/MvpVoting").then((mod) => ({ default: mod.MvpVoting })), {
     loading: () => <div className="skeleton mx-4 h-32" />,
@@ -34,9 +35,10 @@ function Goleadores({ equipo, enDosColumnas }: { equipo: Participante[]; enDosCo
         .sort((a, b) => b.goals - a.goals || nombreDe(a).localeCompare(nombreDe(b), "es"));
 
     return (
-        <ul className={cn("grid gap-x-4", enDosColumnas && "grid-cols-2")}>
+        // La pista sin medir crecería con el nombre más largo y truncate no llegaría a actuar
+        <ul className={cn("grid gap-x-4", enDosColumnas ? "grid-cols-2" : "grid-cols-[minmax(0,1fr)]")}>
             {goleadores.map((p) => (
-                <li key={p.user_id} className="flex h-7 items-center justify-between gap-2 text-[15px] font-medium">
+                <li key={p.user_id} className="flex h-6 min-w-0 items-center justify-between gap-2 text-[15px] font-medium">
                     <span className="min-w-0 truncate">{nombreEnCampo(nombreDe(p))}</span>
                     <span className="flex-none font-bold tabular-nums">{p.goals}</span>
                 </li>
@@ -57,10 +59,8 @@ export function PartidoTerminado({
     urlPartido,
     enlaceWhatsApp,
     onVerJugador,
-    onOrganizar,
-    pestanas,
     onPestana,
-}: PropsInfo & { pestanas: ReactNode; onPestana: (id: PestanaPartido) => void }) {
+}: PropsInfo & { onPestana: (id: PestanaPartido) => void }) {
     const rojo = match.team_a_score;
     const azul = match.team_b_score;
     const conResultado = rojo !== null && azul !== null;
@@ -85,7 +85,7 @@ export function PartidoTerminado({
 
     const campo = (p: Participante) => aJugadorCampo(p, currentUserId, false);
     const fecha = (
-        <p className="t-meta mt-1.5 [overflow-wrap:anywhere]">
+        <p className="t-meta mt-1.5 text-muted [overflow-wrap:anywhere]">
             {fechaCorta(match.date)} · {match.location}
         </p>
     );
@@ -94,18 +94,23 @@ export function PartidoTerminado({
         <div className="flex min-h-[calc(100dvh-var(--barra-inferior))] flex-col">
             {ganador && <Flood color={ganador} />}
 
-            {conResultado ? (
+            {conResultado && (
                 // En escritorio los enlaces de la barra caerían sobre la costura: ahí no pasa por debajo
-                <Marcador rojo={rojo} azul={azul} className="bajo-barra md:mt-0 md:pt-0">
-                    {/* Banda negra: tapa la costura para que el titular no quede partido por ella */}
-                    <div className="bg-background px-4 py-3 text-white">
-                        <h1 className="t-titular text-[clamp(34px,10.5vw,44px)] leading-none">{titular}</h1>
-                        {fecha}
-                    </div>
+                <Marcador
+                    rojo={rojo}
+                    azul={azul}
+                    className="bajo-barra md:mt-0 md:pt-0"
+                    saque={
+                        // La cara ya está en el punto de saque: aquí solo la frase y la firma
+                        <PanenkaDice firma className="[&>svg]:hidden [&_figcaption]:text-[15px]">
+                            {frasePanenka}
+                        </PanenkaDice>
+                    }
+                >
                     {hayGoleadores && (
                         <div
                             aria-label="Goleadores"
-                            className="mt-3 grid"
+                            className="grid"
                             style={{ gridTemplateColumns: "var(--costura) minmax(0, 1fr)" }}
                         >
                             <div className="min-w-0 pl-4 pr-3">
@@ -117,33 +122,37 @@ export function PartidoTerminado({
                         </div>
                     )}
                 </Marcador>
-            ) : (
-                <header className="px-4 pt-3">
-                    <h1 className="t-titular text-[min(104px,26.6vw)] font-black leading-[0.95]">{titular}</h1>
-                    {fecha}
-                </header>
             )}
 
             <div style={NOCHE} className="flex-1 bg-background text-foreground">
-                {/* La cara ya está en el punto de saque: aquí solo la frase y la firma */}
-                <PanenkaDice firma className="px-4 pb-4 pt-3 [&>svg]:hidden">
-                    {frasePanenka}
-                </PanenkaDice>
+                {conResultado ? (
+                    // Fuera del Marcador: la costura corre entera, de la barra superior a Panenka
+                    <header className="px-4 pt-4">
+                        <h1 className="t-titular text-[clamp(38px,11.8vw,48px)] font-black leading-none">{titular}</h1>
+                        {fecha}
+                    </header>
+                ) : (
+                    <>
+                        <header className="px-4 pt-3">
+                            <h1 className="t-titular text-[min(104px,26.6vw)] font-black leading-[0.95]">{titular}</h1>
+                            {fecha}
+                        </header>
+                        <PanenkaDice firma className="px-4 pt-4">
+                            {frasePanenka}
+                        </PanenkaDice>
+                    </>
+                )}
 
-                {pestanas}
+                <MvpVoting
+                    matchId={match.id}
+                    currentUserId={currentUserId}
+                    participants={jugadores}
+                    matchFinishedAt={match.finished_at}
+                    matchDate={match.date}
+                    canManage={puede.gestiona}
+                />
 
-                <div className="pt-4">
-                    <MvpVoting
-                        matchId={match.id}
-                        currentUserId={currentUserId}
-                        participants={jugadores}
-                        matchFinishedAt={match.finished_at}
-                        matchDate={match.date}
-                        canManage={puede.gestiona}
-                    />
-                </div>
-
-                <div className="mt-2 flex items-center justify-between px-4 text-base font-medium">
+                <div className="flex items-center justify-between px-4 text-base font-medium">
                     <button
                         type="button"
                         onClick={() => onPestana("fotos")}
@@ -161,6 +170,14 @@ export function PartidoTerminado({
                         <ChevronRight size={18} strokeWidth={1.75} aria-hidden="true" />
                     </button>
                 </div>
+
+                {puede.repetir && (
+                    <div className="px-4 pt-2">
+                        <Link href={enlaceRepetir(match)} className={buttonClasses("outline", "lg", "w-full")}>
+                            Repetir partido
+                        </Link>
+                    </div>
+                )}
 
                 {hayEquipos && (
                     <section aria-label="Equipos" className="mt-4">
@@ -182,14 +199,8 @@ export function PartidoTerminado({
                     organizerName={organizerName}
                     organizerAvatarUrl={organizerAvatarUrl}
                     organizasTu={puede.organiza}
+                    eresAdmin={puede.gestiona && !puede.organiza}
                 />
-                {puede.repetir && (
-                    <div className="px-4 pb-4 pt-2">
-                        <Button type="button" variant="outline" size="lg" className="w-full" onClick={onOrganizar}>
-                            Organizar
-                        </Button>
-                    </div>
-                )}
             </div>
         </div>
     );

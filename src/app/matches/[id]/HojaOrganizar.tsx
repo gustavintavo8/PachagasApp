@@ -1,6 +1,6 @@
 "use client";
 
-import { Ban, CalendarClock, Copy, Shuffle, Trophy, Wallet } from "lucide-react";
+import { Ban, CalendarClock, Shuffle, Trophy, Wallet } from "lucide-react";
 import { Fila, Filas } from "@/components/Filas";
 import { Hoja } from "@/components/Hoja";
 import { fechaCorta } from "@/lib/titulares";
@@ -32,8 +32,6 @@ export function HojaOrganizar({
     onGenerar: () => void;
     onAbrir: (hoja: HojaPartido) => void;
 }) {
-    const copiaNueva = `/matches/new?location=${encodeURIComponent(match.location)}&max_players=${match.max_players}`;
-
     return (
         <Hoja open={open} onClose={onClose} title="Organizar" description={fechaCorta(match.date)}>
             <Filas aria-label="Acciones del organizador">
@@ -72,14 +70,6 @@ export function HojaOrganizar({
                         inicio={<CalendarClock {...ICONO} />}
                         nombre="Cambiar fecha"
                         onClick={() => onAbrir("fecha")}
-                    />
-                )}
-                {puede.repetir && (
-                    <Fila
-                        inicio={<Copy {...ICONO} />}
-                        nombre="Repetir partido"
-                        detalle="Mismo sitio y mismas plazas"
-                        href={copiaNueva}
                     />
                 )}
                 {puede.cancelar && (

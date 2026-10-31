@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { Copy, MessageCircle } from "lucide-react";
 import { AddToCalendar } from "@/components/AddToCalendar";
@@ -9,6 +10,11 @@ import { cn, getAvatarUrl } from "@/lib/utils";
 import { estadoPartido } from "@/lib/titulares";
 import type { Match } from "@/lib/types";
 import type { Participante, Permisos } from "./datos";
+
+export const WeatherWidget = dynamic(
+    () => import("@/components/WeatherWidget").then((m) => ({ default: m.WeatherWidget })),
+    { ssr: false, loading: () => <p className="h-5" /> }
+);
 
 /** Lo que reciben las tres pantallas de Info. */
 export type PropsInfo = {
@@ -92,24 +98,27 @@ export function Compartir({
     );
 }
 
-/** Lo que no es la respuesta: estado, temporada y quién organiza. */
+/** Lo que no es la respuesta: estado, temporada, quién organiza y si tú mandas aquí. */
 export function PieInfo({
     match,
     seasonName,
     organizerName,
     organizerAvatarUrl,
     organizasTu,
+    eresAdmin,
 }: {
     match: Match;
     seasonName: string;
     organizerName: string;
     organizerAvatarUrl: string | null;
     organizasTu: boolean;
+    eresAdmin: boolean;
 }) {
     return (
         <div className="t-meta flex flex-wrap items-center justify-between gap-x-4 px-4 text-muted">
             <p className="py-3">
                 {estadoPartido(match.status)} · {seasonName}
+                {eresAdmin && " · Eres admin"}
             </p>
             <Link
                 href={`/players/${match.created_by}`}

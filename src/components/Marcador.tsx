@@ -5,11 +5,14 @@ export function Marcador({
     rojo,
     azul,
     children,
+    saque,
     className,
 }: {
     rojo: number;
     azul: number;
     children?: ReactNode;
+    /** Lo que va junto a Panenka, en el lado ancho del campo */
+    saque?: ReactNode;
     className?: string;
 }) {
     const total = rojo + azul;
@@ -20,6 +23,8 @@ export function Marcador({
         "--cifras-rojo": String(rojo).length,
         "--cifras-azul": String(azul).length,
     } as CSSProperties;
+
+    const anchoLibre = Math.max(costura, 100 - costura);
 
     return (
         <section
@@ -41,9 +46,22 @@ export function Marcador({
                 </div>
             </div>
             {children && <div className="marcador-pie">{children}</div>}
-            <div className="marcador-centro">
-                <Panenka size={104} />
-            </div>
+            {saque ? (
+                <div
+                    className="marcador-saque"
+                    data-lado={costura > 50 ? "rojo" : "azul"}
+                    data-cara={anchoLibre >= 60 ? "grande" : "media"}
+                >
+                    <div className="marcador-frase">{saque}</div>
+                    <div className="marcador-centro">
+                        <Panenka size={anchoLibre >= 60 ? 104 : 84} />
+                    </div>
+                </div>
+            ) : (
+                <div className="marcador-centro">
+                    <Panenka size={104} />
+                </div>
+            )}
         </section>
     );
 }

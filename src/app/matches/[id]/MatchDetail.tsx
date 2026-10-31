@@ -265,7 +265,7 @@ export function MatchDetail({
             {pestana !== "info" && pestanas}
 
             {pestana === "info" && match.status === "finished" && (
-                <PartidoTerminado {...datosPartido} pestanas={pestanas} onPestana={cambiarPestana} />
+                <PartidoTerminado {...datosPartido} onPestana={cambiarPestana} />
             )}
             {pestana === "info" && match.status === "cancelled" && (
                 <>

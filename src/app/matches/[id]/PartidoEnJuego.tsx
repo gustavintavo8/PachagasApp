@@ -1,6 +1,6 @@
 "use client";
 
-import dynamic from "next/dynamic";
+import { useEffect, useRef } from "react";
 import { Button, buttonClasses } from "@/components/ui/Button";
 import { CampoEquipos, CampoPlantilla, nombreEnCampo } from "@/components/Campo";
 import { PanenkaDice } from "@/components/PanenkaDice";
@@ -17,14 +17,9 @@ import {
     textoBuscar,
     textoDeben,
 } from "@/lib/titulares";
-import { Compartir, PieInfo, type PropsInfo } from "./Compartir";
+import { Compartir, PieInfo, WeatherWidget, type PropsInfo } from "./Compartir";
 import { aJugadorCampo, bandaEquipo, ListaSinEquipo } from "./jugadores";
 import { nombreDe } from "./datos";
-
-const WeatherWidget = dynamic(
-    () => import("@/components/WeatherWidget").then((m) => ({ default: m.WeatherWidget })),
-    { ssr: false, loading: () => <p className="h-5" /> }
-);
 
 function Marca({ estado, children }: { estado: EstadoPeto; children: string }) {
     return (
@@ -33,6 +28,27 @@ function Marca({ estado, children }: { estado: EstadoPeto; children: string }) {
             {children}
         </li>
     );
+}
+
+/** Publica el alto de la barra fija para que los avisos salgan por encima de ella. */
+function useAltoBarra(hayBarra: boolean) {
+    const barra = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const elemento = barra.current;
+        if (!elemento) return;
+        const raiz = document.documentElement;
+        const medidor = new ResizeObserver(() => {
+            raiz.style.setProperty("--barra-accion", `${elemento.offsetHeight}px`);
+        });
+        medidor.observe(elemento);
+        return () => {
+            medidor.disconnect();
+            raiz.style.removeProperty("--barra-accion");
+        };
+    }, [hayBarra]);
+
+    return barra;
 }
 
 export function PartidoEnJuego({
@@ -93,6 +109,7 @@ export function PartidoEnJuego({
     const seBusca = abierto && !!yo && faltan > 0 && !pasado;
     const principal = sePuedeApuntar ? "apuntarse" : seBusca ? "buscar" : null;
     const hayBarra = puede.gestiona || sePuedeBorrar || principal !== null;
+    const barra = useAltoBarra(hayBarra);
 
     const rojo = jugadores.filter((p) => p.team === "A");
     const azul = jugadores.filter((p) => p.team === "B");
@@ -109,10 +126,10 @@ export function PartidoEnJuego({
                         {jugadores.length} de {match.max_players}
                     </p>
                 </div>
-                <div className="mt-1 flex flex-wrap items-end justify-between gap-x-3">
+                <div className="mt-1 flex items-end justify-between gap-x-3">
                     <p
                         className={cn(
-                            "t-titular font-black leading-[0.95]",
+                            "t-titular flex-none whitespace-nowrap font-black leading-[0.95]",
                             // «Falta el resultado» no cabe a tamaño «Faltan 3»: una línea antes que dos
                             respuesta.length > 9 ? "text-[min(72px,18.4vw)]" : "text-[min(104px,26.6vw)]"
                         )}
@@ -120,7 +137,9 @@ export function PartidoEnJuego({
                         {respuesta}
                     </p>
                     {nota && (
-                        <p className="min-w-0 flex-1 basis-16 pb-2 text-right text-[15px] leading-tight text-muted">{nota}</p>
+                        <p className="min-w-0 flex-1 pb-2 text-right text-[15px] leading-tight text-muted [overflow-wrap:anywhere]">
+                            {nota}
+                        </p>
                     )}
                 </div>
             </header>
@@ -184,10 +203,15 @@ export function PartidoEnJuego({
                 organizerName={organizerName}
                 organizerAvatarUrl={organizerAvatarUrl}
                 organizasTu={isOrganizer}
+                eresAdmin={isAdmin && !isOrganizer}
             />
 
             {hayBarra && (
-                <div className="sticky bottom-[var(--barra-inferior)] z-30 mt-4 border-t border-border bg-background px-4 py-2">
+                // pb-5: la cara de Panenka sobresale de la barra inferior y no puede pisar el botón
+                <div
+                    ref={barra}
+                    className="sticky bottom-[var(--barra-inferior)] z-30 mt-4 border-t border-border bg-background px-4 pb-5 pt-2 md:pb-2"
+                >
                     {sePuedeBorrar && textoSalida && <p className="t-meta pb-1.5 text-muted">{textoSalida}</p>}
                     <div className="flex gap-2">
                         {puede.gestiona && (

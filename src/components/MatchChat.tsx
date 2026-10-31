@@ -5,7 +5,7 @@ import { ArrowUp, TriangleAlert } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button, buttonClasses } from "@/components/ui/Button";
-import { PanenkaDice } from "@/components/PanenkaDice";
+import { Panenka } from "@/components/Panenka";
 import { getAvatarUrl, timeAgo } from "@/lib/utils";
 import { elegirPlural, fraseVacio } from "@/lib/titulares";
 import { useTeclado } from "@/lib/useTeclado";
@@ -247,11 +247,12 @@ export function MatchChat({
             >
                 {carga === "cargando" ? (
                     <div aria-hidden="true" className="flex min-h-full flex-col justify-end gap-4 py-3">
+                        <div className="skeleton h-8 w-36" />
                         {[160, 240, 112].map((ancho) => (
                             <div key={ancho} className="flex gap-2.5">
                                 <div className="skeleton h-8 w-8 shrink-0" />
                                 <div className="flex-1 space-y-1.5">
-                                    <div className="skeleton h-3.5 w-20" />
+                                    <div className="skeleton h-5 w-24" />
                                     <div className="skeleton h-5" style={{ width: ancho }} />
                                 </div>
                             </div>
@@ -275,12 +276,15 @@ export function MatchChat({
                         </Button>
                     </div>
                 ) : comments.length === 0 ? (
-                    <div className="flex min-h-full items-end pb-4">
-                        <PanenkaDice size={72}>{fraseVacio("chat", matchId)}</PanenkaDice>
+                    <div className="flex min-h-full flex-col justify-end gap-4 pb-6 pt-4">
+                        <Panenka size={96} />
+                        <p className="t-titular text-[clamp(38px,12.5vw,52px)] leading-none">
+                            {fraseVacio("chat", matchId)}
+                        </p>
                     </div>
                 ) : (
                     <div className="flex min-h-full flex-col justify-end pb-3 pt-3">
-                        <p className="t-meta mb-2 text-center text-muted tabular-nums">
+                        <p className="t-seccion mb-1 tabular-nums">
                             {enServidor} {elegirPlural(enServidor, "mensaje")}
                         </p>
                         {comments.map((comment, i) => (
@@ -390,7 +394,7 @@ function Mensaje({
             <div className="min-w-0 flex-1">
                 {primero && (
                     <p className="flex items-baseline gap-2">
-                        <span className="t-meta truncate font-bold">{nombre}</span>
+                        <span className="truncate font-display text-xl font-extrabold leading-tight">{nombre}</span>
                         <time dateTime={comment.created_at} className="t-meta shrink-0 text-muted tabular-nums">
                             {timeAgo(comment.created_at)}
                         </time>

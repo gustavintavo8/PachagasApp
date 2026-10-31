@@ -8,7 +8,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/Toast";
 import { Avatar } from "@/components/ui/Avatar";
 import { Button } from "@/components/ui/Button";
-import { PanenkaDice } from "@/components/PanenkaDice";
+import { Panenka } from "@/components/Panenka";
 import { getAvatarUrl } from "@/lib/utils";
 import { fechaCorta, fraseVacio, plural } from "@/lib/titulares";
 
@@ -35,6 +35,8 @@ const LIMITE_COMPRESION_MS = 30_000;
 
 // A sangre aunque el contenedor traiga márgenes: el ancho de la pantalla o el de la columna
 const A_SANGRE = "w-[min(100vw,640px)] ml-[calc(50%-min(50vw,320px))]";
+
+const CUENTA = "t-titular text-[clamp(38px,12.5vw,52px)] leading-none";
 
 // Todo el alto bajo las pestañas: Subir foto descansa abajo, al alcance del pulgar, aunque no haya fotos
 const MARCO = "flex min-h-[calc(100dvh-var(--barra-superior)-var(--barra-inferior)-45px)] flex-col";
@@ -197,12 +199,16 @@ export function MatchPhotos({ matchId, currentUserId }: MatchPhotosProps) {
 
     return (
         <section aria-label="Fotos del partido" className={`${A_SANGRE} ${MARCO}`}>
-            <div className="flex items-baseline justify-between gap-4 px-4 pb-3 pt-4">
-                <h2 className="t-seccion">Fotos</h2>
-                {carga === "lista" && total > 0 && (
-                    <p className="t-meta text-muted tabular-nums">{plural(total, "foto")}</p>
-                )}
-            </div>
+            {/* La pestaña ya dice «Fotos»: aquí va la respuesta, cuántas hay */}
+            {carga === "cargando" ? (
+                <div className="px-4 pb-3 pt-4">
+                    <div aria-hidden="true" className="skeleton h-[50px] w-44" />
+                </div>
+            ) : carga === "error" ? (
+                <h2 className="t-seccion px-4 pb-3 pt-4">Fotos</h2>
+            ) : (
+                total > 0 && <h2 className={`${CUENTA} px-4 pb-3 pt-4 tabular-nums`}>{plural(total, "foto")}</h2>
+            )}
 
             {carga === "error" ? (
                 <div className="flex items-center gap-3 px-4 py-6">
@@ -221,9 +227,10 @@ export function MatchPhotos({ matchId, currentUserId }: MatchPhotosProps) {
                     </Button>
                 </div>
             ) : carga === "lista" && photos.length === 0 ? (
-                <PanenkaDice size={72} className="px-4 py-6">
-                    {fraseVacio("fotos", matchId)}
-                </PanenkaDice>
+                <div className="flex flex-1 flex-col justify-end gap-4 px-4 pb-6 pt-4">
+                    <Panenka size={96} />
+                    <h2 className={CUENTA}>{fraseVacio("fotos", matchId)}</h2>
+                </div>
             ) : (
                 <div
                     ref={rejillaRef}

@@ -18,6 +18,11 @@ export function aplicarCambio(lista: Participante[], cambio: CambioOptimista): P
     return lista.map((p) => (p.user_id === cambio.id ? { ...p, has_paid: cambio.pagado } : p));
 }
 
+/** Crear un partido con el mismo sitio y las mismas plazas. */
+export function enlaceRepetir(match: Pick<Match, "location" | "max_players">): string {
+    return `/matches/new?location=${encodeURIComponent(match.location)}&max_players=${match.max_players}`;
+}
+
 export function nombreDe(p: Participante): string {
     return p.profiles?.username || "Desconocido";
 }

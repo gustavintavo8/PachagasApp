@@ -224,8 +224,8 @@ export function HojaResultado({
                 </div>
             )}
 
-            {/* Siempre al alcance, aunque la lista de goleadores sea larga */}
-            <div className="sticky bottom-0 bg-background px-4 pt-3">
+            {/* Siempre al alcance. Baja sobre el relleno de la hoja para que no asomen filas por debajo. */}
+            <div className="sticky bottom-[calc(-16px-env(safe-area-inset-bottom,0px))] -mb-[calc(16px+env(safe-area-inset-bottom,0px))] bg-background px-4 pb-[calc(16px+env(safe-area-inset-bottom,0px))] pt-3">
                 <Button type="button" size="lg" className="w-full" loading={guardando} onClick={guardar}>
                     Guardar resultado y finalizar
                 </Button>
