@@ -97,7 +97,6 @@ export function HojaJugador({
                                     variant="danger"
                                     size="lg"
                                     className="w-full"
-                                    title={`Expulsar a ${nombre}`}
                                     onClick={() => {
                                         setConfirmando(false);
                                         onExpulsar(jugador);
@@ -111,10 +110,9 @@ export function HojaJugador({
                                     variant="ghost"
                                     size="md"
                                     className="w-full text-tarjeta"
-                                    title={`Expulsar a ${nombre}`}
                                     onClick={() => setConfirmando(true)}
                                 >
-                                    Expulsar
+                                    Expulsar a {nombre}
                                 </Button>
                             ))}
                     </div>

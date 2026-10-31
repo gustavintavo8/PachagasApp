@@ -22,7 +22,7 @@ const POR_FILA = 5;
 const CAL = "border-cal [border-width:1.5px]";
 
 // El nombre entero solo si cabe bajo el peto. «Rubén M.» se queda, «Cristian Moreira Suárez» no.
-function nombreEnCampo(nombre: string): string {
+export function nombreEnCampo(nombre: string): string {
     return nombre.length <= 9 ? nombre : nombre.trim().split(/\s+/)[0];
 }
 

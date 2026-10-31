@@ -70,6 +70,7 @@ export function MatchPhotos({ matchId, currentUserId }: MatchPhotosProps) {
     const [uploading, setUploading] = useState(false);
     const [abierta, setAbierta] = useState<number | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
+    const rejillaRef = useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         let vigente = true;
@@ -168,6 +169,13 @@ export function MatchPhotos({ matchId, currentUserId }: MatchPhotosProps) {
         }
     }
 
+    // Safari no enfoca al tocar: el foco vuelve a mano, y a la última foto vista
+    function cerrarVisor(ultima: number) {
+        setAbierta(null);
+        const tile = rejillaRef.current?.children[ultima];
+        if (tile instanceof HTMLElement) tile.focus();
+    }
+
     const { columnas, destacada } = rejilla(carga === "lista" ? photos.length : POR_PAGINA);
 
     return (
@@ -200,7 +208,11 @@ export function MatchPhotos({ matchId, currentUserId }: MatchPhotosProps) {
                     {fraseVacio("fotos", matchId)}
                 </PanenkaDice>
             ) : (
-                <div className="grid gap-0.5" style={{ gridTemplateColumns: `repeat(${columnas}, minmax(0, 1fr))` }}>
+                <div
+                    ref={rejillaRef}
+                    className="grid gap-0.5"
+                    style={{ gridTemplateColumns: `repeat(${columnas}, minmax(0, 1fr))` }}
+                >
                     {carga === "cargando"
                         ? Array.from({ length: 6 }, (_, i) => (
                               <div
@@ -275,7 +287,7 @@ export function MatchPhotos({ matchId, currentUserId }: MatchPhotosProps) {
                     fotos={photos}
                     total={total}
                     inicial={abierta}
-                    onCerrar={() => setAbierta(null)}
+                    onCerrar={cerrarVisor}
                     onFinal={cargarMas}
                 />
             )}
@@ -293,7 +305,7 @@ function Visor({
     fotos: Photo[];
     total: number;
     inicial: number;
-    onCerrar: () => void;
+    onCerrar: (ultima: number) => void;
     onFinal: () => void;
 }) {
     const dialogoRef = useRef<HTMLDialogElement>(null);
@@ -302,7 +314,7 @@ function Visor({
     const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
     const foto = fotos[actual] ?? fotos[fotos.length - 1];
 
-    // <dialog> nativo: atrapa el foco, cierra con Escape y lo devuelve a la foto al cerrar
+    // <dialog> nativo: atrapa el foco y cierra con Escape
     useLayoutEffect(() => {
         const dialogo = dialogoRef.current;
         const pista = pistaRef.current;
@@ -339,7 +351,7 @@ function Visor({
         <dialog
             ref={dialogoRef}
             aria-label="Foto del partido"
-            onClose={onCerrar}
+            onClose={() => onCerrar(actual)}
             onKeyDown={(e) => {
                 if (e.key === "ArrowRight") irA(actual + 1);
                 if (e.key === "ArrowLeft") irA(actual - 1);

@@ -21,6 +21,7 @@ interface AddToCalendarProps {
 }
 
 const ESCRITORIO = "(min-width: 768px)";
+const ALTO_MENU_PX = 160;
 
 function suscribirEscritorio(aviso: () => void) {
     const consulta = window.matchMedia(ESCRITORIO);
@@ -36,6 +37,7 @@ export function AddToCalendar({ match }: AddToCalendarProps): React.JSX.Element 
     const [origin, setOrigin] = useState<string | null>(null);
     const [open, setOpen] = useState(false);
     const [event, setEvent] = useState<CalendarEventData | null>(null);
+    const [haciaArriba, setHaciaArriba] = useState(false);
     const rootRef = useRef<HTMLDivElement>(null);
     const triggerRef = useRef<HTMLButtonElement>(null);
     const firstItemRef = useRef<HTMLAnchorElement>(null);
@@ -166,6 +168,9 @@ export function AddToCalendar({ match }: AddToCalendarProps): React.JSX.Element 
         const currentEvent = prepareEvent();
         if (!currentEvent) return;
 
+        // El botón suele quedar al pie de la página: el menú no se puede salir de la pantalla
+        const boton = triggerRef.current?.getBoundingClientRect();
+        setHaciaArriba(!!boton && window.innerHeight - boton.bottom < ALTO_MENU_PX);
         setEvent(currentEvent);
         setOpen(true);
     };
@@ -178,7 +183,7 @@ export function AddToCalendar({ match }: AddToCalendarProps): React.JSX.Element 
             onKeyDown={handleMenuKeyDown}
             className={
                 escritorio
-                    ? "absolute right-0 top-full z-50 mt-1 w-64 border border-border-hover bg-background"
+                    ? `absolute right-0 z-50 w-64 border border-border-hover bg-background ${haciaArriba ? "bottom-full mb-1" : "top-full mt-1"}`
                     : "border-t border-border"
             }
         >

@@ -1721,7 +1721,7 @@ export function cieloDeCodigo(codigo: number | null | undefined): Cielo | null {
     }
 }
 
-/** "Lluvia · 14° · 80 %". Lo que falta no se dice. Sin nada que decir, null. */
+/** "Lluvia · 14° · 80 %", "Nublado · 9° · 20 % de lluvia". Lo que falta no se dice. Sin nada que decir, null. */
 export function lineaTiempo({
     cielo,
     temperatura,
@@ -1734,6 +1734,9 @@ export function lineaTiempo({
     const partes: string[] = [];
     if (cielo) partes.push(NOMBRE_CIELO[cielo]);
     if (typeof temperatura === "number") partes.push(`${Math.round(temperatura)}°`);
-    if (typeof probabilidadLluvia === "number") partes.push(`${Math.round(probabilidadLluvia)} %`);
+    if (typeof probabilidadLluvia === "number") {
+        const yaDiceLluvia = cielo === "lluvia" || cielo === "llovizna";
+        partes.push(`${Math.round(probabilidadLluvia)} %${yaDiceLluvia ? "" : " de lluvia"}`);
+    }
     return partes.length > 0 ? partes.join(" · ") : null;
 }

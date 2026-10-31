@@ -4,12 +4,12 @@ import type { CSSProperties, ReactNode } from "react";
 import dynamic from "next/dynamic";
 import { ChevronRight } from "lucide-react";
 import { Button } from "@/components/ui/Button";
-import { CampoEquipos } from "@/components/Campo";
+import { CampoEquipos, nombreEnCampo } from "@/components/Campo";
 import { Flood } from "@/components/Flood";
 import { Marcador } from "@/components/Marcador";
 import { PanenkaDice } from "@/components/PanenkaDice";
 import { cn } from "@/lib/utils";
-import { fechaCorta, nombreCorto, participanteCronica, titularCronica } from "@/lib/titulares";
+import { fechaCorta, participanteCronica, titularCronica } from "@/lib/titulares";
 import { Compartir, PieInfo, type PropsInfo } from "./Compartir";
 import { aJugadorCampo, bandaEquipo, ListaSinEquipo } from "./jugadores";
 import { nombreDe, type Participante, type PestanaPartido } from "./datos";
@@ -37,7 +37,7 @@ function Goleadores({ equipo, enDosColumnas }: { equipo: Participante[]; enDosCo
         <ul className={cn("grid gap-x-4", enDosColumnas && "grid-cols-2")}>
             {goleadores.map((p) => (
                 <li key={p.user_id} className="flex h-7 items-center justify-between gap-2 text-[15px] font-medium">
-                    <span className="min-w-0 truncate">{nombreCorto(nombreDe(p))}</span>
+                    <span className="min-w-0 truncate">{nombreEnCampo(nombreDe(p))}</span>
                     <span className="flex-none font-bold tabular-nums">{p.goals}</span>
                 </li>
             ))}
@@ -95,7 +95,8 @@ export function PartidoTerminado({
             {ganador && <Flood color={ganador} />}
 
             {conResultado ? (
-                <Marcador rojo={rojo} azul={azul} className="bajo-barra">
+                // En escritorio los enlaces de la barra caerían sobre la costura: ahí no pasa por debajo
+                <Marcador rojo={rojo} azul={azul} className="bajo-barra md:mt-0 md:pt-0">
                     {/* Banda negra: tapa la costura para que el titular no quede partido por ella */}
                     <div className="bg-background px-4 py-3 text-white">
                         <h1 className="t-titular text-[clamp(34px,10.5vw,44px)] leading-none">{titular}</h1>

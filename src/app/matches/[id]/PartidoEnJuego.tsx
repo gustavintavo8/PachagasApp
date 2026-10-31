@@ -2,7 +2,7 @@
 
 import dynamic from "next/dynamic";
 import { Button, buttonClasses } from "@/components/ui/Button";
-import { CampoEquipos, CampoPlantilla } from "@/components/Campo";
+import { CampoEquipos, CampoPlantilla, nombreEnCampo } from "@/components/Campo";
 import { PanenkaDice } from "@/components/PanenkaDice";
 import { Peto, type EstadoPeto } from "@/components/Peto";
 import { cn } from "@/lib/utils";
@@ -13,7 +13,6 @@ import {
     fraseVacio,
     leyendaPlazas,
     notaPlantilla,
-    nombreCorto,
     respuestaPartido,
     textoBuscar,
     textoDeben,
@@ -111,7 +110,15 @@ export function PartidoEnJuego({
                     </p>
                 </div>
                 <div className="mt-1 flex flex-wrap items-end justify-between gap-x-3">
-                    <p className="t-titular text-[min(104px,26.6vw)] font-black leading-[0.95]">{respuesta}</p>
+                    <p
+                        className={cn(
+                            "t-titular font-black leading-[0.95]",
+                            // «Falta el resultado» no cabe a tamaño «Faltan 3»: una línea antes que dos
+                            respuesta.length > 9 ? "text-[min(72px,18.4vw)]" : "text-[min(104px,26.6vw)]"
+                        )}
+                    >
+                        {respuesta}
+                    </p>
                     {nota && (
                         <p className="max-w-[92px] pb-2 text-right text-[15px] leading-tight text-muted">{nota}</p>
                     )}
@@ -160,7 +167,7 @@ export function PartidoEnJuego({
                     </ul>
                     {deben.length > 0 && (
                         <p className="mt-1.5 font-bold">
-                            {textoDeben(deben.map((p) => nombreCorto(nombreDe(p))))}
+                            {textoDeben(deben.map((p) => nombreEnCampo(nombreDe(p))))}
                         </p>
                     )}
                 </div>

@@ -21,11 +21,11 @@ export function PartidoCancelado({
         <div>
             <header className="px-4 pt-3">
                 <div className="flex items-center gap-3">
-                    <h1 className="t-titular text-[min(104px,26.6vw)] font-black leading-[0.95]">
+                    <h1 className="t-titular text-[min(88px,22vw)] font-black leading-[0.95]">
                         {respuestaPartido({ status: match.status, faltan })}
                     </h1>
                     {/* La tarjeta: lo único en color de toda la pantalla */}
-                    <span aria-hidden="true" className="h-[52px] w-[38px] flex-none rotate-[9deg] bg-tarjeta" />
+                    <span aria-hidden="true" className="h-[44px] w-[32px] flex-none rotate-[9deg] bg-tarjeta" />
                 </div>
                 <p className="t-seccion mt-3 text-[32px] leading-none">{fechaCorta(match.date)}</p>
                 <p className="mt-1.5 text-[15px] leading-tight text-muted [overflow-wrap:anywhere]">
