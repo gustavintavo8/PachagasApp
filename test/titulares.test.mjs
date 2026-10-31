@@ -1360,6 +1360,8 @@ test("lineaTiempo omite lo que falta y nunca dice null", () => {
         lineaTiempo({ cielo: "nublado", temperatura: 9, probabilidadLluvia: 20 }),
         "Nublado · 9° · 20 % de lluvia"
     );
+    assert.equal(lineaTiempo({ cielo: "nieve", temperatura: 1, probabilidadLluvia: 30 }), "Nieve · 1° · 30 %");
+    assert.equal(lineaTiempo({ cielo: "tormenta", temperatura: 22, probabilidadLluvia: 70 }), "Tormenta · 22° · 70 %");
     assert.equal(lineaTiempo({ cielo: null, temperatura: 0, probabilidadLluvia: undefined }), "0°");
     assert.equal(lineaTiempo({ cielo: null, temperatura: null, probabilidadLluvia: null }), null);
 });

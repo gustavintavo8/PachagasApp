@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useLayoutEffect, useOptimistic, useRef, useTransition, type CSSProperties, type ReactNode } from "react";
+import { useLayoutEffect, useRef, useState, useTransition, type CSSProperties, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { AlertTriangle } from "lucide-react";
 import { joinMatch, leaveMatch } from "@/app/matches/actions";
@@ -32,6 +32,9 @@ type Movimiento = "entra" | "sale";
 
 const SIN_DECIR_NADA_TOPE = 6;
 
+// Si la acción no llega ni a contestar. La misma frase que en el detalle del partido.
+const SIN_RESPUESTA = "No ha salido. Revisa la conexión e inténtalo otra vez.";
+
 // El marco de la portada ocupa lo que dejan las barras, para que la acción quede bajo el pulgar.
 const MARCO = "flex min-h-[calc(100dvh-var(--barra-superior)-var(--barra-inferior))] flex-col";
 
@@ -46,7 +49,7 @@ function Respuesta({ texto }: { texto: string }) {
 function Cabecera({ pregunta, puesto }: { pregunta: string; puesto?: ReactNode }) {
     return (
         <div className="flex min-h-11 items-center justify-between gap-3">
-            <p className="text-[length:min(18px,5vw)] leading-tight text-muted">{pregunta}</p>
+            <p className="flex-none whitespace-nowrap text-[length:min(18px,5vw)] leading-tight text-muted">{pregunta}</p>
             {puesto}
         </div>
     );
@@ -99,31 +102,59 @@ export function InicioPortada({
 }) {
     const { toast } = useToast();
     const router = useRouter();
-    const [pendiente, startTransition] = useTransition();
-    const [plazas, moverPlaza] = useOptimistic(
-        partido?.participants ?? [],
-        (actuales, movimiento: Movimiento): PlazaPortada[] =>
-            movimiento === "entra"
-                ? [...actuales, { user_id: yo, team: null, nombre: miNombre }]
-                : actuales.filter((plaza) => plaza.user_id !== yo)
-    );
+    // Sin useTransition ni useOptimistic: en producción la transición a veces no acababa nunca,
+    // y dejaba «Me borro» muerto y la pantalla diciendo lo que ya no era verdad.
+    const [mov, setMov] = useState<{ tipo: Movimiento; partidoId: string; contestado: boolean } | null>(null);
+    const enCurso = useRef(false);
+
+    // Llega partido nuevo del servidor y la acción ya contestó: lo pintado a mano sobra, manda él.
+    const [partidoVisto, setPartidoVisto] = useState(partido);
+    if (partido !== partidoVisto) {
+        setPartidoVisto(partido);
+        if (mov?.contestado) setMov(null);
+    }
+
+    const plazasServidor = partido?.participants ?? [];
+    const dentroServidor = plazasServidor.some((plaza) => plaza.user_id === yo);
+    const movVigente = mov && mov.partidoId === partido?.id ? mov.tipo : null;
+    // Solo se pinta lo que el servidor aún no cuenta: en cuanto lo refleja, manda él.
+    let plazas = plazasServidor;
+    if (movVigente === "entra" && !dentroServidor) {
+        plazas = [...plazasServidor, { user_id: yo, team: null, nombre: miNombre }];
+    } else if (movVigente === "sale" && dentroServidor) {
+        plazas = plazasServidor.filter((plaza) => plaza.user_id !== yo);
+    }
 
     const estado = estadoPortada({ partido: partido && { ...partido, participants: plazas }, yo, ahora });
     const pregunta = preguntaPortada(partido?.date, ahora);
 
-    function mover(movimiento: Movimiento) {
-        if (!partido || pendiente) return;
+    async function mover(tipo: Movimiento) {
+        if (!partido || enCurso.current) return;
         const partidoId = partido.id;
+        enCurso.current = true;
+        setMov({ tipo, partidoId, contestado: false });
         navigator.vibrate?.(8);
-        startTransition(async () => {
-            moverPlaza(movimiento);
-            const resultado = await (movimiento === "entra" ? joinMatch(partidoId) : leaveMatch(partidoId));
-            if (!resultado.success) {
-                toast(resultado.error, "error");
-                // Lo normal es que el partido haya cambiado: mejor enseñar cómo está ahora
-                router.refresh();
-            }
-        });
+
+        let resultado: Awaited<ReturnType<typeof joinMatch>>;
+        try {
+            resultado = await (tipo === "entra" ? joinMatch(partidoId) : leaveMatch(partidoId));
+        } catch {
+            // Sin refresh: sin red, router.refresh() acaba en la página de error del navegador.
+            enCurso.current = false;
+            setMov(null);
+            toast(SIN_RESPUESTA, "error");
+            return;
+        }
+
+        enCurso.current = false;
+        if (resultado.success) {
+            setMov((actual) => actual && { ...actual, contestado: true });
+        } else {
+            setMov(null);
+            toast(resultado.error, "error");
+        }
+        // Si lo han rechazado, lo normal es que el partido haya cambiado: mejor enseñar cómo está ahora
+        router.refresh();
     }
 
     if (estado.estado === "sin-partido" || !partido) {
@@ -182,7 +213,7 @@ export function InicioPortada({
                 <div className="flex-1 px-4 pb-6 pt-1">
                     <Cabecera pregunta={pregunta} puesto={puesto} />
                     <Respuesta texto={estado.respuesta} />
-                    <p className="mt-3.5 text-lg font-medium leading-snug">{estado.linea}</p>
+                    <p className="mt-3.5 text-balance text-lg font-medium leading-snug">{estado.linea}</p>
                     <p className="t-titular mt-7">{texto.con}</p>
                     {texto.resto && <p className="mt-3 text-[17px] font-medium leading-snug">{texto.resto}</p>}
                     {texto.enfrente && <p className="mt-3 text-[17px] font-medium leading-snug">{texto.enfrente}</p>}
@@ -208,7 +239,7 @@ export function InicioPortada({
     }
 
     const verPartido = (
-        <Link href={enlacePartido} prefetch={false} className="pulsable t-meta flex min-h-11 items-center pl-3 text-muted underline-offset-4 hover:underline">
+        <Link href={enlacePartido} prefetch={false} className="pulsable t-meta flex min-h-11 items-center pl-3 text-muted underline-offset-4 hover:underline [@media(max-height:700px)]:pl-0">
             Ver partido
         </Link>
     );
@@ -220,11 +251,11 @@ export function InicioPortada({
                 <div className="px-4 pt-1">
                     <Cabecera pregunta={pregunta} puesto={puesto} />
                     <Respuesta texto={estado.respuesta} />
-                    <p className="mt-3.5 text-lg font-medium leading-snug">{estado.linea}</p>
+                    <p className="mt-3.5 text-balance text-lg font-medium leading-snug">{estado.linea}</p>
 
-                    <div className="mt-5 flex items-baseline justify-between gap-3">
+                    <div className="mt-5 flex flex-wrap items-baseline justify-between gap-x-3">
                         <p className="t-titular whitespace-nowrap text-[length:min(80px,20vw)]">{faltanTexto}</p>
-                        {!conEquipos && <p className="t-meta text-right text-muted">Sin equipos todavía</p>}
+                        {!conEquipos && <p className="t-meta whitespace-nowrap text-muted">Sin equipos todavía</p>}
                     </div>
                     <PetoFila className="mt-2.5" ocupadas={plazas.length} plazas={partido.max_players} />
                     {sinDecirNada && <p className="mt-3 text-[15px] leading-snug">{sinDecirNada}</p>}
@@ -264,7 +295,10 @@ export function InicioPortada({
     );
 }
 
-/** Se queda pegada sobre la barra inferior mientras la portada no quepa, y luego se va con ella. */
+/**
+ * Se queda pegada sobre la barra inferior mientras la portada no quepa, y luego se va con ella.
+ * En pantallas bajas se aprieta en una fila, y la regla hace que el corte con lo de detrás se lea a propósito.
+ */
 function BarraAccion({
     children,
     salida,
@@ -277,22 +311,42 @@ function BarraAccion({
     color?: "rojo" | "azul";
 }) {
     const fondo = color === "rojo" ? "bg-rojo" : color === "azul" ? "bg-azul" : "bg-background";
+    const conDetalle = Boolean(salida || acompanante);
     return (
-        <div className={cn("sticky bottom-[var(--barra-inferior)] z-10 px-4 pb-3", fondo, !acompanante && !salida && "pt-3")}>
-            {(salida || acompanante) && (
-                <div className="mb-1.5 flex min-h-11 items-center justify-between gap-3">
-                    <p className="t-meta">{salida}</p>
+        <div
+            className={cn(
+                "sticky bottom-[var(--barra-inferior)] z-10 px-4 pb-3",
+                "[@media(max-height:700px)]:flex [@media(max-height:700px)]:items-center [@media(max-height:700px)]:gap-4",
+                "[@media(max-height:700px)]:border-t [@media(max-height:700px)]:pb-2 [@media(max-height:700px)]:pt-2",
+                color ? "border-foreground" : "border-border",
+                fondo,
+                !conDetalle && "pt-3"
+            )}
+        >
+            {conDetalle && (
+                <div className="mb-1.5 flex min-h-11 items-center justify-between gap-3 [@media(max-height:700px)]:mb-0 [@media(max-height:700px)]:flex-none [@media(max-height:700px)]:flex-col [@media(max-height:700px)]:items-start [@media(max-height:700px)]:justify-center [@media(max-height:700px)]:gap-0">
+                    {salida && <p className="t-meta whitespace-nowrap">{salida}</p>}
                     {acompanante}
                 </div>
             )}
-            {children}
+            <div className="[@media(max-height:700px)]:min-w-0 [@media(max-height:700px)]:flex-1">{children}</div>
         </div>
     );
 }
 
 export function PortadaSinDatos({ pregunta }: { pregunta: string }) {
+    const { toast } = useToast();
     const router = useRouter();
     const [recargando, startTransition] = useTransition();
+
+    function reintentar() {
+        // Sin red, router.refresh() acaba en la página de error del navegador
+        if (navigator.onLine === false) {
+            toast(SIN_RESPUESTA, "error");
+            return;
+        }
+        startTransition(() => router.refresh());
+    }
 
     return (
         <div className={MARCO}>
@@ -311,7 +365,7 @@ export function PortadaSinDatos({ pregunta }: { pregunta: string }) {
                     type="button"
                     className="w-full"
                     loading={recargando}
-                    onClick={() => startTransition(() => router.refresh())}
+                    onClick={reintentar}
                 >
                     Reintentar
                 </Button>

@@ -8,6 +8,7 @@ import { Button, buttonClasses } from "@/components/ui/Button";
 import { PanenkaDice } from "@/components/PanenkaDice";
 import { getAvatarUrl, timeAgo } from "@/lib/utils";
 import { elegirPlural, fraseVacio } from "@/lib/titulares";
+import { useTeclado } from "@/lib/useTeclado";
 
 interface Comment {
     id: string;
@@ -81,24 +82,18 @@ export function MatchChat({
         if (lista) lista.scrollTop = lista.scrollHeight;
     }
 
-    // Lo que hay por encima del chat (barra, pestañas) y lo que ocupa el teclado.
-    // En iOS el teclado no cambia dvh, así que se mide con visualViewport.
+    // Con el teclado abierto se va la barra inferior y la de escribir queda pegada a él
+    useTeclado(raizRef);
+
+    // Lo que hay por encima del chat: la barra y las pestañas
     useLayoutEffect(() => {
         const raiz = raizRef.current;
         if (!raiz) return;
-        const viewport = window.visualViewport;
 
         const medir = () => {
-            // La pestaña oculta no mide nada, y menos aún mueve la página
+            // La pestaña oculta no mide nada
             if (raiz.getClientRects().length === 0) return;
             raiz.style.setProperty("--chat-arriba", `${raiz.getBoundingClientRect().top + window.scrollY}px`);
-            if (viewport) {
-                const hayZoom = viewport.scale > 1.01;
-                const teclado = hayZoom ? 0 : Math.max(0, window.innerHeight - viewport.height);
-                raiz.style.setProperty("--chat-teclado", `${teclado}px`);
-                // iOS desplaza la página para enseñar el input; con el chat ya encogido sobra
-                if (teclado > 0 && window.scrollY > 0) window.scrollTo(0, 0);
-            }
         };
 
         medir();
@@ -106,11 +101,9 @@ export function MatchChat({
         const observador = new ResizeObserver(medir);
         observador.observe(raiz);
         window.addEventListener("resize", medir);
-        viewport?.addEventListener("resize", medir);
         return () => {
             observador.disconnect();
             window.removeEventListener("resize", medir);
-            viewport?.removeEventListener("resize", medir);
         };
     }, []);
 
@@ -237,7 +230,7 @@ export function MatchChat({
             ref={raizRef}
             className={`${A_SANGRE} flex min-h-64 flex-col`}
             style={{
-                height: "calc(100dvh - var(--chat-arriba, 96px) - max(var(--barra-inferior), var(--chat-teclado, 0px)))",
+                height: "calc(100dvh - var(--chat-arriba, 96px) - var(--barra-inferior) - var(--teclado, 0px))",
             }}
         >
             <div
@@ -250,7 +243,7 @@ export function MatchChat({
                     pegadoAlFondo.current =
                         lista.scrollHeight - lista.scrollTop - lista.clientHeight < MARGEN_FONDO_PX;
                 }}
-                className="scroll-interno min-h-0 flex-1 px-4 focus-visible:outline-none"
+                className="scroll-interno min-h-0 flex-1 px-4 focus-visible:-outline-offset-2"
             >
                 {carga === "cargando" ? (
                     <div aria-hidden="true" className="flex min-h-full flex-col justify-end gap-4 py-3">
@@ -305,7 +298,11 @@ export function MatchChat({
                 )}
             </div>
 
-            <form onSubmit={handleSend} className="flex flex-none items-center gap-2 border-t border-border bg-background px-4 py-2">
+            {/* pb-6: el balón de la barra inferior asoma 17px por encima de la regla */}
+            <form
+                onSubmit={handleSend}
+                className="flex flex-none items-center gap-2 border-t border-border bg-background px-4 pb-6 pt-2 md:pb-2 in-data-teclado:pb-2"
+            >
                 <input
                     ref={inputRef}
                     type="text"

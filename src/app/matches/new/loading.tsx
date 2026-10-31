@@ -26,7 +26,7 @@ export default function NewMatchLoading() {
                     <div className="skeleton h-12 w-full" />
                 </div>
             </div>
-            <div className="sticky bottom-[var(--barra-inferior)] border-t border-border bg-background px-4 py-3">
+            <div className="sticky bottom-[var(--barra-inferior)] border-t border-border bg-background px-4 pb-[22px] pt-3 md:pb-3">
                 <div className="skeleton h-[52px] w-full" />
             </div>
         </div>

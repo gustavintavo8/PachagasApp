@@ -69,10 +69,14 @@ function columnasDe(columnas: number) {
     return { gridTemplateColumns: `repeat(${columnas}, minmax(0, 1fr))` };
 }
 
-// El nombre manda en el tamaño: «Maximiliano» tiene que caber en un cuarto de pantalla
-function cuerpoBaldosa(nombre: string, columnas: number) {
+// Una fila, un cuerpo: lo marca el nombre más largo, que tiene que caber en su baldosa
+function filaBaldosas(nombres: string[], columnas: number) {
     const ancho = `calc(min(100vw, 640px) / ${columnas} - 20px)`;
-    return { fontSize: `max(15px, min(24px, calc(${ancho} / ${(nombre.length * 0.4).toFixed(2)})))` };
+    const letras = Math.max(...nombres.map((nombre) => nombre.length));
+    return {
+        ...columnasDe(columnas),
+        fontSize: `max(15px, min(24px, calc(${ancho} / ${(letras * 0.4).toFixed(2)})))`,
+    };
 }
 
 const BALDOSA =
@@ -187,7 +191,10 @@ function Abierta({
     return (
         <>
             <Cabecera detalle={plazo} />
-            <div className="mt-3 grid gap-0.5" style={columnasDe(columnas)}>
+            <div
+                className="mt-3 grid gap-0.5"
+                style={filaBaldosas([...nombres.slice(0, enBaldosa.length), ...(conOtro ? ["Otro"] : [])], columnas)}
+            >
                 {enBaldosa.map((p, i) => (
                     <button
                         key={p.user_id}
@@ -196,7 +203,6 @@ function Abierta({
                         disabled={pulsando}
                         aria-busy={votandoA === p.user_id || undefined}
                         aria-label={`Votar a ${nombreDe(p)}`}
-                        style={cuerpoBaldosa(nombres[i], columnas)}
                         className={`pulsable select-none ${BALDOSA} ${campoDe(p)} active:bg-foreground active:text-background ${pulsando && votandoA !== p.user_id ? "opacity-50" : ""}`}
                     >
                         <span className="truncate">{nombres[i]}</span>
@@ -207,7 +213,6 @@ function Abierta({
                         type="button"
                         onClick={() => setVerOtros(true)}
                         disabled={pulsando}
-                        style={cuerpoBaldosa("Otro", columnas)}
                         className={`pulsable select-none ${BALDOSA} bg-surface text-foreground active:bg-foreground active:text-background ${pulsando ? "opacity-50" : ""}`}
                     >
                         Otro
@@ -288,13 +293,9 @@ function Resultado({
                     <Cabecera detalle="Votación cerrada" />
                     <p className="t-titular mt-2">{desenlace.titular}</p>
                     {empatados.length > 1 && (
-                        <div className="mt-3 grid gap-0.5" style={columnasDe(columnasEmpate)}>
+                        <div className="mt-3 grid gap-0.5" style={filaBaldosas(nombresEmpate, columnasEmpate)}>
                             {empatados.map((p, i) => (
-                                <div
-                                    key={p.user_id}
-                                    style={cuerpoBaldosa(nombresEmpate[i], columnasEmpate)}
-                                    className={`${BALDOSA} ${campoDe(p)}`}
-                                >
+                                <div key={p.user_id} className={`${BALDOSA} ${campoDe(p)}`}>
                                     <span className="truncate">{nombresEmpate[i]}</span>
                                 </div>
                             ))}

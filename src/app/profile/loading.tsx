@@ -1,4 +1,5 @@
 import type { CSSProperties } from "react";
+import { charsCartel } from "@/lib/titulares";
 
 // Mismo marco que Perfil de arriba abajo: el pie empieza fuera de la pantalla, como en la página
 export default function Loading() {
@@ -11,7 +12,7 @@ export default function Loading() {
                 <div
                     aria-hidden="true"
                     className="t-cartel skeleton w-fit text-transparent"
-                    style={{ "--chars": 6 } as CSSProperties}
+                    style={{ "--chars": charsCartel("Pelayo") } as CSSProperties}
                 >
                     Pelayo
                 </div>
@@ -37,9 +38,9 @@ export default function Loading() {
             {/* Cifras */}
             <div className="mt-6 px-4">
                 <div className="flex justify-between gap-4 border-t border-border pt-5">
-                    <div className="skeleton h-[min(80px,19vw)] w-16" />
-                    <div className="skeleton h-[min(80px,19vw)] w-16" />
-                    <div className="skeleton h-[min(80px,19vw)] w-28" />
+                    <div className="skeleton h-[calc(min(56px,13vw)+23px)] w-16" />
+                    <div className="skeleton h-[calc(min(56px,13vw)+23px)] w-16" />
+                    <div className="skeleton h-[calc(min(56px,13vw)+23px)] w-28" />
                 </div>
                 <div className="mt-6 flex items-center gap-3">
                     <div className="skeleton h-12 w-12 shrink-0 rounded-full" />
@@ -50,14 +51,14 @@ export default function Loading() {
             {/* Historial y Tu ficha */}
             <div className="mt-6 border-t border-border">
                 {[0, 1].map((fila) => (
-                    <div key={fila} className="flex min-h-14 items-center border-b border-border px-4">
+                    <div key={fila} className="flex h-[59px] items-center border-b border-border px-4">
                         <div className="skeleton h-5 w-2/5" />
                     </div>
                 ))}
             </div>
 
             {/* Editar perfil */}
-            <div className="mt-10 space-y-5 px-4">
+            <div className="mt-10 space-y-5 px-4 pb-5">
                 <div className="skeleton h-[32px] w-40" />
                 <div className="space-y-2">
                     <div className="skeleton h-[19px] w-14" />
@@ -65,7 +66,7 @@ export default function Loading() {
                 </div>
                 <div className="space-y-2">
                     <div className="skeleton h-[19px] w-16" />
-                    <div className="skeleton h-14 w-full" />
+                    <div className="skeleton h-[58px] w-full" />
                 </div>
                 <div className="skeleton h-[52px] w-full" />
             </div>

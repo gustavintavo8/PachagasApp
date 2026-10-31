@@ -2,13 +2,13 @@
 
 import { useState } from "react";
 import { unstable_rethrow } from "next/navigation";
-import { AlertCircle, Minus, Plus } from "lucide-react";
+import { AlertCircle, CalendarDays, Minus, Plus } from "lucide-react";
 import { createMatch } from "../actions";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
 import { PetoFila } from "@/components/Peto";
 import { cn } from "@/lib/utils";
-import { diaElegido, diasElegibles, elegidoPasado } from "@/lib/titulares";
+import { AVISO_FECHA_PASADA, diasElegibles, elegidoPasado, preguntaCuando } from "@/lib/titulares";
 
 const MIN_PLAZAS = 4;
 const MAX_PLAZAS = 30;
@@ -53,26 +53,33 @@ interface NewMatchFormProps {
 export function NewMatchForm({ ahora, sitios, fechaInicial, lugarInicial, plazasIniciales }: NewMatchFormProps) {
     // El datetime-local es la verdad; las casillas solo lo rellenan
     const [fecha, setFecha] = useState(fechaInicial);
-    const [hora, setHora] = useState(fechaInicial.slice(11, 16) || HORA_POR_DEFECTO);
+    // Null hasta que alguien la elija: sin día, ninguna hora sale pulsada por su cuenta
+    const [horaElegida, setHoraElegida] = useState<string | null>(fechaInicial.slice(11, 16) || null);
     const [lugar, setLugar] = useState(lugarInicial);
     const [plazas, setPlazas] = useState(String(plazasIniciales));
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState<string | null>(null);
 
     const diaActual = fecha.slice(0, 10);
+    const hora = horaElegida ?? HORA_POR_DEFECTO;
     const dias = diasElegibles(ahora, DIAS_A_LA_VISTA);
     const plazasNumero = Number(plazas);
     const plazasEnRango =
         Number.isInteger(plazasNumero) && plazasNumero >= MIN_PLAZAS && plazasNumero <= MAX_PLAZAS;
 
     function elegirHora(valor: string) {
-        setHora(valor);
+        setHoraElegida(valor);
         if (diaActual) setFecha(`${diaActual}T${valor}`);
+    }
+
+    function elegirDia(valor: string) {
+        setHoraElegida(hora);
+        setFecha(`${valor}T${hora}`);
     }
 
     function cambiarFecha(valor: string) {
         setFecha(valor);
-        if (valor) setHora(valor.slice(11, 16));
+        if (valor) setHoraElegida(valor.slice(11, 16));
     }
 
     function pasoPlazas(paso: number) {
@@ -113,12 +120,12 @@ export function NewMatchForm({ ahora, sitios, fechaInicial, lugarInicial, plazas
                 <div>
                     <h1 className="t-seccion">Nuevo partido</h1>
                     <p aria-live="polite" className="t-titular mt-3">
-                        {diaElegido(fecha, ahora) ?? "¿Cuándo?"}
+                        {preguntaCuando(fecha, horaElegida !== null, ahora)}
                     </p>
                     {elegidoPasado(fecha, ahora) && (
                         <p className="t-meta mt-2 flex items-center gap-2">
                             <AlertCircle size={18} strokeWidth={1.75} aria-hidden="true" className="flex-none text-tarjeta" />
-                            Esa hora ya pasó. Se puede, si es para apuntar uno jugado.
+                            {AVISO_FECHA_PASADA}
                         </p>
                     )}
                 </div>
@@ -129,7 +136,7 @@ export function NewMatchForm({ ahora, sitios, fechaInicial, lugarInicial, plazas
                     <div
                         role="group"
                         aria-label="Día"
-                        className="-mx-4 flex snap-x scroll-px-4 gap-1 overflow-x-auto overscroll-x-contain px-4 [scrollbar-width:none]"
+                        className="-mx-4 flex snap-x scroll-px-4 gap-1 overflow-x-auto overscroll-x-contain px-4 [scrollbar-width:none] md:mx-0 md:grid md:grid-cols-7 md:overflow-visible md:px-0"
                     >
                         {dias.map(({ valor, etiqueta, dia }) => {
                             const elegido = valor === diaActual;
@@ -138,9 +145,9 @@ export function NewMatchForm({ ahora, sitios, fechaInicial, lugarInicial, plazas
                                     key={valor}
                                     type="button"
                                     aria-pressed={elegido}
-                                    onClick={() => setFecha(`${valor}T${hora}`)}
+                                    onClick={() => elegirDia(valor)}
                                     className={cn(
-                                        "flex h-16 w-[52px] flex-none snap-start flex-col items-center justify-center",
+                                        "flex h-16 w-[52px] flex-none snap-start flex-col items-center justify-center md:w-auto",
                                         CASILLA,
                                         elegido && CASILLA_ELEGIDA
                                     )}
@@ -154,7 +161,7 @@ export function NewMatchForm({ ahora, sitios, fechaInicial, lugarInicial, plazas
 
                     <div role="group" aria-label="Hora" className="grid grid-cols-5 gap-1">
                         {HORAS.map((valor) => {
-                            const elegida = valor === hora;
+                            const elegida = valor === horaElegida;
                             return (
                                 <button
                                     key={valor}
@@ -170,15 +177,31 @@ export function NewMatchForm({ ahora, sitios, fechaInicial, lugarInicial, plazas
                     </div>
 
                     <p className="t-meta text-muted">O cualquier otro día y hora:</p>
-                    <input
-                        id="date"
-                        name="date"
-                        type="datetime-local"
-                        required
-                        value={fecha}
-                        onChange={(e) => cambiarFecha(e.target.value)}
-                        className="block min-h-12 w-full min-w-0 appearance-none border border-border-hover bg-surface px-3 py-2 text-base text-foreground [color-scheme:dark] focus:border-foreground focus:outline-none"
-                    />
+                    <div className="relative">
+                        <input
+                            id="date"
+                            name="date"
+                            type="datetime-local"
+                            required
+                            value={fecha}
+                            onChange={(e) => cambiarFecha(e.target.value)}
+                            className={cn(
+                                "peer block min-h-12 w-full min-w-0 appearance-none border border-border-hover bg-surface px-3 py-2 text-base text-foreground [color-scheme:dark] focus:border-foreground focus:outline-none",
+                                // Vacío, cada navegador pinta otra cosa (WebKit, nada): manda el aviso de encima
+                                !fecha &&
+                                    "[&:not(:focus)::-webkit-calendar-picker-indicator]:opacity-0 [&:not(:focus)::-webkit-datetime-edit]:opacity-0"
+                            )}
+                        />
+                        {!fecha && (
+                            <span
+                                aria-hidden="true"
+                                className="pointer-events-none absolute inset-0 flex items-center justify-between px-3 text-muted peer-focus:hidden"
+                            >
+                                Elegir día y hora
+                                <CalendarDays size={18} strokeWidth={1.75} />
+                            </span>
+                        )}
+                    </div>
                 </section>
 
                 <section className="space-y-3">
@@ -244,7 +267,7 @@ export function NewMatchForm({ ahora, sitios, fechaInicial, lugarInicial, plazas
                             required
                             value={plazas}
                             onChange={(e) => setPlazas(e.target.value)}
-                            className="t-cifra h-14 w-full min-w-0 appearance-none bg-transparent text-center text-[56px] text-foreground [-moz-appearance:textfield] focus:outline-none [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
+                            className="t-cifra h-14 w-full min-w-0 appearance-none bg-transparent text-center text-[56px] text-foreground [-moz-appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                         />
                         <Button
                             type="button"
@@ -266,7 +289,8 @@ export function NewMatchForm({ ahora, sitios, fechaInicial, lugarInicial, plazas
                 </section>
             </div>
 
-            <div className="sticky bottom-[var(--barra-inferior)] z-10 border-t border-border bg-background px-4 py-3">
+            {/* pb-[22px] en móvil: Panenka asoma 18px sobre la barra y no puede morder el botón */}
+            <div className="sticky bottom-[var(--barra-inferior)] z-10 border-t border-border bg-background px-4 pb-[22px] pt-3 md:pb-3">
                 {error && (
                     <p role="alert" className="mb-3 flex items-start gap-2 text-[15px] font-medium leading-snug">
                         <AlertCircle size={18} strokeWidth={1.75} aria-hidden="true" className="mt-px flex-none text-tarjeta" />

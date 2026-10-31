@@ -6,7 +6,7 @@ import { cache, Suspense } from "react";
 import { Avatar } from "@/components/ui/Avatar";
 import { Fila, Filas } from "@/components/Filas";
 import { Panenka } from "@/components/Panenka";
-import { getAvatarUrl } from "@/lib/utils";
+import { cn, getAvatarUrl } from "@/lib/utils";
 import { getActiveSeason } from "@/lib/seasons";
 import { requireCommunityAccess } from "@/lib/access";
 import { isAdmin } from "@/lib/permissions";
@@ -80,13 +80,13 @@ const leerPartidos = cache(async (seasonId: string) => {
 /** En el mismo orden que el ranking, para que el puesto de aquí sea el de allí. */
 const leerTemporada = cache(async (seasonId: string) => {
   const supabase = await createClient();
-  const { data } = await supabase
+  const { data, error } = await supabase
     .from("season_player_stats")
     .select("user_id, elo_rating, matches_played, goals_scored, profiles!inner(username)")
     .eq("season_id", seasonId)
     .order("elo_rating", { ascending: false })
     .order("matches_played", { ascending: false });
-  return (data ?? []) as unknown as FilaTemporada[];
+  return { filas: (data ?? []) as unknown as FilaTemporada[], error };
 });
 
 /** Aparte de la temporada: quien aún no ha jugado no tiene fila en ella. */
@@ -119,17 +119,20 @@ async function leerUltimoResultado(seasonId: string) {
 // --- Tu sitio, sin hacer ruido ---
 
 async function TuPuesto({ userId, seasonId }: { userId: string; seasonId: string }) {
-  const temporada = await leerTemporada(seasonId);
-  const mia = temporada.find((fila) => fila.user_id === userId);
-  const cuentan = temporada.filter((fila) => (fila.matches_played ?? 0) >= PROVISIONAL_THRESHOLD);
+  const { filas, error } = await leerTemporada(seasonId);
+  const mia = filas.find((fila) => fila.user_id === userId);
+  const cuentan = filas.filter((fila) => (fila.matches_played ?? 0) >= PROVISIONAL_THRESHOLD);
   const indice = cuentan.findIndex((fila) => fila.user_id === userId);
 
+  // Si la temporada no se ha podido leer, ni posición ni RP: unos cero inventados parecerían datos
   return (
     <Link
       href="/leaderboard"
-      className="pulsable t-meta flex min-h-11 flex-none items-center whitespace-nowrap text-muted tabular-nums"
+      className="pulsable t-meta flex min-h-11 min-w-0 items-center text-balance text-right text-muted tabular-nums"
     >
-      {lineaPuesto({ posicion: indice === -1 ? null : indice + 1, rp: mia?.elo_rating ?? ELO_BASE })}
+      {error
+        ? "Sin datos"
+        : lineaPuesto({ posicion: indice === -1 ? null : indice + 1, rp: mia?.elo_rating ?? ELO_BASE })}
     </Link>
   );
 }
@@ -146,6 +149,8 @@ function BandaResultado({ ultimo }: { ultimo: NonNullable<Awaited<ReturnType<typ
   });
   const total = rojo + azul;
   const costura = total === 0 ? 50 : Math.min(72, Math.max(28, (rojo / total) * 100));
+  // Panenka se sienta al fondo del campo ganador: las cifras van pegadas a la costura y ahí nunca las pisa
+  const panenkaALaIzquierda = rojo > azul;
 
   return (
     <Link
@@ -154,16 +159,26 @@ function BandaResultado({ ultimo }: { ultimo: NonNullable<Awaited<ReturnType<typ
       aria-label={`Último resultado: Rojo ${rojo}, Azul ${azul}. ${frasePanenka}`}
       className="relative mt-6 block select-none"
     >
-      <div className="grid h-14 text-white" style={{ gridTemplateColumns: `${costura}% 1fr` }}>
+      <div className="grid h-[min(84px,21.5vw)] text-white" style={{ gridTemplateColumns: `${costura}% 1fr` }}>
         <div className="flex items-center justify-end bg-rojo pr-3.5">
-          <span className="t-cifra text-[42px]">{rojo}</span>
+          <span className="t-cifra text-[length:min(64px,16.4vw)]">{rojo}</span>
         </div>
         <div className="flex items-center border-l-2 border-white bg-azul pl-3.5">
-          <span className="t-cifra text-[42px]">{azul}</span>
+          <span className="t-cifra text-[length:min(64px,16.4vw)]">{azul}</span>
         </div>
       </div>
-      <Panenka size={84} className="absolute right-3 top-0" />
-      <p className="min-h-[60px] py-2.5 pl-4 pr-[108px] text-[15px] font-medium leading-snug">{frasePanenka}</p>
+      <Panenka
+        size={76}
+        className={cn("absolute top-[min(26px,6.6vw)]", panenkaALaIzquierda ? "left-3" : "right-3")}
+      />
+      <p
+        className={cn(
+          "min-h-[60px] py-2.5 text-[15px] font-medium leading-snug",
+          panenkaALaIzquierda ? "pl-[100px] pr-4" : "pl-4 pr-[100px]"
+        )}
+      >
+        {frasePanenka}
+      </p>
     </Link>
   );
 }
@@ -172,7 +187,7 @@ function BandaResultado({ ultimo }: { ultimo: NonNullable<Awaited<ReturnType<typ
 
 async function Portada({ userId, seasonId }: { userId: string; seasonId: string }) {
   const ahora = new Date().toISOString();
-  const [{ partidos, error }, temporada, admin, ultimo, perfil] = await Promise.all([
+  const [{ partidos, error }, { filas: temporada }, admin, ultimo, perfil] = await Promise.all([
     leerPartidos(seasonId),
     leerTemporada(seasonId),
     isAdmin(userId),
@@ -200,7 +215,7 @@ async function Portada({ userId, seasonId }: { userId: string; seasonId: string 
       puedeBorrarse={partido?.status === "open" && !organizo && !admin}
       candidatos={candidatos}
       puesto={
-        <Suspense fallback={<div className="skeleton h-5 w-32 flex-none" />}>
+        <Suspense fallback={<div className="skeleton h-5 w-32 min-w-0" />}>
           <TuPuesto userId={userId} seasonId={seasonId} />
         </Suspense>
       }
@@ -257,13 +272,13 @@ async function OtrosPartidos({ userId, seasonId }: { userId: string; seasonId: s
 }
 
 async function TuTemporada({ userId, seasonId }: { userId: string; seasonId: string }) {
-  const [temporada, { partidos }, perfil] = await Promise.all([
+  const [{ filas, error: errorTemporada }, { partidos, error: errorPartidos }, perfil] = await Promise.all([
     leerTemporada(seasonId),
     leerPartidos(seasonId),
     leerPerfil(userId),
   ]);
   const { partido } = elegirPartidoPortada(partidos, userId, new Date().toISOString());
-  const mia = temporada.find((fila) => fila.user_id === userId);
+  const mia = filas.find((fila) => fila.user_id === userId);
   const nombre = perfil?.username || "Jugador";
   const avatarUrl = getAvatarUrl(process.env.NEXT_PUBLIC_SUPABASE_URL!, perfil?.avatar_url ?? null);
 
@@ -272,12 +287,16 @@ async function TuTemporada({ userId, seasonId }: { userId: string; seasonId: str
       <Filas aria-label="Tu temporada">
         <Fila
           href={`/players/${userId}`}
-          inicio={<Avatar src={avatarUrl} fallback={nombre} size="md" />}
+          inicio={<Avatar src={avatarUrl} fallback={nombre} size="md" priority />}
           nombre={nombre}
-          detalle={`${plural(mia?.matches_played ?? 0, "partido")}, ${plural(mia?.goals_scored ?? 0, "gol")}`}
+          detalle={
+            errorTemporada
+              ? undefined
+              : `${plural(mia?.matches_played ?? 0, "partido")}, ${plural(mia?.goals_scored ?? 0, "gol")}`
+          }
         />
         {/* En «No hay pachanga» esta acción ya es el botón principal, y solo puede haber una */}
-        {partido && <Fila href="/matches/new" nombre="Montar partido" />}
+        {(partido || errorPartidos) && <Fila href="/matches/new" nombre="Montar partido" />}
       </Filas>
     </section>
   );

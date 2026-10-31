@@ -198,7 +198,7 @@ export function BandaTerminado({ partido, yo, origen = "" }: TerminadoProps) {
             </span>
 
             <span className="flex items-start gap-3 px-4 py-3">
-                <MarcaResultado resultado={resultado} />
+                {resultado && <MarcaResultado resultado={resultado} />}
                 <span className="min-w-0 flex-1">
                     <span className={cn("t-seccion line-clamp-2 block", !jugado && "text-muted")}>{titular}</span>
                     <span className="t-meta mt-0.5 block truncate text-muted">{detalle}</span>

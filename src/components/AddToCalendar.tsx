@@ -249,7 +249,7 @@ export function AddToCalendar({ match }: AddToCalendarProps): React.JSX.Element 
             {escritorio ? (
                 open && menu
             ) : (
-                <Hoja open={open} onClose={() => setOpen(false)} title="Añadir al calendario">
+                <Hoja open={open} onClose={() => setOpen(false)} title="Añadir al calendario" initialFocus={firstItemRef}>
                     {menu}
                 </Hoja>
             )}

@@ -36,6 +36,9 @@ const LIMITE_COMPRESION_MS = 30_000;
 // A sangre aunque el contenedor traiga márgenes: el ancho de la pantalla o el de la columna
 const A_SANGRE = "w-[min(100vw,640px)] ml-[calc(50%-min(50vw,320px))]";
 
+// Todo el alto bajo las pestañas: Subir foto descansa abajo, al alcance del pulgar, aunque no haya fotos
+const MARCO = "flex min-h-[calc(100dvh-var(--barra-superior)-var(--barra-inferior)-45px)] flex-col";
+
 // next.config solo optimiza Supabase: el resto de hosts se pide tal cual
 function sinOptimizar(url: string) {
     return !/^https:\/\/[^/]+\.supabase\.co\/storage\/v1\/object\/public\//.test(url);
@@ -54,9 +57,19 @@ function conLimite<T>(promesa: Promise<T>, ms: number): Promise<T> {
 
 // La primera manda; el resto rellena. Con una o dos no hay jerarquía que hacer.
 function rejilla(total: number) {
-    if (total === 1) return { columnas: 1, destacada: false };
-    if (total === 2) return { columnas: 2, destacada: false };
-    return { columnas: 3, destacada: true };
+    if (total === 1) return { columnas: 1, destacada: false, sobran: 0 };
+    if (total === 2) return { columnas: 2, destacada: false, sobran: 0 };
+    return { columnas: 3, destacada: true, sobran: total % 3 };
+}
+
+// Tres columnas y la primera ocupa cuatro celdas: si la última fila queda coja,
+// su última foto se estira hasta el borde y no deja huecos negros.
+function formaDeFoto(indice: number, total: number, destacada: boolean, sobran: number) {
+    if (total === 1) return "aspect-[4/3]";
+    if (destacada && indice === 0) return "col-span-2 row-span-2 aspect-square";
+    if (indice === total - 1 && sobran === 1) return "col-span-3 aspect-[2/1]";
+    if (indice === total - 1 && sobran === 2) return "col-span-2";
+    return "aspect-square";
 }
 
 export function MatchPhotos({ matchId, currentUserId }: MatchPhotosProps) {
@@ -67,6 +80,7 @@ export function MatchPhotos({ matchId, currentUserId }: MatchPhotosProps) {
     const [carga, setCarga] = useState<"cargando" | "lista" | "error">("cargando");
     const [intento, setIntento] = useState(0);
     const [cargandoMas, setCargandoMas] = useState(false);
+    const [falloMas, setFalloMas] = useState(false);
     const [uploading, setUploading] = useState(false);
     const [abierta, setAbierta] = useState<number | null>(null);
     const fileInputRef = useRef<HTMLInputElement>(null);
@@ -98,6 +112,7 @@ export function MatchPhotos({ matchId, currentUserId }: MatchPhotosProps) {
     async function cargarMas() {
         if (cargandoMas || photos.length >= total) return;
         setCargandoMas(true);
+        setFalloMas(false);
         const { data, error } = await supabase
             .from("match_photos")
             .select(CONSULTA)
@@ -106,7 +121,9 @@ export function MatchPhotos({ matchId, currentUserId }: MatchPhotosProps) {
             .range(photos.length, photos.length + POR_PAGINA - 1);
 
         if (error) {
-            toast("No se han podido cargar más fotos", "error");
+            setFalloMas(true);
+            // El visor es un <dialog> y tapa los toasts: ahí el aviso va dentro
+            if (abierta === null) toast("No se han podido cargar más fotos", "error");
         } else {
             const nuevas = (data as unknown as Photo[]) ?? [];
             setPhotos((prev) => [...prev, ...nuevas.filter((n) => !prev.some((p) => p.id === n.id))]);
@@ -176,10 +193,10 @@ export function MatchPhotos({ matchId, currentUserId }: MatchPhotosProps) {
         if (tile instanceof HTMLElement) tile.focus();
     }
 
-    const { columnas, destacada } = rejilla(carga === "lista" ? photos.length : POR_PAGINA);
+    const { columnas, destacada, sobran } = rejilla(carga === "lista" ? photos.length : POR_PAGINA);
 
     return (
-        <section aria-label="Fotos del partido" className={A_SANGRE}>
+        <section aria-label="Fotos del partido" className={`${A_SANGRE} ${MARCO}`}>
             <div className="flex items-baseline justify-between gap-4 px-4 pb-3 pt-4">
                 <h2 className="t-seccion">Fotos</h2>
                 {carga === "lista" && total > 0 && (
@@ -227,9 +244,7 @@ export function MatchPhotos({ matchId, currentUserId }: MatchPhotosProps) {
                                   type="button"
                                   onClick={() => setAbierta(i)}
                                   aria-label={`Abrir la foto de ${autorDe(photo)}`}
-                                  className={`pulsable relative block overflow-hidden bg-surface ${
-                                      photos.length === 1 ? "aspect-[4/3]" : "aspect-square"
-                                  } ${destacada && i === 0 ? "col-span-2 row-span-2" : ""}`}
+                                  className={`pulsable relative block overflow-hidden bg-surface ${formaDeFoto(i, photos.length, destacada, sobran)}`}
                               >
                                   <Image
                                       src={photo.photo_url}
@@ -237,7 +252,13 @@ export function MatchPhotos({ matchId, currentUserId }: MatchPhotosProps) {
                                       fill
                                       unoptimized={sinOptimizar(photo.photo_url)}
                                       className="object-cover"
-                                      sizes={destacada && i === 0 ? "(max-width: 640px) 67vw, 430px" : "(max-width: 640px) 33vw, 215px"}
+                                      sizes={
+                                          destacada && i === 0
+                                              ? "(max-width: 640px) 67vw, 430px"
+                                              : i === photos.length - 1 && sobran > 0
+                                                ? "(max-width: 640px) 100vw, 640px"
+                                                : "(max-width: 640px) 33vw, 215px"
+                                      }
                                   />
                               </button>
                           ))}
@@ -259,7 +280,8 @@ export function MatchPhotos({ matchId, currentUserId }: MatchPhotosProps) {
                 </div>
             )}
 
-            <div className="sticky bottom-[var(--barra-inferior)] z-10 mt-2 bg-background px-4 py-2">
+            {/* pb-6: el balón de la barra inferior asoma 17px por encima de la regla */}
+            <div className="sticky bottom-[var(--barra-inferior)] z-10 mt-auto bg-background px-4 pb-6 pt-2 md:pb-2">
                 <input
                     ref={fileInputRef}
                     type="file"
@@ -287,6 +309,8 @@ export function MatchPhotos({ matchId, currentUserId }: MatchPhotosProps) {
                     fotos={photos}
                     total={total}
                     inicial={abierta}
+                    cargandoMas={cargandoMas}
+                    falloMas={falloMas}
                     onCerrar={cerrarVisor}
                     onFinal={cargarMas}
                 />
@@ -299,12 +323,16 @@ function Visor({
     fotos,
     total,
     inicial,
+    cargandoMas,
+    falloMas,
     onCerrar,
     onFinal,
 }: {
     fotos: Photo[];
     total: number;
     inicial: number;
+    cargandoMas: boolean;
+    falloMas: boolean;
     onCerrar: (ultima: number) => void;
     onFinal: () => void;
 }) {
@@ -353,8 +381,10 @@ function Visor({
             aria-label="Foto del partido"
             onClose={() => onCerrar(actual)}
             onKeyDown={(e) => {
-                if (e.key === "ArrowRight") irA(actual + 1);
-                if (e.key === "ArrowLeft") irA(actual - 1);
+                if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+                // Con el foco en la pista el navegador también se desplazaría por su cuenta
+                e.preventDefault();
+                irA(actual + (e.key === "ArrowRight" ? 1 : -1));
             }}
             className="m-0 h-dvh max-h-none w-full max-w-none bg-background p-0 text-foreground transition-opacity duration-150 ease-out backdrop:bg-background starting:open:opacity-0"
         >
@@ -386,11 +416,14 @@ function Visor({
                 {/* Deslizar es el scroll del navegador: su física, su zoom con dos dedos */}
                 <div
                     ref={pistaRef}
+                    role="group"
+                    aria-label="Fotos"
+                    tabIndex={0}
                     onScroll={(e) => {
                         const pista = e.currentTarget;
                         if (pista.clientWidth > 0) setActual(Math.round(pista.scrollLeft / pista.clientWidth));
                     }}
-                    className="flex min-h-0 flex-1 snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none]"
+                    className="flex min-h-0 flex-1 snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none] focus-visible:-outline-offset-2"
                 >
                     {fotos.map((slide, i) => (
                         <div
@@ -414,6 +447,18 @@ function Visor({
                         </div>
                     ))}
                 </div>
+
+                {falloMas && actual >= fotos.length - 1 && fotos.length < total && (
+                    <div className="flex flex-none items-center gap-3 px-4 pt-2">
+                        <TriangleAlert size={18} strokeWidth={1.75} aria-hidden="true" className="shrink-0 text-tarjeta" />
+                        <p role="status" className="t-meta min-w-0 flex-1">
+                            No se han podido cargar más fotos.
+                        </p>
+                        <Button type="button" variant="outline" size="sm" loading={cargandoMas} onClick={onFinal}>
+                            Reintentar
+                        </Button>
+                    </div>
+                )}
 
                 <div className="flex flex-none items-center justify-between px-1.5 pb-[env(safe-area-inset-bottom,0px)]">
                     <button

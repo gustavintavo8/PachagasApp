@@ -1,3 +1,4 @@
+import type { CSSProperties } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { redirect } from "next/navigation";
 import type { Metadata } from "next";
@@ -10,7 +11,6 @@ import {
     rachaDeEquipo,
     titularRanking,
 } from "@/lib/titulares";
-import { cn } from "@/lib/utils";
 import { LeaderboardTabs } from "./LeaderboardTabs";
 import { getTemporada } from "./datos";
 import { clasificados, ordenar, type FilaRanking } from "./tabla";
@@ -19,9 +19,6 @@ export const metadata: Metadata = {
     title: "Ranking — Pachanga",
     description: "Clasificación de los mejores jugadores de la comunidad.",
 };
-
-// A 84px, dos líneas. Más largo baja a 52px: siempre dos, o la tabla se va de la pantalla.
-const MAX_TITULAR_GRANDE = 24;
 
 function rival(fila: FilaRanking | undefined, yo: FilaRanking) {
     if (!fila) return null;
@@ -83,12 +80,14 @@ export default async function LeaderboardPage() {
                 </div>
 
                 <p
-                    className={cn(
-                        "t-titular mt-2 font-black text-balance [overflow-wrap:anywhere]",
-                        titular.length <= MAX_TITULAR_GRANDE
-                            ? "text-[length:min(84px,21.5vw)] leading-[0.92]"
-                            : "text-[length:min(52px,13.3vw)]"
-                    )}
+                    className="t-titular mt-2 leading-[0.92] font-black text-balance [overflow-wrap:anywhere]"
+                    style={
+                        {
+                            "--chars": titular.length,
+                            // Siempre dos líneas: con tres, la tabla se va de la pantalla
+                            fontSize: "min(84px, calc((min(100vw, 640px) - 32px) / (var(--chars) * 0.205)))",
+                        } as CSSProperties
+                    }
                 >
                     {titular}
                 </p>

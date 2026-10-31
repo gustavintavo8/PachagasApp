@@ -35,7 +35,11 @@ export default function Loading() {
                 </div>
 
                 {/* Último resultado, a sangre */}
-                <div className="skeleton mt-6 h-14 w-full" />
+                <div className="skeleton mt-6 h-[min(84px,21.5vw)] w-full" />
+                <div className="px-4 pt-2.5">
+                    <div className="skeleton h-5 w-3/5" />
+                    <div className="skeleton mt-1 h-5 w-2/5" />
+                </div>
             </div>
 
             {/* Acción */}

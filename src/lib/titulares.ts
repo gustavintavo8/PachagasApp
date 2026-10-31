@@ -1788,8 +1788,10 @@ export function lineaTiempo({
     if (cielo) partes.push(NOMBRE_CIELO[cielo]);
     if (typeof temperatura === "number") partes.push(`${Math.round(temperatura)}°`);
     if (typeof probabilidadLluvia === "number") {
-        const yaDiceLluvia = cielo === "lluvia" || cielo === "llovizna";
-        partes.push(`${Math.round(probabilidadLluvia)} %${yaDiceLluvia ? "" : " de lluvia"}`);
+        // Si precipita, el cielo ya dice qué cae: con nieve, «de lluvia» se contradice
+        const yaDiceQueCae =
+            cielo === "lluvia" || cielo === "llovizna" || cielo === "nieve" || cielo === "tormenta";
+        partes.push(`${Math.round(probabilidadLluvia)} %${yaDiceQueCae ? "" : " de lluvia"}`);
     }
     return partes.length > 0 ? partes.join(" · ") : null;
 }

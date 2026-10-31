@@ -1,6 +1,6 @@
 "use client";
 
-import type { ReactNode } from "react";
+import type { ReactNode, RefObject } from "react";
 import { Drawer } from "@base-ui/react/drawer";
 import { X } from "lucide-react";
 import { cn } from "@/lib/utils";
@@ -12,10 +12,12 @@ interface HojaProps {
     description?: string;
     children: ReactNode;
     className?: string;
+    /** Dónde cae el foco al abrir. Sin esto, en la propia hoja. */
+    initialFocus?: RefObject<HTMLElement | null>;
 }
 
 // Hoja inferior arrastrable en móvil, centrada en md+. Los estilos están en globals.css.
-export function Hoja({ open, onClose, title, description, children, className }: HojaProps) {
+export function Hoja({ open, onClose, title, description, children, className, initialFocus }: HojaProps) {
     return (
         <Drawer.Root
             open={open}
@@ -27,7 +29,7 @@ export function Hoja({ open, onClose, title, description, children, className }:
                 <Drawer.Backdrop className="hoja-fondo" />
                 <Drawer.VirtualKeyboardProvider>
                     <Drawer.Viewport className="hoja-marco">
-                        <Drawer.Popup className={cn("hoja", className)}>
+                        <Drawer.Popup className={cn("hoja", className)} initialFocus={initialFocus}>
                             <div aria-hidden="true" className="hoja-asa" />
                             <div className="flex flex-none items-start justify-between gap-4 px-4 pb-3 pt-2 md:pt-4">
                                 <div className="min-w-0">

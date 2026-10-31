@@ -17,9 +17,11 @@ import {
 } from "@/app/matches/Resultado";
 import {
     ERROR_HISTORIAL,
+    SIN_RESULTADOS,
     calcularRacha,
     frasePanenkaJugador,
     fraseVacio,
+    recuentoResultados,
     resultadoDe,
     titularHistorial,
 } from "@/lib/titulares";
@@ -55,33 +57,27 @@ export default async function HistoryPage({
     const season = await seasonOrNull(seasonParam);
     if (!season) redirect("/history");
 
-    const [{ data: stats, error: statsError }, { data: seasons }, { data: participations, error: listError }] =
-        await Promise.all([
-            supabase
-                .from("season_player_stats")
-                .select("*")
-                .eq("season_id", season.id)
-                .eq("user_id", user.id)
-                .maybeSingle(),
-            supabase
-                .from("seasons")
-                .select("id, name, slug, status, starts_at, ends_at")
-                .order("starts_at", { ascending: false }),
-            // Tus partidos de la temporada, con toda la plantilla para poder titular la crónica
-            supabase
-                .from("match_participants")
-                .select(`
-                    match_id,
-                    matches!inner(
-                        id, season_id, date, location, status, team_a_score, team_b_score,
-                        match_participants(user_id, team, goals, is_mvp, profiles(username, position))
-                    )
-                `)
-                .eq("user_id", user.id)
-                .eq("matches.season_id", season.id),
-        ]);
+    const [{ data: seasons, error: seasonsError }, { data: participations, error: listError }] = await Promise.all([
+        supabase
+            .from("seasons")
+            .select("id, name, slug, status, starts_at, ends_at")
+            .order("starts_at", { ascending: false }),
+        // Tus partidos de la temporada, con toda la plantilla para poder titular la crónica
+        supabase
+            .from("match_participants")
+            .select(`
+                match_id,
+                matches!inner(
+                    id, season_id, date, location, status, team_a_score, team_b_score,
+                    match_participants(user_id, team, goals, is_mvp, profiles(username, position))
+                )
+            `)
+            .eq("user_id", user.id)
+            .eq("matches.season_id", season.id),
+    ]);
 
-    const seasonOptions = (seasons ?? []) as Season[];
+    // Sin la lista de temporadas, el selector se queda al menos con la que estás viendo
+    const seasonOptions = seasonsError || !seasons?.length ? [season] : (seasons as Season[]);
     const finishedMatches = (participations ?? [])
         .map((p) => p.matches as unknown as PartidoTerminado & { status: string })
         .filter((m) => m.status === "finished")
@@ -96,10 +92,9 @@ export default async function HistoryPage({
         return resultado ? [{ resultado, goles: mia?.goals ?? 0 }] : [];
     });
 
-    const jugados = stats?.matches_played ?? 0;
-    const victorias = stats?.wins ?? 0;
-    const empates = stats?.draws ?? 0;
-    const derrotas = stats?.losses ?? 0;
+    // Todo sale de las filas de abajo: la cabecera no puede contradecir a la lista.
+    const { jugados, victorias, empates, derrotas } = recuentoResultados(historial.map((p) => p.resultado));
+    const mias = finishedMatches.flatMap((partido) => miFila(partido) ?? []);
 
     const cabecera = (
         <header className="flex items-center justify-between gap-4 px-4 pb-2 pt-1">
@@ -108,7 +103,7 @@ export default async function HistoryPage({
         </header>
     );
 
-    if (statsError || listError) {
+    if (listError) {
         return (
             <div className="pb-6">
                 {cabecera}
@@ -117,11 +112,14 @@ export default async function HistoryPage({
         );
     }
 
+    // La flecha del partido vuelve aquí, a la misma temporada
+    const origen = seasonParam ? `?desde=historial&temporada=${season.slug}` : "?desde=historial";
+
     const fraseJugador = frasePanenkaJugador({
         id: `${user.id}:${finishedMatches[0]?.id ?? season.id}`,
         partidos: jugados,
-        goles: stats?.goals_scored ?? 0,
-        mvps: stats?.mvps ?? 0,
+        goles: mias.reduce((total, mia) => total + (mia.goals ?? 0), 0),
+        mvps: mias.filter((mia) => mia.is_mvp).length,
         victorias,
         empates,
         derrotas,
@@ -133,7 +131,11 @@ export default async function HistoryPage({
             {cabecera}
 
             <div className="px-4 pb-5 pt-3">
-                <p className="t-titular text-balance">{titularHistorial({ jugados, victorias, derrotas })}</p>
+                <p className="t-titular text-balance">
+                    {jugados === 0 && finishedMatches.length > 0
+                        ? SIN_RESULTADOS
+                        : titularHistorial({ jugados, victorias, derrotas })}
+                </p>
 
                 {historial.length > 0 && (
                     <TiraForma resultados={[...historial].reverse().map((p) => p.resultado)} className="mt-4" />
@@ -174,7 +176,7 @@ export default async function HistoryPage({
             {finishedMatches.length > 0 && (
                 <Filas aria-label="Tus partidos">
                     {finishedMatches.map((partido) => (
-                        <FilaTerminado key={partido.id} partido={partido} yo={user.id} />
+                        <FilaTerminado key={partido.id} partido={partido} yo={user.id} origen={origen} />
                     ))}
                 </Filas>
             )}
