@@ -20,7 +20,7 @@ export const metadata: Metadata = {
     description: "Clasificación de los mejores jugadores de la comunidad.",
 };
 
-// A 84px, dos líneas. Con más texto serían tres y la tabla se iría de la pantalla.
+// A 84px, dos líneas. Más largo baja a 52px: siempre dos, o la tabla se va de la pantalla.
 const MAX_TITULAR_GRANDE = 24;
 
 function rival(fila: FilaRanking | undefined, yo: FilaRanking) {
@@ -85,7 +85,9 @@ export default async function LeaderboardPage() {
                 <p
                     className={cn(
                         "t-titular mt-2 font-black text-balance [overflow-wrap:anywhere]",
-                        titular.length <= MAX_TITULAR_GRANDE && "text-[length:min(84px,21.5vw)] leading-[0.92]"
+                        titular.length <= MAX_TITULAR_GRANDE
+                            ? "text-[length:min(84px,21.5vw)] leading-[0.92]"
+                            : "text-[length:min(52px,13.3vw)]"
                     )}
                 >
                     {titular}

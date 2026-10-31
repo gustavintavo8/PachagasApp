@@ -22,7 +22,7 @@ export default function PlayerLoading() {
                     ))}
                 </div>
             </section>
-            <section className="grid grid-cols-[auto_1fr_auto] gap-x-5 px-4 pt-5">
+            <section className="grid grid-cols-[1.7fr_1fr_auto] gap-x-4 px-4 pt-5">
                 {CIFRAS.map((i) => (
                     <div key={i}>
                         <div className="skeleton h-14 w-20" />

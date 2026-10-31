@@ -40,7 +40,7 @@
   }
 }
 
-/* Con el teclado abierto la barra se quita: lo pone useTeclado */
+/* Con el teclado abierto la barra se quita: data-teclado lo pone useTeclado */
 :root[data-teclado]:has(.barra-inferior) {
   --barra-inferior: 0px;
 }

@@ -1255,8 +1255,9 @@ export function detalleTerminado({
     mvp: boolean;
 }): string {
     const partes = [diaYMes(fecha)];
+    const equipo = equipoDeTeam(team);
     if (!jugado) partes.push("No jugaste");
-    if (jugado && !team) partes.push("Sin equipo");
+    if (jugado) partes.push(equipo ? `De ${equipo}` : "Sin equipo");
     if (mvp) partes.push("MVP");
     if (goles > 0) partes.push(plural(goles, "gol"));
     if (lugar.trim()) partes.push(lugar.trim());
@@ -1282,7 +1283,22 @@ export function titularHistorial({
     if (victorias === jugados) return `Ganaste los ${total}.`;
     if (derrotas === jugados) return `Perdiste los ${total}.`;
     if (victorias === 0) return `Ni una victoria en ${total}.`;
-    return `Ganaste ${numeroPalabra(victorias)} de ${total}.`;
+    // Pasado de doce, cifras los dos: "Ganaste 8 de 13.", no "ocho de 13".
+    return jugados > 12 ? `Ganaste ${victorias} de ${jugados}.` : `Ganaste ${numeroPalabra(victorias)} de ${total}.`;
+}
+
+/** Hay partidos en la lista, pero ninguno con equipo y resultado: nada que contar, y tampoco "no has jugado". */
+export const SIN_RESULTADOS = "Sin resultados que contar.";
+
+/** Jugados y V-E-D de las filas. Lo que cuenta la cabecera sale de lo mismo que se pinta debajo. */
+export function recuentoResultados(resultados: readonly PartidoRacha["resultado"][]): {
+    jugados: number;
+    victorias: number;
+    empates: number;
+    derrotas: number;
+} {
+    const cuantos = (resultado: PartidoRacha["resultado"]) => resultados.filter((r) => r === resultado).length;
+    return { jugados: resultados.length, victorias: cuantos("V"), empates: cuantos("E"), derrotas: cuantos("D") };
 }
 
 function diaISO(indiceDia: number): string {
@@ -1328,6 +1344,13 @@ export function diaElegido(valor: string, ahora: Fecha): string | null {
     const dia = textoDia(indice, hoy, hora);
     return indice === hoy ? dia : `${dia}, ${hora}`;
 }
+
+/** La respuesta de Nuevo partido: el día elegido, o lo que falta por elegir. */
+export function preguntaCuando(valor: string, horaTocada: boolean, ahora: Fecha): string {
+    return diaElegido(valor, ahora) ?? (horaTocada ? "¿Qué día?" : "¿Cuándo?");
+}
+
+export const AVISO_FECHA_PASADA = "Esa hora ya pasó. Se puede, si es para apuntar uno jugado.";
 
 /** Crear un partido en pasado se puede: es para apuntar uno ya jugado. Solo se avisa. */
 export function elegidoPasado(valor: string, ahora: Fecha): boolean {

@@ -55,6 +55,10 @@ import {
     titularPetoJugador,
     titularRanking,
     aValorLocal,
+    AVISO_FECHA_PASADA,
+    SIN_RESULTADOS,
+    preguntaCuando,
+    recuentoResultados,
     detalleTerminado,
     diaElegido,
     diaPartido,
@@ -1174,9 +1178,10 @@ test("estadoPartido en español", () => {
 
 test("detalleTerminado: lo tuyo antes que el sitio, y dice si no jugaste", () => {
     const base = { fecha: "2026-10-20T18:00:00Z", lugar: "Campus", jugado: true, team: "A", goles: 0, mvp: false };
-    assert.equal(detalleTerminado(base), "20 oct · Campus");
-    assert.equal(detalleTerminado({ ...base, goles: 1 }), "20 oct · 1 gol · Campus");
-    assert.equal(detalleTerminado({ ...base, goles: 2, mvp: true }), "20 oct · MVP · 2 goles · Campus");
+    assert.equal(detalleTerminado(base), "20 oct · De rojo · Campus");
+    assert.equal(detalleTerminado({ ...base, team: "B" }), "20 oct · De azul · Campus");
+    assert.equal(detalleTerminado({ ...base, goles: 1 }), "20 oct · De rojo · 1 gol · Campus");
+    assert.equal(detalleTerminado({ ...base, goles: 2, mvp: true }), "20 oct · De rojo · MVP · 2 goles · Campus");
     assert.equal(detalleTerminado({ ...base, jugado: false, team: null }), "20 oct · No jugaste · Campus");
     assert.equal(detalleTerminado({ ...base, team: null }), "20 oct · Sin equipo · Campus");
 });
@@ -1192,6 +1197,30 @@ test("titularHistorial responde cómo te fue", () => {
     assert.equal(titularHistorial({ jugados: 1, victorias: 1, derrotas: 0 }), "Ganaste el único.");
     assert.equal(titularHistorial({ jugados: 1, victorias: 0, derrotas: 1 }), "Perdiste el único.");
     assert.equal(titularHistorial({ jugados: 1, victorias: 0, derrotas: 0 }), "Empataste el único.");
+});
+
+test("titularHistorial no mezcla palabras y cifras pasado de doce", () => {
+    assert.equal(titularHistorial({ jugados: 13, victorias: 8, derrotas: 2 }), "Ganaste 8 de 13.");
+    assert.equal(titularHistorial({ jugados: 30, victorias: 10, derrotas: 10 }), "Ganaste 10 de 30.");
+    assert.equal(titularHistorial({ jugados: 13, victorias: 1, derrotas: 2 }), "Ganaste 1 de 13.");
+    assert.equal(titularHistorial({ jugados: 12, victorias: 8, derrotas: 2 }), "Ganaste ocho de doce.");
+});
+
+test("recuentoResultados cuenta lo que hay en las filas", () => {
+    assert.deepEqual(recuentoResultados([]), { jugados: 0, victorias: 0, empates: 0, derrotas: 0 });
+    assert.deepEqual(recuentoResultados(["V", "V", "E", "D", "V"]), { jugados: 5, victorias: 3, empates: 1, derrotas: 1 });
+});
+
+test("preguntaCuando responde lo elegido o lo que falta", () => {
+    const ahora = "2026-10-31T10:00:00Z";
+    assert.equal(preguntaCuando("", false, ahora), "¿Cuándo?");
+    assert.equal(preguntaCuando("", true, ahora), "¿Qué día?");
+    assert.equal(preguntaCuando("2026-11-03T21:00", true, ahora), "Martes 3, 21:00");
+    assert.equal(preguntaCuando("2026-11-03T20:00", false, ahora), "Martes 3, 20:00");
+});
+
+test("los textos fijos de partidos no gritan", () => {
+    for (const texto of [SIN_RESULTADOS, AVISO_FECHA_PASADA]) assert.doesNotMatch(texto, /!/);
 });
 
 test("aValorLocal da la hora de Madrid, también con el horario de verano", () => {

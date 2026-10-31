@@ -386,7 +386,7 @@ export default async function PlayerProfilePage({
 
             <div className={cn("flex-1 bg-background pb-8 text-foreground", SUELO)}>
                 <section className="px-4 pt-5">
-                    <div className="grid grid-cols-[auto_1fr_auto] gap-x-5">
+                    <div className="grid grid-cols-[1.7fr_1fr_auto] gap-x-4">
                         {cifras.map(({ valor, etiqueta }) => (
                             <div key={etiqueta}>
                                 <p className="t-cifra text-[length:min(56px,14vw)] font-black whitespace-nowrap">

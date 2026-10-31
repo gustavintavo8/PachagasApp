@@ -3,7 +3,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { usePathname, useRouter } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { barrasVisibles, tabActiva, tabs } from "./BottomNav";
@@ -14,9 +14,15 @@ interface NavbarClientProps {
 }
 
 // Detalle: flecha de vuelta y contexto en lugar de la palabra
-function vuelta(pathname: string, desdeJugadores: boolean) {
+function vuelta(pathname: string, desdeJugadores: boolean, parametros: URLSearchParams) {
   if (pathname.startsWith("/matches/") || pathname === "/history") {
-    return { href: "/matches", label: "Partidos" };
+    // La lista que abrió esto lo dice en el enlace (?desde=): la flecha vuelve a ella
+    const desde = parametros.get("desde");
+    if (desde === "historial" && pathname !== "/history") {
+      const temporada = parametros.get("temporada");
+      return { href: temporada ? `/history?season=${encodeURIComponent(temporada)}` : "/history", label: "Historial" };
+    }
+    return { href: desde === "terminados" ? "/matches?tab=terminados" : "/matches", label: "Partidos" };
   }
   if (desdeJugadores) return { href: "/players", label: "Jugadores" };
   if (pathname === "/players" || pathname.startsWith("/players/")) {
@@ -56,6 +62,7 @@ export function EnlacesBarra({ sesion }: { sesion?: boolean }) {
 
 export function NavbarClient({ enlaces, acciones }: NavbarClientProps) {
   const pathname = usePathname();
+  const parametros = useSearchParams();
   const router = useRouter();
 
   // La ruta anterior dentro de la app. Se recuerda al renderizar, no en un efecto, para que
@@ -66,7 +73,7 @@ export function NavbarClient({ enlaces, acciones }: NavbarClientProps) {
   if (pathname === "/login" || pathname === "/access") return null;
 
   const desdeJugadores = pathname.startsWith("/players/") && ruta.anterior === "/players";
-  const atras = vuelta(pathname, desdeJugadores);
+  const atras = vuelta(pathname, desdeJugadores, parametros);
 
   return (
     // Sin fondo y con z: los campos de color pasan por debajo. No flota, se va con el scroll.

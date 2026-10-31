@@ -14,8 +14,9 @@ type Pestana = (typeof PESTANAS)[number]["id"];
 interface MatchesTabsProps {
     proximos: ReactNode;
     terminados: ReactNode;
-    totalProximos: number;
-    totalTerminados: number;
+    /** Null si la lectura falló: mejor sin número que con un cero falso */
+    totalProximos: number | null;
+    totalTerminados: number | null;
 }
 
 /**
@@ -43,7 +44,7 @@ export function MatchesTabs({ proximos, terminados, totalProximos, totalTerminad
         botones.current[otra]?.focus();
     }
 
-    const totales: Record<Pestana, number> = { proximos: totalProximos, terminados: totalTerminados };
+    const totales: Record<Pestana, number | null> = { proximos: totalProximos, terminados: totalTerminados };
 
     return (
         <>
@@ -76,7 +77,7 @@ export function MatchesTabs({ proximos, terminados, totalProximos, totalTerminad
                             )}
                         >
                             {etiqueta}
-                            <span className="tabular-nums">{totales[id]}</span>
+                            {totales[id] !== null && <span className="tabular-nums">{totales[id]}</span>}
                         </button>
                     );
                 })}

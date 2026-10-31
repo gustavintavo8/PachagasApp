@@ -1,4 +1,6 @@
+import Link from "next/link";
 import { Fila } from "@/components/Filas";
+import { Panenka } from "@/components/Panenka";
 import { cn } from "@/lib/utils";
 import {
     detalleTerminado,
@@ -98,39 +100,110 @@ export function MiniMarcador({ rojo, azul }: { rojo: number | null; azul: number
     );
 }
 
-export function FilaTerminado({ partido, yo }: { partido: PartidoTerminado; yo: string }) {
+function lecturaTerminado(partido: PartidoTerminado, yo: string) {
     const mia = partido.match_participants.find((p) => p.user_id === yo);
-    const { titular } = titularCronica({
-        id: partido.id,
-        rojo: partido.team_a_score,
-        azul: partido.team_b_score,
-        participantes: partido.match_participants.map(participanteCronica),
-    });
+    return {
+        jugado: !!mia,
+        resultado: resultadoDe(mia?.team ?? null, partido.team_a_score, partido.team_b_score),
+        titular: titularCronica({
+            id: partido.id,
+            rojo: partido.team_a_score,
+            azul: partido.team_b_score,
+            participantes: partido.match_participants.map(participanteCronica),
+        }).titular,
+        detalle: detalleTerminado({
+            fecha: partido.date,
+            lugar: partido.location,
+            jugado: !!mia,
+            team: mia?.team ?? null,
+            goles: mia?.goals ?? 0,
+            mvp: mia?.is_mvp ?? false,
+        }),
+    };
+}
+
+interface TerminadoProps {
+    partido: PartidoTerminado;
+    yo: string;
+    /** Consulta del enlace, para que la flecha del partido vuelva a esta lista: "?desde=terminados" */
+    origen?: string;
+}
+
+export function FilaTerminado({ partido, yo, origen = "" }: TerminadoProps) {
+    const { jugado, resultado, titular, detalle } = lecturaTerminado(partido, yo);
 
     return (
         <Fila
-            href={`/matches/${partido.id}`}
+            href={`/matches/${partido.id}${origen}`}
             className="py-3"
-            inicio={<MarcaResultado resultado={resultadoDe(mia?.team ?? null, partido.team_a_score, partido.team_b_score)} />}
+            inicio={<MarcaResultado resultado={resultado} />}
             nombre={
                 <span
                     className={cn(
                         "line-clamp-2 whitespace-normal font-display text-[22px] font-extrabold leading-[1.05]",
-                        !mia && "text-muted"
+                        !jugado && "text-muted"
                     )}
                 >
                     {titular}
                 </span>
             }
-            detalle={detalleTerminado({
-                fecha: partido.date,
-                lugar: partido.location,
-                jugado: !!mia,
-                team: mia?.team ?? null,
-                goles: mia?.goals ?? 0,
-                mvp: mia?.is_mvp ?? false,
-            })}
+            detalle={detalle}
             cifra={<MiniMarcador rojo={partido.team_a_score} azul={partido.team_b_score} />}
         />
+    );
+}
+
+/**
+ * El último resultado, a sangre: los dos campos con la costura en su sitio y las cifras
+ * pegadas a ella. Panenka se queda en el campo grande, que es donde siempre cabe.
+ */
+export function BandaTerminado({ partido, yo, origen = "" }: TerminadoProps) {
+    const { team_a_score: rojo, team_b_score: azul } = partido;
+    const { jugado, resultado, titular, detalle } = lecturaTerminado(partido, yo);
+    const conResultado = rojo !== null && azul !== null;
+    const total = (rojo ?? 0) + (azul ?? 0);
+    const costura = total === 0 ? 50 : Math.min(72, Math.max(28, ((rojo ?? 0) / total) * 100));
+    const cifra = "t-marcador text-[length:min(76px,19vw)]";
+
+    return (
+        <Link href={`/matches/${partido.id}${origen}`} className="block select-none active:bg-surface">
+            <span
+                role="img"
+                aria-label={conResultado ? `Rojo ${rojo}, Azul ${azul}` : "Sin resultado"}
+                className={cn("relative grid h-24", conResultado ? "text-accent-hover" : "text-muted")}
+                style={{ gridTemplateColumns: `${costura}% 1fr` }}
+            >
+                <span
+                    className={cn(
+                        "flex items-center justify-end pr-3.5",
+                        conResultado ? "bg-rojo" : "bg-surface"
+                    )}
+                >
+                    <span className={cifra}>{rojo ?? "–"}</span>
+                </span>
+                <span
+                    className={cn(
+                        "flex items-center border-l-2 pl-3.5",
+                        conResultado ? "border-accent-hover bg-azul" : "border-border-hover bg-surface"
+                    )}
+                >
+                    <span className={cifra}>{azul ?? "–"}</span>
+                </span>
+                {conResultado && (
+                    <Panenka
+                        size={80}
+                        className={cn("absolute top-2", costura > 50 ? "left-3" : "right-3")}
+                    />
+                )}
+            </span>
+
+            <span className="flex items-start gap-3 px-4 py-3">
+                <MarcaResultado resultado={resultado} />
+                <span className="min-w-0 flex-1">
+                    <span className={cn("t-seccion line-clamp-2 block", !jugado && "text-muted")}>{titular}</span>
+                    <span className="t-meta mt-0.5 block truncate text-muted">{detalle}</span>
+                </span>
+            </span>
+        </Link>
     );
 }
