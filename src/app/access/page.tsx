@@ -1,9 +1,15 @@
+import type { CSSProperties } from "react";
+import type { Metadata } from "next";
 import { redirect } from "next/navigation";
 
 import { AccessForm } from "./AccessForm";
 
 import { hasCommunityAccess } from "@/lib/access";
 import { createClient } from "@/lib/supabase/server";
+
+export const metadata: Metadata = {
+    title: "Acceso privado — Pachanga",
+};
 
 export default async function AccessPage() {
     const supabase = await createClient();
@@ -20,22 +26,11 @@ export default async function AccessPage() {
     }
 
     return (
-        <div className="flex min-h-[calc(100vh-12rem)] items-center justify-center px-4 py-12">
-            <div className="w-full max-w-md space-y-5 text-center">
-                <div className="space-y-2">
-                    <p className="text-sm font-medium uppercase tracking-[0.24em] text-accent">
-                        Comunidad privada
-                    </p>
-                    <h1 className="text-3xl font-semibold text-foreground">
-                        Acceso privado
-                    </h1>
-                    <p className="text-sm text-muted">
-                        Introduce tu código para activar el acceso a la comunidad.
-                    </p>
-                </div>
-
-                <AccessForm />
-            </div>
+        <div className="flex min-h-dvh flex-col pt-[calc(env(safe-area-inset-top,0px)+20px)]">
+            <h1 className="t-respuesta px-4" style={{ "--chars": 7 } as CSSProperties}>
+                Acceso privado
+            </h1>
+            <AccessForm />
         </div>
     );
 }

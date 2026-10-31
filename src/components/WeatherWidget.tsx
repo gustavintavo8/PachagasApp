@@ -1,92 +1,95 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useState } from "react";
+import {
+    Cloud,
+    CloudDrizzle,
+    CloudFog,
+    CloudLightning,
+    CloudRain,
+    CloudSnow,
+    CloudSun,
+    Sun,
+    type LucideIcon,
+} from "lucide-react";
+import { cieloDeCodigo, diaIsoMadrid, diasHasta, lineaTiempo, type Cielo } from "@/lib/titulares";
 
-interface WeatherWidgetProps {
-    date: string;
+const DIAS_DE_PREVISION = 16;
+
+const ICONOS: Record<Cielo, LucideIcon> = {
+    despejado: Sun,
+    "algo-nuboso": CloudSun,
+    nublado: Cloud,
+    niebla: CloudFog,
+    llovizna: CloudDrizzle,
+    lluvia: CloudRain,
+    nieve: CloudSnow,
+    tormenta: CloudLightning,
+};
+
+type Prevision = { texto: string; cielo: Cielo | null };
+
+// Volver a la pestaña no repite la petición ni el hueco
+const previsiones = new Map<string, Prevision | null>();
+
+async function pedirPrevision(dia: string, signal: AbortSignal): Promise<Prevision | null> {
+    // Mieres, Asturias
+    const respuesta = await fetch(
+        `https://api.open-meteo.com/v1/forecast?latitude=43.25&longitude=-5.7667&daily=temperature_2m_max,precipitation_probability_max,weathercode&timezone=Europe%2FMadrid&forecast_days=${DIAS_DE_PREVISION}`,
+        { signal }
+    );
+    if (!respuesta.ok) return null;
+
+    const { daily } = await respuesta.json();
+    const indice = daily?.time?.indexOf(dia) ?? -1;
+    if (indice === -1) return null;
+
+    const cielo = cieloDeCodigo(daily.weathercode?.[indice]);
+    const texto = lineaTiempo({
+        cielo,
+        temperatura: daily.temperature_2m_max?.[indice],
+        probabilidadLluvia: daily.precipitation_probability_max?.[indice],
+    });
+    return texto ? { texto, cielo } : null;
 }
 
-const WEATHER_CODES: Record<number, string> = {
-    0: "☀️", // Clear sky
-    1: "🌤️", // Mainly clear
-    2: "⛅", // Partly cloudy
-    3: "☁️", // Overcast
-    45: "🌫️", // Fog
-    48: "🌫️", // Depositing rime fog
-    51: "🌧️", // Drizzle: Light
-    53: "🌧️", // Drizzle: Moderate
-    55: "🌧️", // Drizzle: Dense intensity
-    61: "🌧️", // Rain: Slight
-    63: "🌧️", // Rain: Moderate
-    65: "🌧️", // Rain: Heavy intensity
-    71: "❄️", // Snow fall: Slight
-    73: "❄️", // Snow fall: Moderate
-    75: "❄️", // Snow fall: Heavy intensity
-    80: "🌧️", // Rain showers: Slight
-    81: "🌧️", // Rain showers: Moderate
-    82: "⛈️", // Rain showers: Violent
-    95: "⛈️", // Thunderstorm: Slight or moderate
-    96: "⛈️", // Thunderstorm with slight and heavy hail
-    99: "⛈️", // Thunderstorm with slight and heavy hail
-};
 export function WeatherWidget({ date }: { date: string }) {
-    const [state, setState] = useState<{ loading: boolean; weather: { emoji: string; text: string } | null }>({ loading: true, weather: null });
+    const dia = diaIsoMadrid(date);
+    // Se lee una vez: fuera de la ventana de previsión no hay nada que pedir ni que reservar
+    const [enVentana] = useState(() => {
+        const dias = diasHasta(date, Date.now());
+        return dias >= 0 && dias < DIAS_DE_PREVISION;
+    });
+    const [recibida, setRecibida] = useState<{ dia: string; prevision: Prevision | null } | null>(null);
 
     useEffect(() => {
-        async function fetchWeather() {
-            try {
-                // Mieres, Asturias
-                const latitude = 43.25;
-                const longitude = -5.7667;
+        if (!enVentana || previsiones.has(dia)) return;
 
-                // 2. Fetch forecast
-                const weatherRes = await fetch(
-                    `https://api.open-meteo.com/v1/forecast?latitude=${latitude}&longitude=${longitude}&daily=temperature_2m_max,precipitation_probability_max,weathercode&timezone=auto`
-                );
-                const weatherData = await weatherRes.json();
+        const peticion = new AbortController();
+        pedirPrevision(dia, peticion.signal)
+            .then((prevision) => {
+                previsiones.set(dia, prevision);
+                setRecibida({ dia, prevision });
+            })
+            .catch(() => {
+                if (!peticion.signal.aborted) setRecibida({ dia, prevision: null });
+            });
 
-                if (!weatherData.daily) {
-                    setState(prev => ({ ...prev, loading: false }));
-                    return;
-                }
+        return () => peticion.abort();
+    }, [dia, enVentana]);
 
-                // Match the match date with the forecast dates
-                const matchDateStr = new Date(date).toISOString().split('T')[0];
-                const dateIndex = weatherData.daily.time.indexOf(matchDateStr);
+    if (!enVentana) return null;
 
-                if (dateIndex !== -1) {
-                    const temp = Math.round(weatherData.daily.temperature_2m_max[dateIndex]);
-                    const prob = weatherData.daily.precipitation_probability_max[dateIndex];
+    const prevision = previsiones.get(dia) ?? (recibida?.dia === dia ? recibida.prevision : null);
+    const Icono = prevision?.cielo ? ICONOS[prevision.cielo] : null;
+    const cargando = !previsiones.has(dia) && recibida?.dia !== dia;
 
-                    setState({
-                        loading: false,
-                        weather: {
-                            emoji: WEATHER_CODES[weatherData.daily.weathercode[dateIndex]] || "🌤️",
-                            text: `${temp}º · 💧${prob}%`
-                        }
-                    });
-                } else {
-                    setState(prev => ({ ...prev, loading: false }));
-                }
-            } catch (error) {
-                console.error("Failed to fetch weather:", error);
-                setState(prev => ({ ...prev, loading: false }));
-            }
-        }
-
-        fetchWeather();
-    }, [date]);
-
-    if (state.loading) {
-        return <div className="skeleton h-6 w-24 rounded-full" />;
-    }
-
-    if (!state.weather) return null;
-
+    // La línea mide lo mismo cargando, con dato y sin él: la página no salta
     return (
-        <span className="flex items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-xs font-medium text-muted transition-colors hover:border-accent/50 hover:text-foreground">
-            <span className="text-sm">{state.weather.emoji}</span>
-            <span>{state.weather.text}</span>
-        </span>
+        <p className="t-meta flex h-5 items-center gap-1.5 tabular-nums text-muted">
+            {cargando && <span aria-hidden="true" className="skeleton block h-4 w-40" />}
+            {Icono && <Icono size={18} strokeWidth={1.75} aria-hidden="true" className="shrink-0" />}
+            {prevision && <span>{prevision.texto}</span>}
+        </p>
     );
 }

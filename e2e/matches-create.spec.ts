@@ -1,4 +1,4 @@
-import { test, expect } from "@playwright/test";
+import { test, expect, type Page } from "@playwright/test";
 import { deleteMatch } from "./helpers/db";
 
 let createdMatchId: string | null = null;
@@ -10,24 +10,28 @@ test.afterAll(async () => {
     }
 });
 
+async function openNewMatchForm(page: Page) {
+    await page.getByRole("link", { name: "Montar partido" }).click();
+    await page.waitForURL("**/matches/new");
+    // La fecha es un campo controlado: lo escrito antes de hidratar se pierde
+    await page.waitForLoadState("networkidle");
+}
+
 test.describe("Crear partido @smoke", () => {
     test("formulario de nuevo partido es accesible desde el home @smoke", async ({ page }) => {
         await page.goto("/");
-        const newMatchButton = page.locator("text=Nuevo partido").or(
-            page.locator("text=Crear partido")
-        );
-        await expect(newMatchButton).toBeVisible();
+        await expect(page.getByRole("link", { name: "Montar partido" })).toBeVisible();
     });
 
     test("crear partido con datos válidos redirige a la página del partido @critical", async ({ page }) => {
         await page.goto("/");
-        await page.locator("text=Nuevo partido").or(page.locator("text=Crear partido")).click();
+        await openNewMatchForm(page);
 
         // Rellenar formulario
         const futureDate = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
         const dateStr = futureDate.toISOString().slice(0, 16); // "YYYY-MM-DDTHH:MM"
         await page.locator('input[type="datetime-local"]').fill(dateStr);
-        await page.locator('input[placeholder*="ubicación"], input[placeholder*="lugar"], input[name="location"]').fill("Campo E2E Test");
+        await page.locator('input[name="location"]').fill("Campo E2E Test");
 
         await page.locator('button[type="submit"]').click();
 
@@ -36,22 +40,31 @@ test.describe("Crear partido @smoke", () => {
         const url = page.url();
         createdMatchId = url.split("/matches/")[1];
 
-        await expect(page.locator("text=Campo E2E Test")).toBeVisible();
-        await expect(page.locator("text=abierto").or(page.locator("text=Abierto"))).toBeVisible();
+        // cacheComponents deja /matches/new oculto en el DOM, con este sitio entre los de siempre
+        await expect(page.getByText("Campo E2E Test").locator("visible=true")).toBeVisible();
+        await expect(page.getByText(/^Abierto ·/)).toBeVisible();
     });
 
     test("crear partido sin ubicación muestra error de validación", async ({ page }) => {
         await page.goto("/");
-        await page.locator("text=Nuevo partido").or(page.locator("text=Crear partido")).click();
+        await openNewMatchForm(page);
 
         const futureDate = new Date(Date.now() + 2 * 24 * 60 * 60 * 1000);
         await page.locator('input[type="datetime-local"]').fill(futureDate.toISOString().slice(0, 16));
         // NO rellenar ubicación
 
+        const location = page.locator('input[name="location"]');
+        await location.clear();
         await page.locator('button[type="submit"]').click();
 
-        await expect(page.locator("text=ubicación").or(page.locator("[role='alert']"))).toBeVisible({ timeout: 5_000 });
-        // Sigue en el mismo form, no redirige
-        await expect(page).not.toHaveURL(/\/matches\/[a-f0-9-]+/);
+        // Vacía la para el navegador
+        expect(await location.evaluate((input: HTMLInputElement) => input.validity.valueMissing)).toBe(true);
+        await expect(page).toHaveURL(/\/matches\/new/);
+
+        // Demasiado corta también
+        await location.fill("x");
+        await page.locator('button[type="submit"]').click();
+        expect(await location.evaluate((input: HTMLInputElement) => input.validity.tooShort)).toBe(true);
+        await expect(page).toHaveURL(/\/matches\/new/);
     });
 });

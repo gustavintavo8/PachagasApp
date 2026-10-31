@@ -1,82 +1,48 @@
 // src/components/Navbar.tsx
+import { cache, Suspense } from "react";
 import { createClient } from "@/lib/supabase/server";
-import { NavbarClient } from "./NavbarClient";
+import { BottomNav } from "./BottomNav";
+import { EnlacesBarra, NavbarClient } from "./NavbarClient";
 import { NotificationBell } from "./NotificationBell";
-import { Suspense } from "react";
-import { Avatar } from "@/components/ui/Avatar";
-import { getAvatarUrl } from "@/lib/utils";
-import Link from "next/link";
-import { LogOut, Bot } from "lucide-react";
-import { signOut } from "@/app/login/actions";
 
-async function DesktopUserMenu() {
+// La barra de arriba y la de abajo piden el usuario en la misma petición
+const usuarioActual = cache(async () => {
   const supabase = await createClient();
   const { data: { user } } = await supabase.auth.getUser();
-  if (!user) return null;
+  return user;
+});
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("username, avatar_url")
-    .eq("id", user.id)
-    .single();
-
-  const avatarUrl = getAvatarUrl(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    profile?.avatar_url ?? null
-  );
-
-  return (
-    <>
-      <NotificationBell userId={user.id} />
-      <Link href="/profile" className="transition-transform hover:scale-105" title="Mi Perfil" aria-label="Mi Perfil">
-        <Avatar
-          src={avatarUrl}
-          fallback={profile?.username || user.email || "U"}
-          size="sm"
-        />
-      </Link>
-      <form action={signOut}>
-        <button
-          type="submit"
-          className="rounded-lg p-2 text-muted transition-colors hover:bg-surface-hover hover:text-foreground"
-          title="Cerrar Sesión"
-          aria-label="Cerrar Sesión"
-        >
-          <LogOut size={16} aria-hidden="true" />
-        </button>
-      </form>
-    </>
-  );
+async function EnlacesSesion() {
+  const user = await usuarioActual();
+  return <EnlacesBarra sesion={!!user} />;
 }
 
-async function MobileNotificationBell() {
-  const supabase = await createClient();
-  const { data: { user } } = await supabase.auth.getUser();
+// Una sola campana a cualquier ancho: dos instancias se pisan el canal de realtime
+async function AccionesSesion() {
+  const user = await usuarioActual();
   if (!user) return null;
+
+  // Cerrar sesión vive en Perfil, a cualquier ancho
   return <NotificationBell userId={user.id} />;
+}
+
+export async function BottomNavSesion() {
+  const user = await usuarioActual();
+  return <BottomNav sesion={!!user} />;
 }
 
 export function Navbar() {
   return (
     <NavbarClient
-      desktopUserMenu={
-        <Suspense fallback={<div className="h-8 w-8 rounded-full bg-surface-hover animate-pulse" />}>
-          <DesktopUserMenu />
+      enlaces={
+        <Suspense fallback={<EnlacesBarra />}>
+          <EnlacesSesion />
         </Suspense>
       }
-      mobileRight={
-        <div className="flex items-center gap-1">
-          <Link
-            href="/asistente"
-            aria-label="Panenka — Asistente IA"
-            className="rounded-lg p-2 text-muted transition-colors hover:bg-surface-hover hover:text-foreground"
-          >
-            <Bot size={20} aria-hidden="true" />
-          </Link>
-          <Suspense fallback={<div className="h-6 w-6 rounded-full bg-surface-hover animate-pulse" />}>
-            <MobileNotificationBell />
-          </Suspense>
-        </div>
+      acciones={
+        <Suspense fallback={<div className="h-11 w-11" />}>
+          <AccionesSesion />
+        </Suspense>
       }
     />
   );

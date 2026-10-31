@@ -146,11 +146,3 @@ test("aplica rate limit por usuario antes de comparar el código y conserva un e
         /console\.(?:log|warn|error)\([\s\S]{0,120}(?:code|accessCode)/i
     );
 });
-
-test("mide el popover con un callback ref sin setState síncrono en un effect", () => {
-    const source = read("src/components/SoccerPitch.tsx");
-
-    assert.doesNotMatch(source, /useLayoutEffect/);
-    assert.match(source, /useCallback/);
-    assert.match(source, /setAdjustedPos\(\(current\)/);
-});

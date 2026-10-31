@@ -1,26 +1,45 @@
 import type { Metadata } from "next";
-import { createClient } from "@/lib/supabase/server";
-import { redirect } from "next/navigation";
 import Link from "next/link";
-import { Card } from "@/components/ui/Card";
-import { formatDate } from "@/lib/utils";
-import { resolveSeasonSelection } from "@/lib/seasons";
+import { redirect } from "next/navigation";
+import { createClient } from "@/lib/supabase/server";
+import { resolveSeasonSelection, SeasonNotFoundError } from "@/lib/seasons";
 import type { Season } from "@/lib/types";
 import { SeasonSelector } from "@/components/SeasonSelector";
+import { Filas } from "@/components/Filas";
+import { PanenkaDice } from "@/components/PanenkaDice";
+import { buttonClasses } from "@/components/ui/Button";
+import { ErrorBloque } from "@/app/matches/ErrorBloque";
 import {
-    Calendar,
-    MapPin,
-    Trophy,
-    Target,
-    TrendingUp,
-    TrendingDown,
-    Minus,
-} from "lucide-react";
+    FilaTerminado,
+    TiraForma,
+    type ParticipanteTerminado,
+    type PartidoTerminado,
+} from "@/app/matches/Resultado";
+import {
+    ERROR_HISTORIAL,
+    SIN_RESULTADOS,
+    calcularRacha,
+    frasePanenkaJugador,
+    fraseVacio,
+    recuentoResultados,
+    resultadoDe,
+    titularHistorial,
+} from "@/lib/titulares";
 
 export const metadata: Metadata = {
     title: "Historial — Pachanga",
     description: "Tu historial de partidos jugados y resultados.",
 };
+
+async function seasonOrNull(slug?: string) {
+    try {
+        return await resolveSeasonSelection(slug);
+    } catch (error) {
+        // Una temporada que no existe no es un error de la app: se vuelve a la actual
+        if (slug && error instanceof SeasonNotFoundError) return null;
+        throw error;
+    }
+}
 
 export default async function HistoryPage({
     searchParams,
@@ -35,198 +54,131 @@ export default async function HistoryPage({
     if (!user) redirect("/login");
 
     const { season: seasonParam } = await searchParams;
-    const season = await resolveSeasonSelection(seasonParam);
+    const season = await seasonOrNull(seasonParam);
+    if (!season) redirect("/history");
 
-    const [{ data: stats }, { data: seasons }] = await Promise.all([
-        supabase
-            .from("season_player_stats")
-            .select("*")
-            .eq("season_id", season.id)
-            .eq("user_id", user.id)
-            .maybeSingle(),
+    const [{ data: seasons, error: seasonsError }, { data: participations, error: listError }] = await Promise.all([
         supabase
             .from("seasons")
             .select("id, name, slug, status, starts_at, ends_at")
             .order("starts_at", { ascending: false }),
+        // Tus partidos de la temporada, con toda la plantilla para poder titular la crónica
+        supabase
+            .from("match_participants")
+            .select(`
+                match_id,
+                matches!inner(
+                    id, season_id, date, location, status, team_a_score, team_b_score,
+                    match_participants(user_id, team, goals, is_mvp, profiles(username, position))
+                )
+            `)
+            .eq("user_id", user.id)
+            .eq("matches.season_id", season.id),
     ]);
 
-    // Fetch finished matches where the user participated
-    const { data: participations } = await supabase
-        .from("match_participants")
-        .select(`
-            match_id,
-            team,
-            goals,
-            is_mvp,
-            matches!inner(id, season_id, date, location, status, team_a_score, team_b_score)
-        `)
-        .eq("user_id", user.id)
-        .eq("matches.season_id", season.id);
-
-    // Filter to only finished matches and sort by date desc
-    const finishedMatches = participations
-        ?.map((p) => {
-            const match = p.matches as unknown as {
-                id: string;
-                date: string;
-                location: string;
-                status: string;
-                team_a_score: number | null;
-                team_b_score: number | null;
-            };
-            return {
-                ...match,
-                userTeam: p.team,
-                userGoals: p.goals,
-                userMvp: p.is_mvp,
-            };
-        })
+    // Sin la lista de temporadas, el selector se queda al menos con la que estás viendo
+    const seasonOptions = seasonsError || !seasons?.length ? [season] : (seasons as Season[]);
+    const finishedMatches = (participations ?? [])
+        .map((p) => p.matches as unknown as PartidoTerminado & { status: string })
         .filter((m) => m.status === "finished")
-        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-        ?? [];
+        .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
-    const seasonOptions = (seasons ?? []) as Season[];
+    const miFila = (partido: PartidoTerminado): ParticipanteTerminado | undefined =>
+        partido.match_participants.find((p) => p.user_id === user.id);
+
+    const historial = finishedMatches.flatMap((partido) => {
+        const mia = miFila(partido);
+        const resultado = resultadoDe(mia?.team ?? null, partido.team_a_score, partido.team_b_score);
+        return resultado ? [{ resultado, goles: mia?.goals ?? 0 }] : [];
+    });
+
+    // Todo sale de las filas de abajo: la cabecera no puede contradecir a la lista.
+    const { jugados, victorias, empates, derrotas } = recuentoResultados(historial.map((p) => p.resultado));
+    const mias = finishedMatches.flatMap((partido) => miFila(partido) ?? []);
+
+    const cabecera = (
+        <header className="flex items-center justify-between gap-4 px-4 pb-2 pt-1">
+            <h1 className="t-seccion">Historial</h1>
+            <SeasonSelector seasons={seasonOptions} selectedSlug={season.slug} name="season" />
+        </header>
+    );
+
+    if (listError) {
+        return (
+            <div className="pb-6">
+                {cabecera}
+                <ErrorBloque>{ERROR_HISTORIAL}</ErrorBloque>
+            </div>
+        );
+    }
+
+    // La flecha del partido vuelve aquí, a la misma temporada
+    const origen = seasonParam ? `?desde=historial&temporada=${season.slug}` : "?desde=historial";
+
+    const fraseJugador = frasePanenkaJugador({
+        id: `${user.id}:${finishedMatches[0]?.id ?? season.id}`,
+        partidos: jugados,
+        goles: mias.reduce((total, mia) => total + (mia.goals ?? 0), 0),
+        mvps: mias.filter((mia) => mia.is_mvp).length,
+        victorias,
+        empates,
+        derrotas,
+        racha: calcularRacha(historial),
+    });
 
     return (
-        <div className="mx-auto max-w-5xl px-4 py-8">
-            {/* Header */}
-            <div className="mb-8">
-                <div className="flex flex-wrap items-start justify-between gap-4">
-                    <div>
-                        <h1 className="text-2xl font-bold text-foreground">Historial de Partidos</h1>
-                        <p className="text-muted">Tus pachangas pasadas y resultados</p>
-                    </div>
-                    <SeasonSelector seasons={seasonOptions} selectedSlug={season.slug} name="season" />
-                </div>
-            </div>
+        <div className="pb-6">
+            {cabecera}
 
-            {/* Stats Summary */}
-            <div className="mb-8 grid grid-cols-2 gap-4 sm:grid-cols-4">
-                <Card className="relative overflow-hidden text-center">
-                    <p className="text-sm text-muted">Jugados</p>
-                    <p className="mt-1 text-3xl font-bold text-foreground">{stats?.matches_played ?? 0}</p>
-                </Card>
-                <Card className="relative overflow-hidden text-center">
-                    <div className="absolute right-3 top-3 text-green-500/20">
-                        <TrendingUp size={32} />
-                    </div>
-                    <p className="text-sm text-muted">Victorias</p>
-                    <p className="mt-1 text-3xl font-bold text-green-400">{stats?.wins ?? 0}</p>
-                </Card>
-                <Card className="relative overflow-hidden text-center">
-                    <div className="absolute right-3 top-3 text-zinc-500/20">
-                        <Minus size={32} />
-                    </div>
-                    <p className="text-sm text-muted">Empates</p>
-                    <p className="mt-1 text-3xl font-bold text-zinc-400">{stats?.draws ?? 0}</p>
-                </Card>
-                <Card className="relative overflow-hidden text-center">
-                    <div className="absolute right-3 top-3 text-red-500/20">
-                        <TrendingDown size={32} />
-                    </div>
-                    <p className="text-sm text-muted">Derrotas</p>
-                    <p className="mt-1 text-3xl font-bold text-red-400">{stats?.losses ?? 0}</p>
-                </Card>
-            </div>
+            <div className="px-4 pb-5 pt-3">
+                <p className="t-titular text-balance">
+                    {jugados === 0 && finishedMatches.length > 0
+                        ? SIN_RESULTADOS
+                        : titularHistorial({ jugados, victorias, derrotas })}
+                </p>
 
-            {/* Match History List */}
-            {finishedMatches.length > 0 ? (
-                <div className="space-y-4">
-                    {finishedMatches.map((match) => {
-                        const myScore = match.userTeam === "A" ? match.team_a_score : match.team_b_score;
-                        const oppScore = match.userTeam === "A" ? match.team_b_score : match.team_a_score;
-                        let result: "win" | "draw" | "loss" | null = null;
-                        if (myScore !== null && oppScore !== null && match.userTeam) {
-                            if (myScore > oppScore) result = "win";
-                            else if (myScore === oppScore) result = "draw";
-                            else result = "loss";
-                        }
+                {historial.length > 0 && (
+                    <TiraForma resultados={[...historial].reverse().map((p) => p.resultado)} className="mt-4" />
+                )}
 
-                        const resultConfig = {
-                            win: { label: "VICTORIA", bg: "bg-green-500/10", text: "text-green-400", border: "border-green-500/30" },
-                            draw: { label: "EMPATE", bg: "bg-zinc-500/10", text: "text-zinc-400", border: "border-zinc-500/30" },
-                            loss: { label: "DERROTA", bg: "bg-red-500/10", text: "text-red-400", border: "border-red-500/30" },
-                        };
+                <dl className="mt-4 grid grid-cols-4 gap-2">
+                    {[
+                        ["Jugados", jugados],
+                        ["Victorias", victorias],
+                        ["Empates", empates],
+                        ["Derrotas", derrotas],
+                    ].map(([etiqueta, valor]) => (
+                        <div key={etiqueta} className="flex min-w-0 flex-col-reverse">
+                            <dt className="t-meta text-muted">{etiqueta}</dt>
+                            <dd className="t-cifra text-[44px]">{valor}</dd>
+                        </div>
+                    ))}
+                </dl>
 
-                        const config = result ? resultConfig[result] : null;
-
-                        return (
-                            <Link key={match.id} href={`/matches/${match.id}`} className="group block">
-                                <Card className="transition-all border border-border/80 bg-gradient-to-br from-surface to-surface-hover/30 hover:border-accent/40 hover:-translate-y-0.5 hover:shadow-[0_8px_30px_rgba(204,255,0,0.08)]">
-                                    <div className="flex items-center justify-between">
-                                        {/* Left: Info */}
-                                        <div className="min-w-0 flex-1 space-y-2">
-                                            <div className="flex items-center gap-2">
-                                                {config && (
-                                                    <span className={`rounded-full border px-2.5 py-0.5 text-xs font-bold ${config.bg} ${config.text} ${config.border}`}>
-                                                        {config.label}
-                                                    </span>
-                                                )}
-                                                {match.userMvp && (
-                                                    <span className="rounded-full bg-yellow-500/10 px-2 py-0.5 text-xs font-medium text-yellow-400 border border-yellow-500/30">
-                                                        MVP
-                                                    </span>
-                                                )}
-                                            </div>
-                                            <div className="flex items-center gap-2 text-foreground">
-                                                <MapPin size={14} className="shrink-0 text-accent" />
-                                                <span className="truncate font-medium">{match.location}</span>
-                                            </div>
-                                            <div className="flex items-center gap-4 text-sm text-muted">
-                                                <span className="flex items-center gap-1.5">
-                                                    <Calendar size={14} />
-                                                    {formatDate(match.date)}
-                                                </span>
-                                                {match.userGoals > 0 && (
-                                                    <span className="flex items-center gap-1 text-accent">
-                                                        <Target size={14} />
-                                                        {match.userGoals} gol{match.userGoals !== 1 ? "es" : ""}
-                                                    </span>
-                                                )}
-                                            </div>
-                                        </div>
-                                    </div>
-
-                                    {/* Right: Score (Bottom Segmented) */}
-                                    {match.team_a_score !== null && match.team_b_score !== null && (
-                                        <div className="mt-4 flex items-center justify-between border-t border-border/50 bg-black/10 px-6 py-3 -mx-6 -mb-6 rounded-b-2xl">
-                                            <span className="text-[10px] font-bold uppercase tracking-wider text-muted group-hover:text-foreground transition-colors relative z-10 pointer-events-none">Ver Detalles →</span>
-                                            <div className="flex items-center justify-end gap-3 text-center shrink-0 min-w-[70px]">
-                                                <div>
-                                                    <p className={`text-[9px] uppercase tracking-wider font-bold mb-0.5 ${match.userTeam === "A" ? "text-accent" : "text-muted"}`}>
-                                                        {match.userTeam === "A" ? "Tú" : "Riv"}
-                                                    </p>
-                                                    <p className={`text-xl font-bold leading-none ${match.userTeam === "A" && result === "win" ? "text-accent drop-shadow-[0_0_8px_rgba(204,255,0,0.5)] scale-110" : "text-foreground"}`}>
-                                                        {match.team_a_score}
-                                                    </p>
-                                                </div>
-                                                <span className="text-sm font-bold text-muted/50">-</span>
-                                                <div className="flex flex-col items-end">
-                                                    <p className={`text-[9px] uppercase tracking-wider font-bold mb-0.5 ${match.userTeam === "B" ? "text-accent" : "text-muted"}`}>
-                                                        {match.userTeam === "B" ? "Tú" : "Riv"}
-                                                    </p>
-                                                    <p className={`text-xl font-bold leading-none ${match.userTeam === "B" && result === "win" ? "text-accent drop-shadow-[0_0_8px_rgba(204,255,0,0.5)] scale-110" : "text-foreground"}`}>
-                                                        {match.team_b_score}
-                                                    </p>
-                                                </div>
-                                            </div>
-                                        </div>
-                                    )}
-                                </Card>
+                {finishedMatches.length > 0 ? (
+                    <PanenkaDice size={44} className="mt-5">
+                        {fraseJugador}
+                    </PanenkaDice>
+                ) : (
+                    <>
+                        <PanenkaDice size={44} className="mt-5">
+                            {fraseVacio("historial", season.id)}
+                        </PanenkaDice>
+                        {season.status === "active" && (
+                            <Link href="/matches" className={buttonClasses("outline", "lg", "mt-5 w-full")}>
+                                Ver partidos
                             </Link>
-                        );
-                    })}
-                </div>
-            ) : (
-                <Card className="text-center">
-                    <div className="py-8">
-                        <Trophy size={48} className="mx-auto mb-4 text-muted/30" />
-                        <p className="text-lg font-medium text-muted">Aún no has jugado partidos</p>
-                        <p className="mt-1 text-sm text-muted/70">
-                            ¡Únete a un partido y compétalo para ver tu historial aquí!
-                        </p>
-                    </div>
-                </Card>
+                        )}
+                    </>
+                )}
+            </div>
+
+            {finishedMatches.length > 0 && (
+                <Filas aria-label="Tus partidos">
+                    {finishedMatches.map((partido) => (
+                        <FilaTerminado key={partido.id} partido={partido} yo={user.id} origen={origen} />
+                    ))}
+                </Filas>
             )}
         </div>
     );

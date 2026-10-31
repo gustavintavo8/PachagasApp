@@ -1,42 +1,57 @@
 // src/app/layout.tsx
-import type { Metadata } from "next";
+import type { Metadata, Viewport } from "next";
 import { Suspense } from "react";
-import { Geist, Geist_Mono } from "next/font/google";
-import { Navbar } from "@/components/Navbar";
+import { Archivo, Sofia_Sans_Extra_Condensed } from "next/font/google";
+import { Navbar, BottomNavSesion } from "@/components/Navbar";
 import { NavbarSkeleton } from "@/components/NavbarSkeleton";
 import { Footer } from "@/components/Footer";
 import { BottomNav } from "@/components/BottomNav";
+import { RecortesPanenka } from "@/components/Panenka";
 import { ToastProvider } from "@/components/ui/Toast";
 import { SpeedInsights } from "@vercel/speed-insights/next";
 import "./globals.css";
+import "./marca.css";
 
-const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
-const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
+const display = Sofia_Sans_Extra_Condensed({
+  variable: "--font-display",
+  weight: ["600", "800", "900"],
+  subsets: ["latin"],
+  // A estos tamaños un Arial encogido se ve más que un instante en blanco. Va precargada.
+  display: "block",
+});
+const sans = Archivo({
+  variable: "--font-sans",
+  weight: ["400", "500", "700"],
+  subsets: ["latin"],
+});
 
 export const metadata: Metadata = {
   title: "Pachanga — Organiza tus partidos de fútbol",
   description: "Organiza partidos de fútbol, equilibra equipos, lleva tus estadísticas y disfruta del deporte.",
 };
 
-export const viewport = {
+export const viewport: Viewport = {
   width: "device-width",
   initialScale: 1,
+  viewportFit: "cover",
+  interactiveWidget: "resizes-content",
+  themeColor: "#000000",
 };
 
 export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="es" className="dark">
+    <html lang="es" className={`${display.variable} ${sans.variable}`}>
       <head>
         <link rel="manifest" href="/manifest.json" />
-        <meta name="theme-color" content="#ccff00" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
       </head>
-      <body className={`${geistSans.variable} ${geistMono.variable} flex min-h-screen flex-col antialiased`}>
+      <body className="flex min-h-dvh flex-col antialiased">
+        <RecortesPanenka />
         {/* Skip link para usuarios de teclado/lectores de pantalla */}
         <a
           href="#main-content"
-          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:rounded-lg focus:bg-accent focus:px-4 focus:py-2 focus:text-black focus:outline-none"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[100] focus:bg-foreground focus:px-4 focus:py-2 focus:text-background"
         >
           Saltar al contenido principal
         </a>
@@ -44,12 +59,16 @@ export default function RootLayout({ children }: Readonly<{ children: React.Reac
           <Suspense fallback={<NavbarSkeleton />}>
             <Navbar />
           </Suspense>
-          {/* flex-1 empuja el footer al fondo de la pantalla cuando el contenido es corto.
-              pb-20 en móvil para no quedar tapado por el BottomNav fijo. */}
-          <main id="main-content" className="flex-1 pb-20 md:pb-0">{children}</main>
-          <Footer />
+          {/* En escritorio el contenido es una columna; los campos de color ocupan la columna. */}
+          <main id="main-content" className="mx-auto w-full flex-1 md:max-w-[640px]">{children}</main>
           <Suspense fallback={null}>
-            <BottomNav />
+            <Footer />
+          </Suspense>
+          {/* Mientras llega la sesión se pinta la barra igual, para que no aparezca de golpe. */}
+          <Suspense fallback={null}>
+            <Suspense fallback={<BottomNav />}>
+              <BottomNavSesion />
+            </Suspense>
           </Suspense>
         </ToastProvider>
         <SpeedInsights />

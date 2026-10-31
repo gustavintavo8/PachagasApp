@@ -1,11 +1,25 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useCallback, useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { fraseVacio } from "@/lib/titulares";
 import { timeAgo } from "@/lib/utils";
-import { Bell } from "lucide-react";
+import {
+    Bell,
+    CalendarClock,
+    CalendarX2,
+    Medal,
+    Shirt,
+    Trophy,
+    TriangleAlert,
+    UserMinus,
+    UserPlus,
+    type LucideIcon,
+} from "lucide-react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { Hoja } from "@/components/Hoja";
+import { Button } from "@/components/ui/Button";
 
 interface Notification {
     id: string;
@@ -21,28 +35,47 @@ interface NotificationBellProps {
     userId: string;
 }
 
+// Se leen las últimas: de ahí para arriba no sabemos cuántas son
+const LIMITE = 20;
+
+// Los tipos que manda src/app/matches/actions.ts. Lo malo va en tarjeta amarilla.
+const iconos: Record<string, { Icono: LucideIcon; aviso?: boolean }> = {
+    join: { Icono: UserPlus },
+    score: { Icono: Trophy },
+    teams: { Icono: Shirt },
+    cancel: { Icono: CalendarX2, aviso: true },
+    reschedule: { Icono: CalendarClock },
+    kick: { Icono: UserMinus, aviso: true },
+    mvp: { Icono: Medal },
+};
+
 export function NotificationBell({ userId }: NotificationBellProps) {
     const [notifications, setNotifications] = useState<Notification[]>([]);
     const [open, setOpen] = useState(false);
     const [loading, setLoading] = useState(true);
-    const supabase = createClient();
+    const [fallo, setFallo] = useState(false);
+    const [falloMarcar, setFalloMarcar] = useState(false);
+    const [supabase] = useState(() => createClient());
     const router = useRouter();
 
     const unreadCount = notifications.filter((n) => !n.read).length;
 
+    const cargar = useCallback(async () => {
+        const { data, error } = await supabase
+            .from("notifications")
+            .select("*")
+            .eq("user_id", userId)
+            .order("created_at", { ascending: false })
+            .limit(LIMITE);
+        setFallo(!!error);
+        if (!error) setNotifications((data as Notification[]) || []);
+        setLoading(false);
+    }, [supabase, userId]);
+
     useEffect(() => {
-        async function fetch() {
-            const { data } = await supabase
-                .from("notifications")
-                .select("*")
-                .eq("user_id", userId)
-                .order("created_at", { ascending: false })
-                .limit(20);
-            setNotifications((data as Notification[]) || []);
-            setLoading(false);
-        }
-        fetch();
-    }, [userId]);
+        // eslint-disable-next-line react-hooks/set-state-in-effect -- los setState van tras el await
+        void cargar();
+    }, [cargar]);
 
     // Realtime subscription
     useEffect(() => {
@@ -66,139 +99,154 @@ export function NotificationBell({ userId }: NotificationBellProps) {
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [userId]);
+    }, [supabase, userId, router]);
 
-    async function markAllRead() {
-        const unreadIds = notifications.filter((n) => !n.read).map((n) => n.id);
-        if (unreadIds.length === 0) return;
-        await supabase
-            .from("notifications")
-            .update({ read: true })
-            .in("id", unreadIds);
-        setNotifications((prev) => prev.map((n) => ({ ...n, read: true })));
+    function abrir() {
+        setOpen(true);
+        // Lo que llegó con la conexión caída solo aparece al volver a pedirlo
+        void cargar();
     }
 
-    const typeIcons: Record<string, string> = {
-        join: "→",
-        teams: "⇄",
-        score: "★",
-        chat: "•",
-        default: "•",
-    };
+    async function marcarLeidas(ids: string[]) {
+        if (ids.length === 0) return;
+        const { error } = await supabase
+            .from("notifications")
+            .update({ read: true })
+            .in("id", ids);
+        setFalloMarcar(!!error);
+        if (error) return;
+        setNotifications((prev) =>
+            prev.map((n) => (ids.includes(n.id) ? { ...n, read: true } : n))
+        );
+    }
+
+    function abrirPartido(n: Notification) {
+        setOpen(false);
+        if (!n.read) void marcarLeidas([n.id]);
+    }
 
     return (
-        <div className="relative">
+        <>
             <button
-                onClick={() => setOpen(!open)}
-                className="relative flex h-10 w-10 items-center justify-center rounded-xl border border-border bg-surface text-muted transition-all hover:border-accent hover:text-accent"
+                type="button"
+                onClick={abrir}
+                aria-haspopup="dialog"
+                aria-expanded={open}
+                aria-label={
+                    unreadCount >= LIMITE
+                        ? `Notificaciones, ${LIMITE} o más sin leer`
+                        : unreadCount > 0
+                          ? `Notificaciones, ${unreadCount} sin leer`
+                          : "Notificaciones"
+                }
+                className="pulsable relative flex h-11 w-11 items-center justify-center text-foreground"
             >
-                <Bell size={18} />
+                <Bell size={18} strokeWidth={1.75} aria-hidden="true" />
                 {unreadCount > 0 && (
-                    <span className="absolute -right-1 -top-1 flex h-5 w-5 items-center justify-center rounded-full bg-accent text-[10px] font-bold text-zinc-950">
+                    <span
+                        aria-hidden="true"
+                        className="absolute right-0.5 top-0.5 flex h-[18px] min-w-[18px] items-center justify-center bg-foreground px-0.5 font-display text-[14px] font-extrabold tabular-nums leading-none text-background"
+                    >
                         {unreadCount > 9 ? "9+" : unreadCount}
                     </span>
                 )}
             </button>
 
-            {open && (
-                <>
-                    {/* Backdrop */}
-                    <div
-                        className="fixed inset-0 z-40"
-                        role="button"
-                        tabIndex={0}
-                        aria-label="Cerrar notificaciones"
-                        onClick={() => setOpen(false)}
-                        onKeyDown={(e) => {
-                            if (e.key === "Escape" || e.key === "Enter") {
-                                setOpen(false);
-                            }
-                        }}
-                    />
-
-                    {/* Dropdown */}
-                    <div className="absolute right-0 top-12 z-50 w-80 overflow-hidden rounded-2xl border border-border bg-zinc-900 shadow-2xl shadow-black/50">
-                        <div className="flex items-center justify-between border-b border-border px-4 py-3">
-                            <h3 className="text-sm font-semibold text-foreground">
-                                Notificaciones
-                            </h3>
-                            {unreadCount > 0 && (
-                                <button
-                                    onClick={markAllRead}
-                                    className="text-xs text-accent hover:underline"
-                                >
-                                    Marcar como leídas
-                                </button>
-                            )}
-                        </div>
-
-                        <div className="max-h-96 overflow-y-auto">
-                            {loading ? (
-                                <div className="space-y-2 p-4">
-                                    {Array.from({ length: 3 }, (_, i) => (
-                                        <div key={`notif-skeleton-${i}`} className="skeleton h-14 rounded-xl" />
-                                    ))}
-                                </div>
-                            ) : notifications.length === 0 ? (
-                                <div className="px-4 py-8 text-center text-sm text-muted">
-                                    Sin notificaciones
-                                </div>
-                            ) : (
-                                notifications.map((n) => (
-                                    <div
-                                        key={n.id}
-                                        className={`border-b border-border px-4 py-3 transition-colors ${!n.read ? "bg-accent/5" : "hover:bg-zinc-800/50"
-                                            }`}
-                                    >
-                                        {n.match_id ? (
-                                            <Link
-                                                href={`/matches/${n.match_id}`}
-                                                onClick={() => setOpen(false)}
-                                                className="block"
-                                            >
-                                                <NotifContent n={n} typeIcons={typeIcons} timeAgo={timeAgo} />
-                                            </Link>
-                                        ) : (
-                                            <NotifContent n={n} typeIcons={typeIcons} timeAgo={timeAgo} />
-                                        )}
-                                    </div>
-                                ))
-                            )}
-                        </div>
+            <Hoja open={open} onClose={() => setOpen(false)} title="Notificaciones">
+                {unreadCount > 0 && (
+                    <div className="px-4 pb-3">
+                        <button
+                            type="button"
+                            onClick={() => void marcarLeidas(notifications.filter((n) => !n.read).map((n) => n.id))}
+                            className="flex min-h-11 items-center text-[15px] font-medium underline underline-offset-4 active:text-muted"
+                        >
+                            Marcar como leídas
+                        </button>
+                        {falloMarcar && (
+                            <p className="t-meta flex items-center gap-2 text-muted">
+                                <TriangleAlert size={18} strokeWidth={1.75} className="flex-none text-tarjeta" aria-hidden="true" />
+                                No se han podido marcar.
+                            </p>
+                        )}
                     </div>
-                </>
-            )}
-        </div>
+                )}
+
+                {loading ? (
+                    <div className="border-t border-border" role="status" aria-busy="true">
+                        <span className="sr-only">Cargando</span>
+                        {Array.from({ length: 3 }, (_, i) => (
+                            <div key={`notif-skeleton-${i}`} className="flex min-h-[72px] items-center border-b border-border px-4">
+                                <div className="skeleton h-10 w-full" />
+                            </div>
+                        ))}
+                    </div>
+                ) : fallo && notifications.length === 0 ? (
+                    <div className="border-t border-border px-4 py-5">
+                        <p className="flex items-center gap-2">
+                            <TriangleAlert size={18} strokeWidth={1.75} className="flex-none text-tarjeta" aria-hidden="true" />
+                            No se han podido cargar.
+                        </p>
+                        <Button variant="outline" size="sm" className="mt-3" onClick={() => void cargar()}>
+                            Reintentar
+                        </Button>
+                    </div>
+                ) : notifications.length === 0 ? (
+                    <p className="border-t border-border px-4 py-5 text-muted">
+                        {fraseVacio("notificaciones", userId)}
+                    </p>
+                ) : (
+                    <ul className="border-t border-border">
+                        {notifications.map((n) => (
+                            <li key={n.id} className="border-b border-border">
+                                {n.match_id ? (
+                                    <Link
+                                        href={`/matches/${n.match_id}`}
+                                        onClick={() => abrirPartido(n)}
+                                        className="block active:bg-surface"
+                                    >
+                                        <FilaNotificacion n={n} />
+                                    </Link>
+                                ) : (
+                                    <FilaNotificacion n={n} />
+                                )}
+                            </li>
+                        ))}
+                    </ul>
+                )}
+            </Hoja>
+        </>
     );
 }
 
-function NotifContent({
-    n,
-    typeIcons,
-    timeAgo,
-}: {
-    n: { type: string; title: string; message: string; created_at: string; read: boolean };
-    typeIcons: Record<string, string>;
-    timeAgo: (d: string) => string;
-}) {
+function FilaNotificacion({ n }: { n: Notification }) {
+    const { Icono, aviso } = iconos[n.type] ?? { Icono: Bell };
+
     return (
-        <div className="flex items-start gap-2.5">
-            <span className="mt-0.5 text-base">
-                {typeIcons[n.type] || typeIcons.default}
-            </span>
-            <div className="flex-1 min-w-0">
-                <div className="flex items-baseline gap-2">
-                    <p className="text-xs font-semibold text-foreground truncate">
+        <div className="flex min-h-14 items-start gap-3 px-4 py-3">
+            <Icono
+                size={18}
+                strokeWidth={1.75}
+                className={`mt-0.5 flex-none ${aviso ? "text-tarjeta" : "text-muted"}`}
+                aria-hidden="true"
+            />
+            <div className="min-w-0 flex-1">
+                <div className="flex items-baseline justify-between gap-3">
+                    <p
+                        className={`line-clamp-2 min-w-0 [overflow-wrap:anywhere] ${n.read ? "font-medium" : "font-bold"}`}
+                    >
                         {n.title}
                     </p>
-                    <span className="shrink-0 text-[10px] text-muted">
+                    <span className="t-meta flex-none tabular-nums text-muted">
                         {timeAgo(n.created_at)}
                     </span>
                 </div>
-                <p className="text-xs text-muted truncate">{n.message}</p>
+                <p className="t-meta text-muted [overflow-wrap:anywhere]">{n.message}</p>
             </div>
             {!n.read && (
-                <div className="mt-1.5 h-2 w-2 shrink-0 rounded-full bg-accent" />
+                <>
+                    <span className="sr-only">Sin leer</span>
+                    <span aria-hidden="true" className="mt-2 h-2 w-2 flex-none bg-foreground" />
+                </>
             )}
         </div>
     );

@@ -1,26 +1,39 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
+import { Check, TriangleAlert } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
-import { voteForMvp } from "@/app/matches/actions";
+import { checkAndResolveExpiredMvp, forceResolveMvp, voteForMvp } from "@/app/matches/actions";
 import { useToast } from "@/components/ui/Toast";
-import { Avatar } from "@/components/ui/Avatar";
-import { getAvatarUrl } from "@/lib/utils";
+import { Button } from "@/components/ui/Button";
+import { Fila, Filas } from "@/components/Filas";
+import { Hoja } from "@/components/Hoja";
+import { PanenkaDice } from "@/components/PanenkaDice";
+import { Peto } from "@/components/Peto";
 import { MVP_VOTING_WINDOW_MS } from "@/lib/constantes";
-import { Trophy, Check, Clock, Crown } from "lucide-react";
+import {
+    desenlaceMvp,
+    equipoDeTeam,
+    fraseNoJugaste,
+    nombresBaldosa,
+    plazoVotacion,
+    plural,
+    recuentoMvp,
+    textoVotantes,
+    type Equipo,
+    type RecuentoMvp,
+    type VotoMvp,
+} from "@/lib/titulares";
 
 interface Participant {
     user_id: string;
     is_mvp?: boolean;
+    team?: "A" | "B" | null;
+    goals?: number;
     profiles: {
         username: string | null;
         avatar_url: string | null;
     };
-}
-
-interface MvpVote {
-    voter_id: string;
-    voted_for: string;
 }
 
 interface MvpVotingProps {
@@ -32,23 +45,294 @@ interface MvpVotingProps {
     canManage?: boolean;
 }
 
-function getTimeRemaining(finishedAt: string): {
-    expired: boolean;
-    hours: number;
-    minutes: number;
-    seconds: number;
-} {
-    const deadline = new Date(finishedAt).getTime() + MVP_VOTING_WINDOW_MS;
-    const diff = deadline - Date.now();
+// Tres candidatos y «Otro», como en el mockup. Con cuatro caben todos.
+const MAX_BALDOSAS = 4;
 
-    if (diff <= 0) return { expired: true, hours: 0, minutes: 0, seconds: 0 };
+// A sangre aunque el contenedor traiga márgenes: el ancho de la pantalla o el de la columna
+const A_SANGRE = "w-[min(100vw,640px)] ml-[calc(50%-min(50vw,320px))]";
 
+const CAMPO: Record<Equipo, string> = {
+    rojo: "bg-rojo text-[#ffffff]",
+    azul: "bg-azul text-[#ffffff]",
+};
+
+function campoDe(participante: Participant) {
+    const equipo = equipoDeTeam(participante.team ?? null);
+    return equipo ? CAMPO[equipo] : "bg-surface text-foreground";
+}
+
+function nombreDe(participante: Participant) {
+    return participante.profiles?.username || "Anónimo";
+}
+
+function columnasDe(columnas: number) {
+    return { gridTemplateColumns: `repeat(${columnas}, minmax(0, 1fr))` };
+}
+
+// Una fila, un cuerpo: lo marca el nombre más largo, que tiene que caber en su baldosa
+function filaBaldosas(nombres: string[], columnas: number) {
+    const ancho = `calc(min(100vw, 640px) / ${columnas} - 20px)`;
+    const letras = Math.max(...nombres.map((nombre) => nombre.length));
     return {
-        expired: false,
-        hours: Math.floor(diff / (1000 * 60 * 60)),
-        minutes: Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60)),
-        seconds: Math.floor((diff % (1000 * 60)) / 1000),
+        ...columnasDe(columnas),
+        fontSize: `max(15px, min(24px, calc(${ancho} / ${(letras * 0.4).toFixed(2)})))`,
     };
+}
+
+const BALDOSA =
+    "flex h-14 min-w-0 items-center justify-center px-1 text-center font-display font-extrabold leading-none";
+
+function Cabecera({ detalle }: { detalle?: string }) {
+    return (
+        <div className="flex items-baseline justify-between gap-4">
+            <h2 className="t-seccion text-[34px]">¿MVP?</h2>
+            {detalle && <p className="t-meta text-right text-muted">{detalle}</p>}
+        </div>
+    );
+}
+
+function Pie({
+    children,
+    finalizar,
+    finalizarDesactivado,
+}: {
+    children: ReactNode;
+    finalizar?: () => void;
+    finalizarDesactivado: boolean;
+}) {
+    return (
+        <div className="mt-2 flex min-h-11 items-center justify-between gap-4">
+            <p className="t-meta min-w-0 text-muted tabular-nums">{children}</p>
+            {finalizar && (
+                <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="-mr-3 shrink-0"
+                    disabled={finalizarDesactivado}
+                    onClick={finalizar}
+                >
+                    Finalizar ya
+                </Button>
+            )}
+        </div>
+    );
+}
+
+function Abierta({
+    matchId,
+    participants,
+    yoId,
+    plazo,
+    votos,
+    miVoto,
+    votandoA,
+    onVotar,
+    onFinalizar,
+}: {
+    matchId: string;
+    participants: Participant[];
+    yoId: string;
+    plazo: string;
+    votos: number;
+    miVoto: VotoMvp | undefined;
+    votandoA: string | null;
+    onVotar: (userId: string) => void;
+    onFinalizar?: () => void;
+}) {
+    const [verOtros, setVerOtros] = useState(false);
+
+    const juegas = participants.some((p) => p.user_id === yoId);
+    const contador = textoVotantes(votos, participants.length);
+    const pie = { finalizar: onFinalizar, finalizarDesactivado: votos === 0 };
+
+    const votado = participants.find((p) => p.user_id === miVoto?.voted_for);
+    if (votado) {
+        return (
+            <>
+                <Cabecera detalle={plazo} />
+                <div role="status" className={`mt-3 flex h-14 items-center justify-between gap-3 px-4 ${campoDe(votado)}`}>
+                    <span className="truncate font-display text-[26px] font-extrabold leading-none">
+                        {nombreDe(votado)}
+                    </span>
+                    <span className="t-meta flex shrink-0 items-center gap-1.5">
+                        <Check size={18} strokeWidth={1.75} aria-hidden="true" />
+                        Tu voto
+                    </span>
+                </div>
+                <Pie {...pie}>El resultado, al cerrar. {contador}</Pie>
+            </>
+        );
+    }
+
+    if (!juegas) {
+        return (
+            <>
+                <Cabecera detalle={plazo} />
+                <PanenkaDice size={40} className="mt-3">
+                    {fraseNoJugaste(matchId)}
+                </PanenkaDice>
+                <Pie {...pie}>{contador}</Pie>
+            </>
+        );
+    }
+
+    const candidatos = participants
+        .filter((p) => p.user_id !== yoId)
+        .sort((a, b) => (b.goals ?? 0) - (a.goals ?? 0));
+    const nombres = nombresBaldosa(candidatos.map((p) => p.profiles?.username));
+    // Si no caben, los tres con más goles y el resto en la hoja
+    const conOtro = candidatos.length > MAX_BALDOSAS;
+    const enBaldosa = conOtro ? candidatos.slice(0, MAX_BALDOSAS - 1) : candidatos;
+    const resto = conOtro ? candidatos.slice(MAX_BALDOSAS - 1) : [];
+    const columnas = enBaldosa.length + (conOtro ? 1 : 0);
+    const pulsando = votandoA !== null;
+
+    return (
+        <>
+            <Cabecera detalle={plazo} />
+            <div
+                className="mt-3 grid gap-0.5"
+                style={filaBaldosas([...nombres.slice(0, enBaldosa.length), ...(conOtro ? ["Otro"] : [])], columnas)}
+            >
+                {enBaldosa.map((p, i) => (
+                    <button
+                        key={p.user_id}
+                        type="button"
+                        onClick={() => onVotar(p.user_id)}
+                        disabled={pulsando}
+                        aria-busy={votandoA === p.user_id || undefined}
+                        aria-label={`Votar a ${nombreDe(p)}`}
+                        className={`pulsable select-none ${BALDOSA} ${campoDe(p)} active:bg-foreground active:text-background ${pulsando && votandoA !== p.user_id ? "opacity-50" : ""}`}
+                    >
+                        <span className="truncate">{nombres[i]}</span>
+                    </button>
+                ))}
+                {conOtro && (
+                    <button
+                        type="button"
+                        onClick={() => setVerOtros(true)}
+                        disabled={pulsando}
+                        className={`pulsable select-none ${BALDOSA} bg-surface text-foreground active:bg-foreground active:text-background ${pulsando ? "opacity-50" : ""}`}
+                    >
+                        Otro
+                    </button>
+                )}
+            </div>
+            <Pie {...pie}>{contador}</Pie>
+
+            <Hoja
+                open={verOtros}
+                onClose={() => setVerOtros(false)}
+                title="¿Quién fue el MVP?"
+                description="Un voto por partido y no se cambia."
+            >
+                <Filas aria-label="Otros candidatos">
+                    {resto.map((p) => (
+                        <Fila
+                            key={p.user_id}
+                            nombre={nombreDe(p)}
+                            detalle={p.goals ? plural(p.goals, "gol") : undefined}
+                            inicio={<Peto estado="lleno" equipo={equipoDeTeam(p.team ?? null)} size={22} />}
+                            onClick={() => {
+                                setVerOtros(false);
+                                onVotar(p.user_id);
+                            }}
+                        />
+                    ))}
+                </Filas>
+            </Hoja>
+        </>
+    );
+}
+
+function Resultado({
+    matchId,
+    participants,
+    yoId,
+    ganador,
+    recuento,
+    votos,
+    miVoto,
+}: {
+    matchId: string;
+    participants: Participant[];
+    yoId: string;
+    ganador: Participant | undefined;
+    recuento: RecuentoMvp;
+    votos: number;
+    miVoto: VotoMvp | undefined;
+}) {
+    const empatados = ganador ? [] : participants.filter((p) => recuento.lideres.includes(p.user_id));
+    const desenlace = desenlaceMvp({
+        id: matchId,
+        ganador: ganador ? nombreDe(ganador) : null,
+        esTuyo: ganador?.user_id === yoId,
+        empatados: empatados.length,
+        maximo: recuento.maximo,
+    });
+    const votosGanador = ganador ? (recuento.votos[ganador.user_id] ?? 0) : 0;
+    // Quien ya sale arriba, en el campo o en las baldosas, no se repite en la lista
+    const arriba = (p: Participant) => p.user_id === ganador?.user_id || empatados.includes(p);
+    const otrosVotados = participants
+        .filter((p) => (recuento.votos[p.user_id] ?? 0) > 0 && !arriba(p))
+        .sort((a, b) => (recuento.votos[b.user_id] ?? 0) - (recuento.votos[a.user_id] ?? 0));
+    const votado = participants.find((p) => p.user_id === miVoto?.voted_for);
+    const nombresEmpate = nombresBaldosa(empatados.map((p) => p.profiles?.username));
+    const columnasEmpate = Math.min(empatados.length, MAX_BALDOSAS);
+
+    return (
+        <>
+            {ganador ? (
+                <div className={`-mx-4 -mt-5 px-4 py-5 ${campoDe(ganador)}`}>
+                    <h2 className="t-titular [overflow-wrap:anywhere]">{desenlace.titular}</h2>
+                    {votosGanador > 0 && <p className="t-meta mt-2 tabular-nums">{plural(votosGanador, "voto")}</p>}
+                </div>
+            ) : (
+                <>
+                    <Cabecera detalle="Votación cerrada" />
+                    <p className="t-titular mt-2">{desenlace.titular}</p>
+                    {empatados.length > 1 && (
+                        <div className="mt-3 grid gap-0.5" style={filaBaldosas(nombresEmpate, columnasEmpate)}>
+                            {empatados.map((p, i) => (
+                                <div key={p.user_id} className={`${BALDOSA} ${campoDe(p)}`}>
+                                    <span className="truncate">{nombresEmpate[i]}</span>
+                                </div>
+                            ))}
+                        </div>
+                    )}
+                </>
+            )}
+
+            <PanenkaDice size={40} className="mt-4">
+                {desenlace.frase}
+            </PanenkaDice>
+
+            {otrosVotados.length > 0 && (
+                <Filas aria-label="Votos" className="-mx-4 mt-4">
+                    {otrosVotados.map((p) => {
+                        const tuya = p.user_id === yoId;
+                        return (
+                            <Fila
+                                key={p.user_id}
+                                tu={tuya}
+                                nombre={tuya ? `${nombreDe(p)}, tú` : nombreDe(p)}
+                                inicio={<Peto estado="lleno" equipo={equipoDeTeam(p.team ?? null)} size={22} />}
+                                cifra={recuento.votos[p.user_id]}
+                            />
+                        );
+                    })}
+                </Filas>
+            )}
+
+            {votos > 0 && (
+                <p className="t-meta mt-3 text-muted tabular-nums">
+                    {textoVotantes(votos, participants.length)}
+                    {votado && ` · Tu voto: ${nombreDe(votado)}`}
+                </p>
+            )}
+        </>
+    );
 }
 
 export function MvpVoting({
@@ -59,76 +343,61 @@ export function MvpVoting({
     matchDate,
     canManage,
 }: MvpVotingProps) {
-    // If finished_at is null (pre-migration match), use the match date as fallback
-    const effectiveFinishedAt = matchFinishedAt || matchDate;
-    const [votes, setVotes] = useState<MvpVote[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [voting, setVoting] = useState(false);
-    const [timeLeft, setTimeLeft] = useState(() =>
-        getTimeRemaining(effectiveFinishedAt)
-    );
-    const supabase = createClient();
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    // Sin finished_at (partidos antiguos) cuenta la fecha del partido, como en las actions
+    const inicioPlazo = matchFinishedAt || matchDate;
+    const cierre = new Date(inicioPlazo).getTime() + MVP_VOTING_WINDOW_MS;
+
+    const [supabase] = useState(createClient);
     const { toast } = useToast();
+    const [votes, setVotes] = useState<VotoMvp[]>([]);
+    const [carga, setCarga] = useState<"cargando" | "lista" | "error">("cargando");
+    const [intento, setIntento] = useState(0);
+    const [ahora, setAhora] = useState(() => Date.now());
+    const [votandoA, setVotandoA] = useState<string | null>(null);
+    const [confirmarCierre, setConfirmarCierre] = useState(false);
+    const [cerrando, setCerrando] = useState(false);
+    const resolucionPedida = useRef(false);
 
-    const myVote = votes.find((v) => v.voter_id === currentUserId);
-    const isAlreadyResolved = participants.some((p) => p.is_mvp);
-    const votingClosed = timeLeft.expired || isAlreadyResolved;
+    const resuelto = participants.find((p) => p.is_mvp);
+    const expirada = ahora > cierre;
+    const cerrada = expirada || !!resuelto;
+    const juegas = participants.some((p) => p.user_id === currentUserId);
+    const miVoto = votes.find((v) => v.voter_id === currentUserId);
+    const recuento = recuentoMvp(votes);
 
-    // Count votes per candidate
-    const voteCounts: Record<string, number> = {};
-    for (const v of votes) {
-        voteCounts[v.voted_for] = (voteCounts[v.voted_for] || 0) + 1;
-    }
-
-    // Find the MVP winner (most votes, no tie)
-    let mvpWinnerId: string | null = null;
-    const resolvedWinner = participants.find((p) => p.is_mvp);
-
-    if (resolvedWinner) {
-        mvpWinnerId = resolvedWinner.user_id;
-    } else if (votingClosed && votes.length > 0) {
-        let maxVotes = 0;
-        let isTie = false;
-        for (const [userId, count] of Object.entries(voteCounts)) {
-            if (count > maxVotes) {
-                maxVotes = count;
-                mvpWinnerId = userId;
-                isTie = false;
-            } else if (count === maxVotes) {
-                isTie = true;
-            }
-        }
-        if (isTie) mvpWinnerId = null;
-    }
-
-    // Fetch existing votes
+    // Si el canal llega antes que la lectura, no se pierde ningún voto
     useEffect(() => {
-        async function fetchVotes() {
-            const { data } = await supabase
-                .from("mvp_votes")
-                .select("voter_id, voted_for")
-                .eq("match_id", matchId);
-            setVotes((data as MvpVote[]) || []);
-            setLoading(false);
-        }
-        fetchVotes();
-    }, [matchId]);
+        let vigente = true;
+        supabase
+            .from("mvp_votes")
+            .select("voter_id, voted_for")
+            .eq("match_id", matchId)
+            .then(({ data, error }) => {
+                if (!vigente) return;
+                if (error) {
+                    setCarga("error");
+                    return;
+                }
+                const leidos = (data as VotoMvp[]) ?? [];
+                setVotes((prev) => [
+                    ...leidos,
+                    ...prev.filter((v) => !leidos.some((l) => l.voter_id === v.voter_id)),
+                ]);
+                setCarga("lista");
+            });
+        return () => {
+            vigente = false;
+        };
+    }, [supabase, matchId, intento]);
 
-    // Countdown timer
+    // El plazo cierra solo. Una vez por minuto para que «hoy» y «mañana» sigan siendo ciertos.
     useEffect(() => {
-        if (votingClosed) return;
+        const faltan = cierre - ahora;
+        if (resuelto || faltan < 0) return;
+        const espera = window.setTimeout(() => setAhora(Date.now()), Math.min(faltan + 1000, 60_000));
+        return () => window.clearTimeout(espera);
+    }, [cierre, ahora, resuelto]);
 
-        const interval = setInterval(() => {
-            const remaining = getTimeRemaining(effectiveFinishedAt);
-            setTimeLeft(remaining);
-            if (remaining.expired) clearInterval(interval);
-        }, 1000);
-
-        return () => clearInterval(interval);
-    }, [effectiveFinishedAt, votingClosed]);
-
-    // Realtime subscription for new votes
     useEffect(() => {
         const channel = supabase
             .channel(`mvp-votes-${matchId}`)
@@ -141,7 +410,7 @@ export function MvpVoting({
                     filter: `match_id=eq.${matchId}`,
                 },
                 (payload) => {
-                    const newVote = payload.new as MvpVote;
+                    const newVote = payload.new as VotoMvp;
                     setVotes((prev) => {
                         if (prev.some((v) => v.voter_id === newVote.voter_id)) return prev;
                         return [...prev, newVote];
@@ -153,208 +422,144 @@ export function MvpVoting({
         return () => {
             supabase.removeChannel(channel);
         };
-    }, [matchId]);
+    }, [supabase, matchId]);
 
-    const [autoResolving, setAutoResolving] = useState(false);
-    // Auto-resolve if expired and not resolved
+    // Plazo vencido con votos y sin MVP: se pide resolver una vez por visita
     useEffect(() => {
-        if (votingClosed && !isAlreadyResolved && !autoResolving && votes.length > 0) {
-            setAutoResolving(true);
-            import("@/app/matches/actions").then((mod) => {
-                mod.checkAndResolveExpiredMvp(matchId).catch(console.error);
-            });
-        }
-    }, [votingClosed, isAlreadyResolved, autoResolving, matchId, votes.length]);
+        if (!expirada || resuelto || votes.length === 0 || resolucionPedida.current) return;
+        resolucionPedida.current = true;
+        checkAndResolveExpiredMvp(matchId).catch(console.error);
+    }, [expirada, resuelto, matchId, votes.length]);
 
     async function handleVote(votedForUserId: string) {
-        if (voting || myVote || votingClosed) return;
-        setVoting(true);
+        if (votandoA || miVoto || cerrada || !juegas) return;
+        setVotandoA(votedForUserId);
 
-        const result = await voteForMvp(matchId, votedForUserId);
-
-        if (!result.success) {
-            toast(result.error || "Error al votar", "error");
-        } else {
-            // Optimistic update
-            setVotes((prev) => [
-                ...prev,
-                { voter_id: currentUserId, voted_for: votedForUserId },
-            ]);
-            toast("¡Voto registrado!", "success");
+        try {
+            const result = await voteForMvp(matchId, votedForUserId);
+            if (!result.success) {
+                toast(result.error || "Error al votar", "error");
+                return;
+            }
+            // El canal suele llegar antes que la respuesta: el voto no se cuenta dos veces
+            setVotes((prev) =>
+                prev.some((v) => v.voter_id === currentUserId)
+                    ? prev
+                    : [...prev, { voter_id: currentUserId, voted_for: votedForUserId }]
+            );
+            toast("Voto registrado", "success");
+        } catch {
+            toast("Error al votar", "error");
+        } finally {
+            setVotandoA(null);
         }
-        setVoting(false);
     }
 
     async function handleForceResolve() {
-        if (!confirm("¿Forzar el cierre de la votación y elegir al MVP ahora mismo?")) return;
-        setVoting(true);
-        const { forceResolveMvp } = await import("@/app/matches/actions");
-        const result = await forceResolveMvp(matchId);
-        if (!result.success) {
-            toast(result.error || "Error al finalizar", "error");
-        } else {
-            toast("Votación finalizada", "success");
+        setCerrando(true);
+        try {
+            const result = await forceResolveMvp(matchId);
+            if (!result.success) {
+                toast(result.error || "Error al finalizar", "error");
+            } else if (recuento.lideres.length > 1) {
+                // En empate el servidor no elige a nadie y la votación sigue abierta
+                toast("Hay empate, así que la votación sigue abierta", "info");
+            } else {
+                toast("Votación finalizada", "success");
+            }
+        } catch {
+            toast("Error al finalizar", "error");
+        } finally {
+            setCerrando(false);
+            setConfirmarCierre(false);
         }
-        setVoting(false);
     }
 
-    const otherPlayers = participants.filter((p) => p.user_id !== currentUserId);
+    // Con menos de dos jugadores no hay a quién votar
+    if (participants.length < 2) return null;
 
-    // Sort by vote count when voting is closed
-    const sortedPlayers = votingClosed
-        ? [...otherPlayers].sort(
-            (a, b) => (voteCounts[b.user_id] || 0) - (voteCounts[a.user_id] || 0)
-        )
-        : otherPlayers;
-
-    if (otherPlayers.length === 0) return null;
+    const ganadorId = resuelto?.user_id ?? (cerrada && recuento.lideres.length === 1 ? recuento.lideres[0] : null);
+    const ganador = participants.find((p) => p.user_id === ganadorId);
+    const huecos = Math.min(participants.length - (juegas ? 1 : 0), MAX_BALDOSAS);
 
     return (
-        <div className="rounded-2xl border border-border bg-surface">
-            {/* Header */}
-            <div className="flex items-center gap-2 border-b border-border px-4 py-3">
-                <Trophy size={18} className="text-yellow-400" />
-                <h3 className="text-sm font-semibold text-foreground">
-                    Votación MVP
-                </h3>
-                <div className="ml-auto flex items-center gap-2">
-                    {!votingClosed ? (
-                        <span className="flex items-center gap-1.5 rounded-full border border-accent/30 bg-accent/5 px-2.5 py-1 text-xs font-medium text-accent">
-                            <Clock size={12} />
-                            {timeLeft.hours}h {timeLeft.minutes}m {timeLeft.seconds}s
-                        </span>
-                    ) : (
-                        <span className="rounded-full border border-zinc-500/30 bg-zinc-500/10 px-2.5 py-1 text-xs font-medium text-zinc-400">
-                            Votación cerrada
-                        </span>
-                    )}
-                </div>
-            </div>
-
-            {/* Status banner */}
-            {!votingClosed && !myVote && (
-                <div className="border-b border-border bg-accent/5 px-4 py-2.5 flex items-center justify-between">
-                    <p className="text-xs text-accent">
-                        Elige al jugador que mejor lo hizo. Tienes 24h para votar.
-                    </p>
-                    {canManage && (
-                        <button
-                            onClick={handleForceResolve}
-                            disabled={voting || votes.length === 0}
-                            className="text-xs font-semibold text-accent/80 hover:text-accent disabled:opacity-50"
-                        >
-                            Finalizar ya
-                        </button>
-                    )}
-                </div>
-            )}
-            {myVote && !votingClosed && (
-                <div className="border-b border-border bg-green-500/5 px-4 py-2.5 flex items-center justify-between">
-                    <p className="flex items-center gap-1.5 text-xs text-green-400">
-                        <Check size={14} />
-                        ¡Ya has votado! Los resultados se mostrarán al cerrar.
-                    </p>
-                    {canManage && (
-                        <button
-                            onClick={handleForceResolve}
-                            disabled={voting || votes.length === 0}
-                            className="text-xs font-semibold text-green-500/80 hover:text-green-400 disabled:opacity-50"
-                        >
-                            Finalizar ya
-                        </button>
-                    )}
-                </div>
-            )}
-
-            {/* Player List */}
-            <div className="divide-y divide-border">
-                {loading ? (
-                    <div className="space-y-3 p-4">
-                        {Array.from({ length: 3 }, (_, i) => (
-                            <div key={`mvp-skeleton-${i}`} className="skeleton h-14 rounded-xl" />
+        <section aria-label="Votación MVP" className={`${A_SANGRE} px-4 py-5`}>
+            {carga === "cargando" ? (
+                <div aria-hidden="true">
+                    <Cabecera />
+                    <div className="mt-3 grid gap-0.5" style={columnasDe(huecos)}>
+                        {Array.from({ length: huecos }, (_, i) => (
+                            <div key={i} className="skeleton h-14" />
                         ))}
                     </div>
-                ) : (
-                    sortedPlayers.map((p) => {
-                        const avatarUrl = getAvatarUrl(
-                            supabaseUrl,
-                            p.profiles?.avatar_url ?? null
-                        );
-                        const isVotedFor = myVote?.voted_for === p.user_id;
-                        const voteCount = voteCounts[p.user_id] || 0;
-                        const isWinner = mvpWinnerId === p.user_id;
+                    <div className="mt-2 flex min-h-11 items-center">
+                        <div className="skeleton h-5 w-32" />
+                    </div>
+                </div>
+            ) : carga === "error" ? (
+                <>
+                    <Cabecera />
+                    <div className="mt-3 flex items-center gap-3">
+                        <TriangleAlert size={18} strokeWidth={1.75} aria-hidden="true" className="shrink-0 text-tarjeta" />
+                        <p className="min-w-0 flex-1">No se han podido leer los votos.</p>
+                        <Button
+                            type="button"
+                            variant="outline"
+                            size="sm"
+                            onClick={() => {
+                                setCarga("cargando");
+                                setIntento((n) => n + 1);
+                            }}
+                        >
+                            Reintentar
+                        </Button>
+                    </div>
+                </>
+            ) : cerrada ? (
+                <Resultado
+                    matchId={matchId}
+                    participants={participants}
+                    yoId={currentUserId}
+                    ganador={ganador}
+                    recuento={recuento}
+                    votos={votes.length}
+                    miVoto={miVoto}
+                />
+            ) : (
+                <Abierta
+                    matchId={matchId}
+                    participants={participants}
+                    yoId={currentUserId}
+                    plazo={plazoVotacion(inicioPlazo, ahora)}
+                    votos={votes.length}
+                    miVoto={miVoto}
+                    votandoA={votandoA}
+                    onVotar={handleVote}
+                    onFinalizar={canManage ? () => setConfirmarCierre(true) : undefined}
+                />
+            )}
 
-                        return (
-                            <div
-                                key={p.user_id}
-                                className={`flex items-center gap-3 px-4 py-3.5 transition-colors ${isWinner
-                                    ? "bg-yellow-400/5"
-                                    : isVotedFor
-                                        ? "bg-accent/5"
-                                        : ""
-                                    }`}
-                            >
-                                {/* Avatar */}
-                                <div className="relative">
-                                    <Avatar
-                                        src={avatarUrl}
-                                        fallback={p.profiles?.username || "?"}
-                                        size="sm"
-                                    />
-                                    {isWinner && (
-                                        <div className="absolute -right-1 -top-1 flex h-4 w-4 items-center justify-center rounded-full bg-yellow-400 text-[8px] text-black">
-                                            <Crown size={10} />
-                                        </div>
-                                    )}
-                                </div>
-
-                                {/* Name */}
-                                <div className="flex-1 min-w-0">
-                                    <p className={`text-sm font-medium truncate ${isWinner ? "text-yellow-400" : "text-foreground"
-                                        }`}>
-                                        {p.profiles?.username || "Anónimo"}
-                                        {isWinner && " — MVP"}
-                                    </p>
-                                    {votingClosed && voteCount > 0 && (
-                                        <p className="text-xs text-muted">
-                                            {voteCount} voto{voteCount !== 1 ? "s" : ""}
-                                        </p>
-                                    )}
-                                </div>
-
-                                {/* Action / State */}
-                                {!votingClosed && !myVote && (
-                                    <button
-                                        onClick={() => handleVote(p.user_id)}
-                                        disabled={voting}
-                                        className="rounded-xl bg-accent/10 px-4 py-2 text-xs font-medium text-accent transition-all hover:bg-accent/20 active:scale-95 disabled:opacity-50"
-                                    >
-                                        Votar
-                                    </button>
-                                )}
-                                {isVotedFor && (
-                                    <span className="flex items-center gap-1 rounded-full bg-accent/10 px-2.5 py-1 text-xs font-medium text-accent">
-                                        <Check size={14} />
-                                        Tu voto
-                                    </span>
-                                )}
-                                {votingClosed && isWinner && (
-                                    <span className="rounded-full bg-yellow-400/10 border border-yellow-500/30 px-2.5 py-1 text-xs font-bold text-yellow-400">
-                                        MVP
-                                    </span>
-                                )}
-                            </div>
-                        );
-                    })
-                )}
-            </div>
-
-            {/* Footer — total votes */}
-            <div className="border-t border-border px-4 py-2.5">
-                <p className="text-xs text-muted text-center">
-                    {votes.length} de {participants.length} jugadores han votado
-                </p>
-            </div>
-        </div>
+            <Hoja
+                open={confirmarCierre}
+                onClose={() => setConfirmarCierre(false)}
+                title="¿Cerrar la votación?"
+                description="Se cierra ahora y se elige al MVP con los votos que haya."
+            >
+                <div className="flex gap-2 px-4 pt-2">
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="lg"
+                        className="flex-1"
+                        onClick={() => setConfirmarCierre(false)}
+                    >
+                        Volver
+                    </Button>
+                    <Button type="button" size="lg" className="flex-1" loading={cerrando} onClick={handleForceResolve}>
+                        Finalizar ya
+                    </Button>
+                </div>
+            </Hoja>
+        </section>
     );
 }

@@ -3,22 +3,12 @@
 import {
     createContext,
     useContext,
-    useState,
-    useCallback,
-    useSyncExternalStore,
+    useMemo,
     type ReactNode,
 } from "react";
-import { createPortal } from "react-dom";
-import { X, CheckCircle2, AlertCircle, Info } from "lucide-react";
-import { cn } from "@/lib/utils";
+import { Toaster, toast as sonner } from "sonner";
 
 type ToastType = "success" | "error" | "info";
-
-interface Toast {
-    id: string;
-    message: string;
-    type: ToastType;
-}
 
 interface ToastContextValue {
     toast: (message: string, type?: ToastType) => void;
@@ -32,63 +22,33 @@ export function useToast() {
     return ctx;
 }
 
-const icons: Record<ToastType, ReactNode> = {
-    success: <CheckCircle2 size={18} />,
-    error: <AlertCircle size={18} />,
-    info: <Info size={18} />,
-};
+function toast(message: string, type: ToastType = "info") {
+    sonner(message, { className: type === "error" ? "aviso-error" : undefined });
+}
 
-const styles: Record<ToastType, string> = {
-    success: "border-green-500/30 bg-green-500/10 text-green-400",
-    error: "border-red-500/30 bg-red-500/10 text-red-400",
-    info: "border-accent/30 bg-accent/10 text-accent",
+// --barra-inferior ya incluye el safe area cuando hay barra.
+// --barra-accion la publica la barra fija del partido: un aviso no tapa el botón que acabas de pulsar.
+const separacion = {
+    bottom: "calc(max(var(--barra-inferior), env(safe-area-inset-bottom, 0px)) + var(--barra-accion, 0px) + 8px)",
 };
-
-const emptySubscribe = () => () => {};
 
 export function ToastProvider({ children }: { children: ReactNode }) {
-    const [toasts, setToasts] = useState<Toast[]>([]);
-    const mounted = useSyncExternalStore(emptySubscribe, () => true, () => false);
-
-    const toast = useCallback((message: string, type: ToastType = "info") => {
-        const id = crypto.randomUUID();
-        setToasts((prev) => [...prev, { id, message, type }]);
-        setTimeout(() => {
-            setToasts((prev) => prev.filter((t) => t.id !== id));
-        }, 4000);
-    }, []);
-
-    const dismiss = useCallback((id: string) => {
-        setToasts((prev) => prev.filter((t) => t.id !== id));
-    }, []);
+    const value = useMemo(() => ({ toast }), []);
 
     return (
-        <ToastContext.Provider value={{ toast }}>
+        <ToastContext.Provider value={value}>
             {children}
-            {mounted &&
-                createPortal(
-                    <div className="fixed bottom-4 right-4 z-[100] flex flex-col-reverse gap-2">
-                        {toasts.map((t) => (
-                            <div
-                                key={t.id}
-                                className={cn(
-                                    "flex items-center gap-3 rounded-xl border px-4 py-3 shadow-2xl shadow-black/40 backdrop-blur-xl animate-toast-in",
-                                    styles[t.type]
-                                )}
-                            >
-                                {icons[t.type]}
-                                <p className="text-sm font-medium">{t.message}</p>
-                                <button
-                                    onClick={() => dismiss(t.id)}
-                                    className="ml-2 rounded-lg p-1 transition-colors hover:bg-white/10"
-                                >
-                                    <X size={14} />
-                                </button>
-                            </div>
-                        ))}
-                    </div>,
-                    document.body
-                )}
+            {/* sonner ya es aria-live="polite". Sin role="alert": access.spec cuenta las alertas. */}
+            <Toaster
+                theme="dark"
+                position="bottom-center"
+                offset={separacion}
+                mobileOffset={separacion}
+                duration={4000}
+                visibleToasts={3}
+                containerAriaLabel="Avisos"
+                toastOptions={{ unstyled: true, classNames: { toast: "aviso" } }}
+            />
         </ToastContext.Provider>
     );
 }

@@ -4,8 +4,8 @@
     "description": "Organiza partidos de fútbol, equilibra equipos y lleva tus estadísticas.",
     "start_url": "/",
     "display": "standalone",
-    "background_color": "#09090b",
-    "theme_color": "#ccff00",
+    "background_color": "#000000",
+    "theme_color": "#000000",
     "orientation": "portrait",
     "icons": [
         {

@@ -54,6 +54,8 @@ test("un partido nuevo pertenece a la temporada activa", async ({ page }) => {
 
     try {
         await page.goto("/matches/new");
+        // La fecha es un campo controlado: lo escrito antes de hidratar se pierde
+        await page.waitForLoadState("networkidle");
         const date = new Date(Date.now() + 48 * 60 * 60 * 1000).toISOString().slice(0, 16);
         await page.locator('input[type="datetime-local"]').fill(date);
         await page.locator('input[name="location"]').fill("Campo temporada E2E");
@@ -196,6 +198,7 @@ test.describe("writes season stats on match finalization", () => {
         const participantIds = [organizerId, ...dummyUserIds];
 
         await page.goto(`/matches/${matchId}`);
+        await page.getByRole("button", { name: "Organizar", exact: true }).click();
         await page.getByRole("button", { name: "Generar Equipos" }).click();
 
         await expect
@@ -232,6 +235,7 @@ test.describe("writes season stats on match finalization", () => {
         const secondPage = await page.context().newPage();
         const finalize = async (targetPage: typeof page) => {
             await targetPage.goto(`/matches/${matchId}`);
+            await targetPage.getByRole("button", { name: "Organizar", exact: true }).click();
             await targetPage.getByRole("button", { name: "Poner Resultado" }).click();
             const targetScoreInputs = targetPage.locator('input[type="number"]');
             await targetScoreInputs.nth(0).fill("2");

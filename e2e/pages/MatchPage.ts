@@ -5,13 +5,13 @@ export class MatchPage {
     readonly page: Page;
     readonly joinButton: Locator;
     readonly leaveButton: Locator;
-    readonly participantsList: Locator;
+    readonly organizeButton: Locator;
 
     constructor(page: Page) {
         this.page = page;
-        this.joinButton = page.locator('button:has-text("Unirse"), button:has-text("Apuntarme")');
-        this.leaveButton = page.locator('button:has-text("Salir"), button:has-text("Abandonar")');
-        this.participantsList = page.locator('[data-testid="participants-list"], .participants-list, [aria-label*="participantes"]');
+        this.joinButton = page.getByRole("button", { name: "Me apunto", exact: true });
+        this.leaveButton = page.getByRole("button", { name: "Me borro", exact: true });
+        this.organizeButton = page.getByRole("button", { name: "Organizar", exact: true });
     }
 
     async goto(matchId: string) {
@@ -22,11 +22,31 @@ export class MatchPage {
     async join() {
         await this.joinButton.click();
         await expect(this.leaveButton).toBeVisible({ timeout: 5_000 });
+        // La barra cambia al momento y queda deshabilitada hasta que responde el servidor
+        await expect(this.leaveButton).toBeEnabled({ timeout: 10_000 });
     }
 
     async leave() {
         await this.leaveButton.click();
         await expect(this.joinButton).toBeVisible({ timeout: 5_000 });
+        await expect(this.joinButton).toBeEnabled({ timeout: 10_000 });
+    }
+
+    /** Las acciones del organizador viven en la hoja Organizar. */
+    async openOrganizer() {
+        await this.organizeButton.click();
+        await expect(this.page.getByRole("dialog", { name: "Organizar" })).toBeVisible();
+    }
+
+    /** Fila de la hoja Organizar: el nombre accesible incluye su detalle. */
+    organizerAction(name: RegExp): Locator {
+        return this.page.getByRole("dialog", { name: "Organizar" }).getByRole("button", { name });
+    }
+
+    async openPayments() {
+        await this.openOrganizer();
+        await this.organizerAction(/^Cobros/).click();
+        await expect(this.page.getByRole("dialog", { name: "Cobros" })).toBeVisible();
     }
 
     async markAsPaid() {
@@ -44,29 +64,23 @@ export class MatchPage {
     }
 
     async expectPaidCount(paid: number, total: number) {
-        await expect(
-            this.page.locator(`text=${paid} / ${total} pagados`).or(
-                this.page.locator(`text=/ ${total} pagados`)
-            )
-        ).toBeVisible({ timeout: 5_000 });
+        await expect(this.page.getByText(`${paid} / ${total} pagados`)).toBeVisible({ timeout: 5_000 });
     }
 
     /** Crea un partido desde la UI y retorna su ID desde la URL */
     async createMatch(location: string, minutesFromNow = 2880): Promise<string> {
         await this.page.goto("/");
-        await this.page
-            .locator("text=Nuevo partido")
-            .or(this.page.locator("text=Crear partido"))
-            .click();
+        await this.page.getByRole("link", { name: "Montar partido" }).click();
+        await this.page.waitForURL("**/matches/new");
+        // La fecha es un campo controlado: lo escrito antes de hidratar se pierde
+        await this.page.waitForLoadState("networkidle");
 
         const futureDate = new Date(Date.now() + minutesFromNow * 60 * 1000);
         await this.page
             .locator('input[type="datetime-local"]')
             .fill(futureDate.toISOString().slice(0, 16));
-        await this.page
-            .locator('input[placeholder*="ubicación"], input[placeholder*="lugar"], input[name="location"]')
-            .fill(location);
-        await this.page.locator('button[type="submit"]').click();
+        await this.page.locator('input[name="location"]').fill(location);
+        await this.page.getByRole("button", { name: /Crear Partido/i }).click();
 
         await this.page.waitForURL(/\/matches\/[a-f0-9-]+/, { timeout: 10_000 });
         return this.page.url().split("/matches/")[1];

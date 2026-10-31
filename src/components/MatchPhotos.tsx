@@ -1,13 +1,16 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import Image from "next/image";
+import imageCompression from "browser-image-compression";
+import { ChevronLeft, ChevronRight, Plus, TriangleAlert, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useToast } from "@/components/ui/Toast";
 import { Avatar } from "@/components/ui/Avatar";
-import { getAvatarUrl, timeAgo } from "@/lib/utils";
-import { Camera, Plus, X, ImageIcon, Loader2 } from "lucide-react";
-import Image from "next/image";
-import imageCompression from "browser-image-compression";
+import { Button } from "@/components/ui/Button";
+import { Panenka } from "@/components/Panenka";
+import { getAvatarUrl } from "@/lib/utils";
+import { fechaCorta, fraseVacio, plural } from "@/lib/titulares";
 
 interface Photo {
     id: string;
@@ -26,36 +29,116 @@ interface MatchPhotosProps {
     currentUserId: string;
 }
 
-export function MatchPhotos({ matchId, currentUserId }: MatchPhotosProps) {
-    const [photos, setPhotos] = useState<Photo[]>([]);
-    const [loading, setLoading] = useState(true);
-    const [uploading, setUploading] = useState(false);
-    const [lightboxUrl, setLightboxUrl] = useState<string | null>(null);
-    const fileInputRef = useRef<HTMLInputElement>(null);
-    const supabase = createClient();
-    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
-    const { toast } = useToast();
+const CONSULTA = "*, profiles(username, avatar_url)";
+const POR_PAGINA = 12;
+const LIMITE_COMPRESION_MS = 30_000;
 
-    // Fetch photos
+// A sangre aunque el contenedor traiga márgenes: el ancho de la pantalla o el de la columna
+const A_SANGRE = "w-[min(100vw,640px)] ml-[calc(50%-min(50vw,320px))]";
+
+const CUENTA = "t-titular text-[clamp(38px,12.5vw,52px)] leading-none";
+
+// Todo el alto bajo las pestañas: Subir foto descansa abajo, al alcance del pulgar, aunque no haya fotos
+const MARCO = "flex min-h-[calc(100dvh-var(--barra-superior)-var(--barra-inferior)-45px)] flex-col";
+
+// next.config solo optimiza Supabase: el resto de hosts se pide tal cual
+function sinOptimizar(url: string) {
+    return !/^https:\/\/[^/]+\.supabase\.co\/storage\/v1\/object\/public\//.test(url);
+}
+
+function autorDe(foto: Photo) {
+    return foto.profiles?.username || "Anónimo";
+}
+
+function conLimite<T>(promesa: Promise<T>, ms: number): Promise<T> {
+    return new Promise((resolver, rechazar) => {
+        const limite = setTimeout(() => rechazar(new Error("tiempo agotado")), ms);
+        promesa.then(resolver, rechazar).finally(() => clearTimeout(limite));
+    });
+}
+
+// La primera manda; el resto rellena. Con una o dos no hay jerarquía que hacer.
+function rejilla(total: number) {
+    if (total === 1) return { columnas: 1, destacada: false, sobran: 0 };
+    if (total === 2) return { columnas: 2, destacada: false, sobran: 0 };
+    return { columnas: 3, destacada: true, sobran: total % 3 };
+}
+
+// Tres columnas y la primera ocupa cuatro celdas: si la última fila queda coja,
+// su última foto se estira hasta el borde y no deja huecos negros.
+function formaDeFoto(indice: number, total: number, destacada: boolean, sobran: number) {
+    if (total === 1) return "aspect-[4/3]";
+    if (destacada && indice === 0) return "col-span-2 row-span-2 aspect-square";
+    if (indice === total - 1 && sobran === 1) return "col-span-3 aspect-[2/1]";
+    if (indice === total - 1 && sobran === 2) return "col-span-2";
+    return "aspect-square";
+}
+
+export function MatchPhotos({ matchId, currentUserId }: MatchPhotosProps) {
+    const [supabase] = useState(createClient);
+    const { toast } = useToast();
+    const [photos, setPhotos] = useState<Photo[]>([]);
+    const [total, setTotal] = useState(0);
+    const [carga, setCarga] = useState<"cargando" | "lista" | "error">("cargando");
+    const [intento, setIntento] = useState(0);
+    const [cargandoMas, setCargandoMas] = useState(false);
+    const [falloMas, setFalloMas] = useState(false);
+    const [uploading, setUploading] = useState(false);
+    const [abierta, setAbierta] = useState<number | null>(null);
+    const fileInputRef = useRef<HTMLInputElement>(null);
+    const rejillaRef = useRef<HTMLDivElement>(null);
+
     useEffect(() => {
-        async function fetchPhotos() {
-            const { data } = await supabase
-                .from("match_photos")
-                .select("*, profiles(username, avatar_url)")
-                .eq("match_id", matchId)
-                .order("created_at", { ascending: false })
-                .limit(12);
-            setPhotos((data as unknown as Photo[]) || []);
-            setLoading(false);
+        let vigente = true;
+        supabase
+            .from("match_photos")
+            .select(CONSULTA, { count: "exact" })
+            .eq("match_id", matchId)
+            .order("created_at", { ascending: false })
+            .range(0, POR_PAGINA - 1)
+            .then(({ data, count, error }) => {
+                if (!vigente) return;
+                if (error) {
+                    setCarga("error");
+                    return;
+                }
+                setPhotos((data as unknown as Photo[]) ?? []);
+                setTotal(count ?? data?.length ?? 0);
+                setCarga("lista");
+            });
+        return () => {
+            vigente = false;
+        };
+    }, [supabase, matchId, intento]);
+
+    async function cargarMas() {
+        if (cargandoMas || photos.length >= total) return;
+        setCargandoMas(true);
+        setFalloMas(false);
+        const { data, error } = await supabase
+            .from("match_photos")
+            .select(CONSULTA)
+            .eq("match_id", matchId)
+            .order("created_at", { ascending: false })
+            .range(photos.length, photos.length + POR_PAGINA - 1);
+
+        if (error) {
+            setFalloMas(true);
+            // El visor es un <dialog> y tapa los toasts: ahí el aviso va dentro
+            if (abierta === null) toast("No se han podido cargar más fotos", "error");
+        } else {
+            const nuevas = (data as unknown as Photo[]) ?? [];
+            setPhotos((prev) => [...prev, ...nuevas.filter((n) => !prev.some((p) => p.id === n.id))]);
         }
-        fetchPhotos();
-    }, [matchId]);
+        setCargandoMas(false);
+    }
 
     async function handleUpload(e: React.ChangeEvent<HTMLInputElement>) {
         const file = e.target.files?.[0];
+        // Se vacía ya: elegir otra vez la misma foto tiene que volver a disparar el cambio
+        e.target.value = "";
         if (!file) return;
 
-        // Validate file
         if (!file.type.startsWith("image/")) {
             toast("Solo se permiten imágenes", "error");
             return;
@@ -66,200 +149,348 @@ export function MatchPhotos({ matchId, currentUserId }: MatchPhotosProps) {
         }
 
         setUploading(true);
-
-        const options = { maxSizeMB: 0.5, maxWidthOrHeight: 1280, useWebWorker: true };
-        const compressedFile = await imageCompression(file, options);
-
-        const ext = compressedFile.name.split(".").pop() || "jpg";
-        const fileName = `${matchId}/${currentUserId}-${Date.now()}.${ext}`;
-
-        let publicUrl: string;
-        let photoRow: unknown;
         try {
+            let comprimida: File;
+            try {
+                comprimida = await conLimite(
+                    imageCompression(file, { maxSizeMB: 0.5, maxWidthOrHeight: 1280, useWebWorker: true }),
+                    LIMITE_COMPRESION_MS
+                );
+            } catch {
+                toast("Esa foto no se ha podido leer. Prueba con otra.", "error");
+                return;
+            }
+
+            const ext = comprimida.name.split(".").pop() || "jpg";
+            const fileName = `${matchId}/${currentUserId}-${Date.now()}.${ext}`;
+
             const { error: uploadError } = await supabase.storage
                 .from("match_photos")
-                .upload(fileName, compressedFile, { upsert: false });
-
+                .upload(fileName, comprimida, { upsert: false });
             if (uploadError) throw uploadError;
 
-            const { data: urlData } = supabase.storage
-                .from("match_photos")
-                .getPublicUrl(fileName);
-
-            publicUrl = urlData.publicUrl;
+            const { data: urlData } = supabase.storage.from("match_photos").getPublicUrl(fileName);
 
             const { data, error: dbError } = await supabase
                 .from("match_photos")
-                .insert({
-                    match_id: matchId,
-                    user_id: currentUserId,
-                    photo_url: publicUrl,
-                })
-                .select("*, profiles(username, avatar_url)")
+                .insert({ match_id: matchId, user_id: currentUserId, photo_url: urlData.publicUrl })
+                .select(CONSULTA)
                 .single();
-
             if (dbError) throw dbError;
-            photoRow = data;
-        } catch (err: unknown) {
-            const message = err instanceof Error ? err.message : "Error al subir la foto";
-            toast(message, "error");
-            setUploading(false);
-            if (fileInputRef.current) fileInputRef.current.value = "";
-            return;
-        }
 
-        setPhotos((prev) => [photoRow as Photo, ...prev]);
-        toast("¡Foto subida!", "success");
-        setUploading(false);
-        if (fileInputRef.current) fileInputRef.current.value = "";
+            setPhotos((prev) => [data as unknown as Photo, ...prev]);
+            setTotal((n) => n + 1);
+            toast("Foto subida", "success");
+        } catch {
+            toast("Error al subir la foto", "error");
+        } finally {
+            setUploading(false);
+        }
+    }
+
+    // Safari no enfoca al tocar: el foco vuelve a mano, y a la última foto vista
+    function cerrarVisor(ultima: number) {
+        setAbierta(null);
+        const tile = rejillaRef.current?.children[ultima];
+        if (tile instanceof HTMLElement) tile.focus();
+    }
+
+    const { columnas, destacada, sobran } = rejilla(carga === "lista" ? photos.length : POR_PAGINA);
+
+    return (
+        <section aria-label="Fotos del partido" className={`${A_SANGRE} ${MARCO}`}>
+            {/* La pestaña ya dice «Fotos»: aquí va la respuesta, cuántas hay */}
+            {carga === "cargando" ? (
+                <div className="px-4 pb-3 pt-4">
+                    <div aria-hidden="true" className="skeleton h-[50px] w-44" />
+                </div>
+            ) : carga === "error" ? (
+                <h2 className="t-seccion px-4 pb-3 pt-4">Fotos</h2>
+            ) : (
+                total > 0 && <h2 className={`${CUENTA} px-4 pb-3 pt-4 tabular-nums`}>{plural(total, "foto")}</h2>
+            )}
+
+            {carga === "error" ? (
+                <div className="flex items-center gap-3 px-4 py-6">
+                    <TriangleAlert size={18} strokeWidth={1.75} aria-hidden="true" className="shrink-0 text-tarjeta" />
+                    <p className="min-w-0 flex-1">No se han podido leer las fotos.</p>
+                    <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                            setCarga("cargando");
+                            setIntento((n) => n + 1);
+                        }}
+                    >
+                        Reintentar
+                    </Button>
+                </div>
+            ) : carga === "lista" && photos.length === 0 ? (
+                <div className="flex flex-1 flex-col justify-end gap-4 px-4 pb-6 pt-4">
+                    <Panenka size={96} />
+                    <h2 className={CUENTA}>{fraseVacio("fotos", matchId)}</h2>
+                </div>
+            ) : (
+                <div
+                    ref={rejillaRef}
+                    className="grid gap-0.5"
+                    style={{ gridTemplateColumns: `repeat(${columnas}, minmax(0, 1fr))` }}
+                >
+                    {carga === "cargando"
+                        ? Array.from({ length: 6 }, (_, i) => (
+                              <div
+                                  key={i}
+                                  aria-hidden="true"
+                                  className={`skeleton aspect-square ${i === 0 ? "col-span-2 row-span-2" : ""}`}
+                              />
+                          ))
+                        : photos.map((photo, i) => (
+                              <button
+                                  key={photo.id}
+                                  type="button"
+                                  onClick={() => setAbierta(i)}
+                                  aria-label={`Abrir la foto de ${autorDe(photo)}`}
+                                  className={`pulsable relative block overflow-hidden bg-surface ${formaDeFoto(i, photos.length, destacada, sobran)}`}
+                              >
+                                  <Image
+                                      src={photo.photo_url}
+                                      alt="Foto del partido"
+                                      fill
+                                      unoptimized={sinOptimizar(photo.photo_url)}
+                                      className="object-cover"
+                                      sizes={
+                                          destacada && i === 0
+                                              ? "(max-width: 640px) 67vw, 430px"
+                                              : i === photos.length - 1 && sobran > 0
+                                                ? "(max-width: 640px) 100vw, 640px"
+                                                : "(max-width: 640px) 33vw, 215px"
+                                      }
+                                  />
+                              </button>
+                          ))}
+                </div>
+            )}
+
+            {carga === "lista" && photos.length < total && (
+                <div className="px-4 pt-2">
+                    <Button
+                        type="button"
+                        variant="ghost"
+                        size="md"
+                        className="w-full"
+                        loading={cargandoMas}
+                        onClick={cargarMas}
+                    >
+                        Ver más fotos
+                    </Button>
+                </div>
+            )}
+
+            {/* pb-6: el balón de la barra inferior asoma 17px por encima de la regla */}
+            <div className="sticky bottom-[var(--barra-inferior)] z-10 mt-auto bg-background px-4 pb-6 pt-2 md:pb-2">
+                <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    onChange={handleUpload}
+                    className="hidden"
+                />
+                <Button
+                    type="button"
+                    size="lg"
+                    className="w-full"
+                    loading={uploading}
+                    onClick={() => fileInputRef.current?.click()}
+                >
+                    <Plus size={18} strokeWidth={1.75} aria-hidden="true" />
+                    Subir foto
+                </Button>
+            </div>
+            <p className="t-meta px-4 pb-4 text-muted">
+                Sube solo fotos sobre las que tengas derechos y con permiso de quienes aparecen.
+            </p>
+
+            {abierta !== null && (
+                <Visor
+                    fotos={photos}
+                    total={total}
+                    inicial={abierta}
+                    cargandoMas={cargandoMas}
+                    falloMas={falloMas}
+                    onCerrar={cerrarVisor}
+                    onFinal={cargarMas}
+                />
+            )}
+        </section>
+    );
+}
+
+function Visor({
+    fotos,
+    total,
+    inicial,
+    cargandoMas,
+    falloMas,
+    onCerrar,
+    onFinal,
+}: {
+    fotos: Photo[];
+    total: number;
+    inicial: number;
+    cargandoMas: boolean;
+    falloMas: boolean;
+    onCerrar: (ultima: number) => void;
+    onFinal: () => void;
+}) {
+    const dialogoRef = useRef<HTMLDialogElement>(null);
+    const pistaRef = useRef<HTMLDivElement>(null);
+    const [actual, setActual] = useState(inicial);
+    const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL!;
+    const foto = fotos[actual] ?? fotos[fotos.length - 1];
+
+    // <dialog> nativo: atrapa el foco y cierra con Escape
+    useLayoutEffect(() => {
+        const dialogo = dialogoRef.current;
+        const pista = pistaRef.current;
+        if (!dialogo || !pista) return;
+        dialogo.showModal();
+        pista.scrollLeft = inicial * pista.clientWidth;
+
+        const { style } = document.documentElement;
+        const desbordeAnterior = style.overflow;
+        style.overflow = "hidden";
+        return () => {
+            style.overflow = desbordeAnterior;
+        };
+    }, [inicial]);
+
+    // Antes de llegar a la última ya se ha pedido la siguiente tanda
+    useEffect(() => {
+        if (actual >= fotos.length - 2 && fotos.length < total) onFinal();
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+    }, [actual, fotos.length, total]);
+
+    function irA(indice: number) {
+        const pista = pistaRef.current;
+        if (!pista || indice < 0 || indice >= fotos.length) return;
+        const reducido = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+        pista.scrollTo({ left: indice * pista.clientWidth, behavior: reducido ? "auto" : "smooth" });
+    }
+
+    function cerrar() {
+        dialogoRef.current?.close();
     }
 
     return (
-        <div className="rounded-2xl border border-border bg-surface">
-            {/* Header */}
-            <div className="flex items-center gap-2 border-b border-border px-4 py-3">
-                <Camera size={18} className="text-accent" />
-                <h3 className="text-sm font-semibold text-foreground">
-                    Fotos del Partido
-                </h3>
-                <span className="ml-auto text-xs text-muted">
-                    {photos.length} foto{photos.length !== 1 ? "s" : ""}
-                </span>
-            </div>
-
-            {/* Upload Button */}
-            <div className="border-b border-border px-4 py-3">
-                    <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/*"
-                        onChange={handleUpload}
-                        className="hidden"
-                    />
+        <dialog
+            ref={dialogoRef}
+            aria-label="Foto del partido"
+            onClose={() => onCerrar(actual)}
+            onKeyDown={(e) => {
+                if (e.key !== "ArrowRight" && e.key !== "ArrowLeft") return;
+                // Con el foco en la pista el navegador también se desplazaría por su cuenta
+                e.preventDefault();
+                irA(actual + (e.key === "ArrowRight" ? 1 : -1));
+            }}
+            className="m-0 h-dvh max-h-none w-full max-w-none bg-background p-0 text-foreground transition-opacity duration-150 ease-out backdrop:bg-background starting:open:opacity-0"
+        >
+            <div className="flex h-full flex-col">
+                <div className="flex flex-none items-center gap-3 pl-4 pr-1.5 pt-[env(safe-area-inset-top,0px)]">
+                    <div className="flex min-h-14 min-w-0 flex-1 items-center gap-2.5">
+                        <Avatar
+                            src={getAvatarUrl(supabaseUrl, foto.profiles?.avatar_url ?? null)}
+                            fallback={autorDe(foto)}
+                            size="sm"
+                        />
+                        <div className="min-w-0">
+                            <p className="t-meta truncate font-bold">{autorDe(foto)}</p>
+                            <time dateTime={foto.created_at} className="t-meta block truncate text-muted tabular-nums">
+                                {fechaCorta(foto.created_at)}
+                            </time>
+                        </div>
+                    </div>
                     <button
-                        onClick={() => fileInputRef.current?.click()}
-                        disabled={uploading}
-                        className="flex w-full items-center justify-center gap-2 rounded-xl border-2 border-dashed border-border py-4 text-sm font-medium text-muted transition-all hover:border-accent hover:bg-accent/5 hover:text-accent disabled:opacity-50 disabled:cursor-not-allowed"
+                        type="button"
+                        aria-label="Cerrar foto"
+                        onClick={cerrar}
+                        className="pulsable flex h-11 w-11 flex-none items-center justify-center active:bg-surface"
                     >
-                        {uploading ? (
-                            <>
-                                <Loader2 size={18} className="animate-spin" />
-                                Subiendo...
-                            </>
-                        ) : (
-                            <>
-                                <Plus size={18} />
-                                Subir Foto
-                            </>
-                        )}
+                        <X size={18} strokeWidth={1.75} aria-hidden="true" />
                     </button>
-                    <p className="mt-2 text-center text-[11px] text-muted/70">
-                        Sube solo fotos sobre las que tengas derechos y con permiso de quienes aparecen.
-                    </p>
-            </div>
+                </div>
 
-            {/* Photos Grid */}
-            <div className="p-4">
-                {loading ? (
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                        {Array.from({ length: 3 }, (_, i) => (
-                            <div key={`photo-skeleton-${i}`} className="skeleton aspect-square rounded-xl" />
-                        ))}
-                    </div>
-                ) : photos.length === 0 ? (
-                    <div className="flex flex-col items-center justify-center py-8 text-center">
-                        <ImageIcon size={32} className="mb-2 text-muted/30" />
-                        <p className="text-sm text-muted">
-                            Aún no hay fotos. ¡Sube la primera!
+                {/* Deslizar es el scroll del navegador: su física, su zoom con dos dedos */}
+                <div
+                    ref={pistaRef}
+                    role="group"
+                    aria-label="Fotos"
+                    tabIndex={0}
+                    onScroll={(e) => {
+                        const pista = e.currentTarget;
+                        if (pista.clientWidth > 0) setActual(Math.round(pista.scrollLeft / pista.clientWidth));
+                    }}
+                    className="flex min-h-0 flex-1 snap-x snap-mandatory overflow-x-auto overscroll-x-contain [scrollbar-width:none] focus-visible:-outline-offset-2"
+                >
+                    {fotos.map((slide, i) => (
+                        <div
+                            key={slide.id}
+                            onClick={(e) => {
+                                if (e.target === e.currentTarget) cerrar();
+                            }}
+                            className="flex h-full w-full flex-none snap-center snap-always items-center justify-center"
+                        >
+                            {Math.abs(i - actual) <= 1 && (
+                                <Image
+                                    src={slide.photo_url}
+                                    alt={`Foto de ${autorDe(slide)}`}
+                                    width={1280}
+                                    height={960}
+                                    unoptimized={sinOptimizar(slide.photo_url)}
+                                    sizes="(max-width: 640px) 100vw, 1280px"
+                                    className="h-auto max-h-full w-auto max-w-full object-contain"
+                                />
+                            )}
+                        </div>
+                    ))}
+                </div>
+
+                {falloMas && actual >= fotos.length - 1 && fotos.length < total && (
+                    <div className="flex flex-none items-center gap-3 px-4 pt-2">
+                        <TriangleAlert size={18} strokeWidth={1.75} aria-hidden="true" className="shrink-0 text-tarjeta" />
+                        <p role="status" className="t-meta min-w-0 flex-1">
+                            No se han podido cargar más fotos.
                         </p>
-                    </div>
-                ) : (
-                    <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-                        {photos.map((photo) => {
-                            const avatarUrl = getAvatarUrl(
-                                supabaseUrl,
-                                photo.profiles?.avatar_url ?? null
-                            );
-
-                            return (
-                                <div
-                                    key={photo.id}
-                                    role="button"
-                                    tabIndex={0}
-                                    className="group relative cursor-pointer overflow-hidden rounded-xl border border-border bg-zinc-800 transition-all hover:border-accent/50 hover:shadow-lg hover:shadow-accent/5"
-                                    onClick={() => setLightboxUrl(photo.photo_url)}
-                                    onKeyDown={(e) => {
-                                        if (e.key === "Enter" || e.key === " ") {
-                                            e.preventDefault();
-                                            setLightboxUrl(photo.photo_url);
-                                        }
-                                    }}
-                                >
-                                    <div className="aspect-square relative">
-                                        <Image
-                                            src={photo.photo_url}
-                                            alt="Foto del partido"
-                                            fill
-                                            className="object-cover transition-transform duration-300 group-hover:scale-105"
-                                            sizes="(max-width: 640px) 50vw, 33vw"
-                                        />
-                                    </div>
-                                    {/* Overlay */}
-                                    <div className="absolute inset-x-0 bottom-0 bg-gradient-to-t from-black/80 to-transparent px-2.5 pb-2 pt-8 opacity-0 transition-opacity group-hover:opacity-100">
-                                        <div className="flex items-center gap-1.5">
-                                            <Avatar
-                                                src={avatarUrl}
-                                                fallback={photo.profiles?.username || "?"}
-                                                size="sm"
-                                            />
-                                            <div className="min-w-0">
-                                                <p className="truncate text-xs font-medium text-white">
-                                                    {photo.profiles?.username || "Anónimo"}
-                                                </p>
-                                                <p className="text-[10px] text-zinc-400">
-                                                    {timeAgo(photo.created_at)}
-                                                </p>
-                                            </div>
-                                        </div>
-                                    </div>
-                                </div>
-                            );
-                        })}
+                        <Button type="button" variant="outline" size="sm" loading={cargandoMas} onClick={onFinal}>
+                            Reintentar
+                        </Button>
                     </div>
                 )}
-            </div>
 
-            {/* Lightbox */}
-            {
-                lightboxUrl && (
-                    <div
-                        className="fixed inset-0 z-[200] flex items-center justify-center bg-black/90 backdrop-blur-sm p-4"
-                        role="button"
-                        tabIndex={0}
-                        onClick={() => setLightboxUrl(null)}
-                        onKeyDown={(e) => {
-                            if (e.key === "Escape" || e.key === "Enter") {
-                                setLightboxUrl(null);
-                            }
-                        }}
+                <div className="flex flex-none items-center justify-between px-1.5 pb-[env(safe-area-inset-bottom,0px)]">
+                    <button
+                        type="button"
+                        aria-label="Foto anterior"
+                        disabled={actual <= 0}
+                        onClick={() => irA(actual - 1)}
+                        className="pulsable flex h-14 w-14 items-center justify-center active:bg-surface disabled:opacity-30"
                     >
-                        <button
-                            onClick={() => setLightboxUrl(null)}
-                            className="absolute right-4 top-4 rounded-full bg-zinc-800/80 p-2 text-white transition-colors hover:bg-zinc-700"
-                        >
-                            <X size={24} />
-                        </button>
-                        <Image
-                            src={lightboxUrl!}
-                            alt="Tamaño completo"
-                            width={1200}
-                            height={900}
-                            className="max-h-[90vh] max-w-full rounded-xl object-contain"
-                            onClick={(e) => e.stopPropagation()}
-                        />
-                    </div>
-                )
-            }
-        </div >
+                        <ChevronLeft size={18} strokeWidth={1.75} aria-hidden="true" />
+                    </button>
+                    <p aria-live="polite" className="t-cifra text-[22px]">
+                        {actual + 1} de {total}
+                    </p>
+                    <button
+                        type="button"
+                        aria-label="Foto siguiente"
+                        disabled={actual >= fotos.length - 1}
+                        onClick={() => irA(actual + 1)}
+                        className="pulsable flex h-14 w-14 items-center justify-center active:bg-surface disabled:opacity-30"
+                    >
+                        <ChevronRight size={18} strokeWidth={1.75} aria-hidden="true" />
+                    </button>
+                </div>
+            </div>
+        </dialog>
     );
 }

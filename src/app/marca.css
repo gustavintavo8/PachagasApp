@@ -1,0 +1,326 @@
+/* Marca: Panenka, Peto y Marcador. Solo keyframes y CSS de componente. */
+
+/* Parpadeo cansado cada casi 10 segundos y humo que se va despacio */
+@keyframes panenka-parpadea {
+  0%,
+  93% {
+    opacity: 0;
+    transform: scaleY(0.05);
+  }
+  93.1% {
+    opacity: 1;
+  }
+  94.8%,
+  95.4% {
+    opacity: 1;
+    transform: scaleY(1);
+  }
+  97.9% {
+    opacity: 1;
+    transform: scaleY(0.05);
+  }
+  98%,
+  100% {
+    opacity: 0;
+    transform: scaleY(0.05);
+  }
+}
+
+@keyframes panenka-humea {
+  0%,
+  35% {
+    opacity: 1;
+    transform: none;
+  }
+  70% {
+    opacity: 0;
+    transform: translate(-1.5px, -8px);
+  }
+  71% {
+    opacity: 0;
+    transform: translate(0, 3px);
+  }
+  100% {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+@media (prefers-reduced-motion: no-preference) {
+  .panenka-vivo .panenka-parpado {
+    transform-box: fill-box;
+    transform-origin: 50% 0;
+    animation: panenka-parpadea 9.7s ease-in-out infinite;
+  }
+
+  .panenka-vivo .panenka-humo {
+    animation: panenka-humea 13s ease-in-out infinite;
+  }
+}
+
+/* El peto libre se llena en su sitio */
+.peto-cuerpo {
+  transition:
+    fill 160ms var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1)),
+    stroke 160ms var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1)),
+    fill-opacity 160ms var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1)),
+    stroke-opacity 160ms var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1));
+}
+
+/* Los campos se abren desde la costura una sola vez */
+@keyframes marcador-abre-rojo {
+  from {
+    clip-path: inset(0 0 0 100%);
+  }
+  to {
+    clip-path: inset(0);
+  }
+}
+
+@keyframes marcador-abre-azul {
+  from {
+    clip-path: inset(0 100% 0 0);
+  }
+  to {
+    clip-path: inset(0);
+  }
+}
+
+/* El telón de Inicio: keyframes propios porque con reverse la curva también se invierte y arranca lenta */
+@keyframes telon-izquierda {
+  from {
+    clip-path: inset(0);
+  }
+  to {
+    clip-path: inset(0 100% 0 0);
+  }
+}
+
+@keyframes telon-derecha {
+  from {
+    clip-path: inset(0);
+  }
+  to {
+    clip-path: inset(0 0 0 100%);
+  }
+}
+
+/* En una capa para que pt-*, -mt-* y compañía puedan ajustarlo desde fuera */
+@layer components {
+  .marcador {
+    position: relative;
+    isolation: isolate;
+    container-type: inline-size;
+    overflow: hidden;
+    background: #000;
+    color: #fff;
+  }
+
+  .marcador-campo {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    z-index: -1;
+  }
+
+  .marcador-rojo {
+    left: 0;
+    width: var(--costura);
+    background: var(--color-rojo, #d8141e);
+  }
+
+  .marcador-azul {
+    left: var(--costura);
+    right: 0;
+    background: var(--color-azul, #0a55d8);
+  }
+
+  .marcador-costura {
+    position: absolute;
+    top: 0;
+    bottom: 0;
+    left: var(--costura);
+    z-index: -1;
+    width: 4px;
+    transform: translateX(-50%);
+    background: #fff;
+  }
+
+  .marcador-tanteo {
+    /* cqw solo vale por debajo del contenedor, por eso las cuentas viven aquí */
+    --holgura: 16px; /* lo que queda libre en el campo, a repartir entre los dos lados de la cifra */
+    --ancho-cifra: 0.46; /* ancho de una cifra tabular de 900, en em */
+    --campo-rojo: calc(var(--costura-n) * 1cqw - var(--holgura));
+    --campo-azul: calc((100 - var(--costura-n)) * 1cqw - var(--holgura));
+    /* Un solo tamaño para las dos cifras: el que quepa en el campo más justo */
+    --cuerpo: min(
+      270px,
+      68cqw,
+      /* En un teléfono bajo o con muchos goleadores, la votación no se va a la segunda pantalla */
+      max(150px, calc(32svh - var(--filas-extra, 0) * 33px)),
+      calc(var(--campo-rojo) / (var(--cifras-rojo) * var(--ancho-cifra))),
+      calc(var(--campo-azul) / (var(--cifras-azul) * var(--ancho-cifra)))
+    );
+    display: grid;
+    grid-template-columns: var(--costura) minmax(0, 1fr);
+    padding-top: 16px;
+  }
+
+  .marcador-equipo {
+    padding-left: 16px;
+    font-family: var(--font-display), sans-serif;
+    font-size: 24px;
+    font-weight: 800;
+    line-height: 1;
+  }
+
+  .marcador-tanteo > div + div .marcador-equipo {
+    padding-left: 18px;
+  }
+
+  .marcador-cifra {
+    margin-top: 8px;
+    font-family: var(--font-display), sans-serif;
+    font-size: var(--cuerpo);
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+    line-height: 0.72;
+    text-align: center;
+    white-space: nowrap;
+  }
+
+  .marcador-pie {
+    position: relative;
+    margin-top: 10px;
+  }
+
+  /* Se sienta en la parte baja del campo, como en el mockup */
+  .marcador-centro {
+    position: relative;
+    display: grid;
+    place-items: center;
+    width: 116px;
+    height: 116px;
+    margin-top: 12px;
+    margin-left: calc(var(--costura) - 58px);
+    border-radius: 50%;
+    box-shadow: inset 0 0 0 2px #fff;
+  }
+
+  /* Panenka con su frase: la cara sigue en la costura y la frase va al lado ancho */
+  .marcador-saque {
+    --cara: 116px;
+    position: relative;
+    display: grid;
+    grid-template-columns: var(--costura) minmax(0, 1fr);
+    align-items: center;
+    min-height: var(--cara);
+    margin-top: 8px;
+  }
+
+  .marcador-saque[data-cara="media"] {
+    --cara: 96px;
+  }
+
+  /* Empate en un teléfono estrecho: la frase necesita ese ancho más que la cara */
+  @media (max-width: 359px) {
+    .marcador-saque[data-cara="media"] {
+      --cara: 80px;
+    }
+
+    .marcador-saque[data-cara="media"] svg {
+      width: 68px;
+      height: 68px;
+    }
+  }
+
+  .marcador-frase {
+    grid-column: 2;
+    min-width: 0;
+    overflow-wrap: anywhere; /* un apellido de 30 letras no cabe en medio campo */
+    padding: 6px 16px 10px calc(var(--cara) / 2 + 10px);
+  }
+
+  .marcador-saque[data-lado="rojo"] .marcador-frase {
+    grid-column: 1;
+    padding: 6px calc(var(--cara) / 2 + 10px) 10px 16px;
+  }
+
+  .marcador-saque .marcador-centro {
+    position: absolute;
+    bottom: 0;
+    left: calc(var(--costura) - var(--cara) / 2);
+    width: var(--cara);
+    height: var(--cara);
+    margin: 0;
+  }
+
+  @media (prefers-reduced-motion: no-preference) {
+    .marcador-rojo {
+      animation: marcador-abre-rojo 220ms var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1)) both;
+    }
+
+    .marcador-azul {
+      animation: marcador-abre-azul 220ms var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1)) both;
+    }
+  }
+}
+
+/* ─── Empujar a un detalle ───────────────────────────────────────────────── */
+@keyframes detalle-entra {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+}
+
+@keyframes detalle-funde {
+  from {
+    opacity: 0;
+  }
+}
+
+::view-transition {
+  pointer-events: none;
+}
+
+/* Lo de antes se va con el mismo tiempo y la misma curva */
+::view-transition-old(root) {
+  animation-duration: 200ms;
+  animation-timing-function: var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1));
+}
+
+::view-transition-new(.detalle-entra) {
+  animation: detalle-entra 200ms var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1)) both;
+}
+
+/* Las barras no se mueven y van por encima del detalle que entra */
+.barra-superior {
+  view-transition-name: barra-superior;
+}
+
+.barra-inferior {
+  view-transition-name: barra-inferior;
+}
+
+::view-transition-group(barra-superior),
+::view-transition-group(barra-inferior) {
+  z-index: 10;
+  animation: none;
+}
+
+::view-transition-old(barra-superior),
+::view-transition-old(barra-inferior) {
+  display: none;
+}
+
+::view-transition-new(barra-superior),
+::view-transition-new(barra-inferior) {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-new(.detalle-entra) {
+    animation-name: detalle-funde;
+  }
+}

@@ -1,111 +1,473 @@
 @import "tailwindcss";
 
+/* Tailwind 4 solo mira (hover: hover). Se añade (pointer: fine) para que un tap
+   nunca deje un hover pegado. */
+@custom-variant hover {
+  @media (hover: hover) and (pointer: fine) {
+    &:hover {
+      @slot;
+    }
+  }
+}
+
+/* Los colores viven en :root para que el Flood pueda cambiarlos por zonas.
+   Con @theme inline los utilities apuntan a estas variables. */
+:root {
+  --background: #000000;
+  --surface: #141414;
+  --surface-hover: #1f1f1f;
+  --border: #2a2a2a;
+  --border-hover: #4a4a4a;
+  --foreground: #f4f4f4;
+  --muted: #a8a8a8;
+  --rojo: #d8141e;
+  --azul: #0a55d8;
+  --tarjeta: #ffcf0d;
+  --cal: #6e6e6e;
+
+  /* Alturas del marco. --barra-inferior vale 0 si no hay barra (ver abajo). */
+  --barra-superior: calc(48px + env(safe-area-inset-top, 0px));
+  --barra-inferior: 0px;
+}
+
+:root:has(.barra-inferior) {
+  --barra-inferior: calc(56px + env(safe-area-inset-bottom, 0px));
+}
+
+@media (min-width: 768px) {
+  :root:has(.barra-inferior) {
+    --barra-inferior: 0px;
+  }
+}
+
+/* Con el teclado abierto la barra se quita: data-teclado lo pone useTeclado */
+:root[data-teclado]:has(.barra-inferior) {
+  --barra-inferior: 0px;
+}
+
+:root[data-teclado] .barra-inferior {
+  display: none;
+}
+
 @theme inline {
-  --color-background: #09090b;
-  --color-foreground: #fafafa;
-  --color-surface: #18181b;
-  --color-surface-hover: #27272a;
-  --color-border: #27272a;
-  --color-border-hover: #3f3f46;
-  --color-muted: #a1a1aa;
-  --color-accent: #ccff00;
-  --color-accent-hover: #b8e600;
-  --color-accent-glow: rgba(204, 255, 0, 0.15);
-  --color-danger: #ef4444;
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --color-background: var(--background);
+  --color-surface: var(--surface);
+  --color-surface-hover: var(--surface-hover);
+  --color-border: var(--border);
+  --color-border-hover: var(--border-hover);
+  --color-foreground: var(--foreground);
+  --color-muted: var(--muted);
+  --color-rojo: var(--rojo);
+  --color-azul: var(--azul);
+  --color-tarjeta: var(--tarjeta);
+  --color-cal: var(--cal);
+
+  /* Compatibilidad: aquí el acento es la tinta y el error es la tarjeta amarilla */
+  --color-accent: var(--foreground);
+  --color-accent-hover: #ffffff;
+  --color-accent-glow: transparent;
+  --color-danger: var(--tarjeta);
+
+  /* Radio 0: los rounded-* que queden en pantallas sin convertir no redondean nada.
+     rounded-full sigue funcionando para lo que es redondo de verdad. */
+  --radius-xs: 0;
+  --radius-sm: 0;
+  --radius-md: 0;
+  --radius-lg: 0;
+  --radius-xl: 0;
+  --radius-2xl: 0;
+  --radius-3xl: 0;
+  --radius-4xl: 0;
 }
 
-* {
-  scrollbar-width: thin;
-  scrollbar-color: #27272a transparent;
+@theme static {
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --ease-in-out: cubic-bezier(0.77, 0, 0.175, 1);
+  --ease-drawer: cubic-bezier(0.32, 0.72, 0, 1);
 }
 
-html {
-  scroll-behavior: smooth;
-  color-scheme: dark;
+/* next/font pone --font-display y --font-sans en <html> */
+@utility font-display {
+  font-family: var(--font-display), "Arial Narrow", sans-serif;
 }
 
-body {
-  background: var(--color-background);
-  color: var(--color-foreground);
-  font-family: var(--font-sans), system-ui, sans-serif;
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-}
-
-/* Custom scrollbar for Webkit browsers */
-::-webkit-scrollbar {
-  width: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #27272a;
-  border-radius: 3px;
-}
-
-/* Smooth transitions for interactive elements */
-button,
-a,
-input,
-select,
-textarea {
-  transition: all 0.15s ease;
-  touch-action: manipulation;
-  /* Elimina retraso de 300ms al tocar en iOS/Safari */
-}
-
-/* Focus ring utility */
-.focus-ring {
-  outline: none;
-  box-shadow: 0 0 0 2px var(--color-accent);
-}
-
-/* Range slider accent */
-input[type="range"] {
-  accent-color: #ccff00;
-}
-
-/* Skeleton shimmer animation */
-@keyframes shimmer {
-  0% {
-    background-position: -200% 0;
+@layer base {
+  html {
+    -webkit-tap-highlight-color: transparent;
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+    overscroll-behavior: none;
+    color-scheme: dark;
+    background: var(--background);
   }
 
-  100% {
-    background-position: 200% 0;
+  body {
+    overscroll-behavior: none;
+    /* El sitio de la barra va aquí y no en main, para que también lo respete el pie */
+    padding-bottom: var(--barra-inferior);
+    background: var(--background);
+    color: var(--foreground);
+    font-family: var(--font-sans), Arial, sans-serif;
+    font-size: 16px;
+    line-height: 1.45;
+    font-synthesis: none;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+
+  /* Por debajo de 16px iOS hace zoom al enfocar y no lo deshace */
+  input,
+  textarea,
+  select {
+    font-size: 16px;
+  }
+
+  button,
+  a,
+  label,
+  summary,
+  select,
+  [role="button"],
+  [role="tab"] {
+    touch-action: manipulation;
+  }
+
+  /* Solo controles: el texto de contenido se tiene que poder copiar */
+  button,
+  summary,
+  nav a,
+  .barra-superior a,
+  [role="button"],
+  [role="tab"] {
+    user-select: none;
+    -webkit-user-select: none;
+    -webkit-touch-callout: none;
+  }
+
+  button:not(:disabled),
+  summary,
+  [role="button"],
+  [role="tab"] {
+    cursor: pointer;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--foreground);
+    outline-offset: 2px;
+    /* Compensa la barra inferior fija. La de arriba no flota. */
+    scroll-margin-bottom: calc(var(--barra-inferior) + 24px);
+    scroll-margin-top: 16px;
+  }
+
+  input[type="range"] {
+    accent-color: var(--foreground);
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--border) transparent;
   }
 }
 
-.skeleton {
-  background: linear-gradient(90deg,
-      #27272a 0%,
-      #3f3f46 40%,
-      #27272a 80%);
-  background-size: 200% 100%;
-  animation: shimmer 1.5s ease-in-out infinite;
-  border-radius: 0.75rem;
-}
+/* ─── Tipografía ─────────────────────────────────────────────────────────── */
+@layer components {
+  .t-respuesta,
+  .t-marcador,
+  .t-titular,
+  .t-seccion,
+  .t-cifra,
+  .t-cartel {
+    font-family: var(--font-display), "Arial Narrow", sans-serif;
+    letter-spacing: 0;
+  }
 
-/* Toast slide-in animation */
-@keyframes toast-in {
-  from {
+  /* Como .t-cartel: --chars es la línea más ancha, en caracteres (charsRespuesta).
+     Sin --chars, lo que ocupa «Juegas.». */
+  .t-respuesta {
+    font-size: min(150px, 38vw, calc((min(100vw, 640px) - 32px) / (var(--chars, 6.4) * 0.375)));
+    line-height: 0.9;
+    font-weight: 900;
+  }
+
+  /* El tamaño lo pone el componente Marcador */
+  .t-marcador {
+    line-height: 0.9;
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .t-titular {
+    font-size: min(64px, 15vw);
+    line-height: 0.98;
+    font-weight: 800;
+  }
+
+  .t-seccion {
+    font-size: 30px;
+    line-height: 1.05;
+    font-weight: 800;
+  }
+
+  /* 22-56px: el tamaño se ajusta con text-[Npx] */
+  .t-cifra {
+    font-size: 32px;
+    line-height: 1;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+  }
+
+  .t-meta {
+    font-size: 14px;
+    line-height: 1.35;
+    font-weight: 500;
+  }
+
+  /* Nombres a tamaño de cartel, sin JS: style={{ "--chars": charsCartel(nombre) }}.
+     clip y no hidden: con esta interlínea, hidden cortaría acentos y descendentes */
+  .t-cartel {
+    max-width: 100%;
+    overflow-x: clip;
+    font-size: min(190px, calc((min(100vw, 640px) - 32px) / (var(--chars) * 0.42)));
+    line-height: 0.85;
+    font-weight: 900;
+    white-space: nowrap;
+  }
+
+  /* ─── Toque ──────────────────────────────────────────────────────────────── */
+
+  /* Cualquier cosa pulsable: responde al bajar el dedo, no al soltar.
+     Al bajar la inversión es inmediata, si no un toque rápido no llega a verla.
+     Al soltar vuelve algo más despacio. */
+  .pulsable {
+    transition:
+      transform 160ms var(--ease-out),
+      background-color 160ms var(--ease-out),
+      border-color 160ms var(--ease-out),
+      color 160ms var(--ease-out);
+  }
+
+  .pulsable:active:not(:disabled) {
+    transform: scale(0.98);
+    transition-duration: 100ms, 0ms, 0ms, 0ms;
+  }
+
+  /* Botón ocupado: la etiqueta sigue ahí, sin pintar, para que no cambie el ancho.
+     text-fill-color y no color: el spinner va en currentColor. */
+  .ocupado {
+    -webkit-text-fill-color: transparent;
+  }
+
+  .ocupado > svg:not(.ocupado-giro) {
     opacity: 0;
-    transform: translateX(100%) scale(0.95);
   }
 
-  to {
-    opacity: 1;
-    transform: translateX(0) scale(1);
+  .ocupado-giro {
+    position: absolute;
+    inset: 0;
+    margin: auto;
+  }
+
+  /* Scroll interno: rebota él, no la página de detrás */
+  .scroll-interno {
+    overflow-y: auto;
+    overscroll-behavior: contain;
+  }
+
+  /* Campo de color que pasa por debajo de la barra superior */
+  .bajo-barra {
+    margin-top: calc(-1 * var(--barra-superior));
+    padding-top: var(--barra-superior);
+  }
+
+  /* Cargas: barras planas del tamaño real. Sin brillo. */
+  .skeleton {
+    background: var(--surface);
+  }
+
+  /* ─── Hoja ───────────────────────────────────────────────────────────────── */
+  .hoja-fondo {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    min-height: 100dvh;
+    background: #000000;
+    opacity: calc(0.7 * (1 - var(--drawer-swipe-progress)));
+    transition: opacity 320ms var(--ease-drawer);
+  }
+
+  .hoja-fondo[data-swiping] {
+    transition-duration: 0ms;
+  }
+
+  .hoja-fondo[data-starting-style],
+  .hoja-fondo[data-ending-style] {
+    opacity: 0;
+  }
+
+  .hoja-fondo[data-ending-style] {
+    transition-duration: calc(var(--drawer-swipe-strength) * 260ms);
+  }
+
+  /* En iOS, absolute para que el fondo llegue detrás de la barra de Safari */
+  @supports (-webkit-touch-callout: none) {
+    .hoja-fondo {
+      position: absolute;
+    }
+  }
+
+  .hoja-marco {
+    position: fixed;
+    inset: 0;
+    z-index: 60;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding-bottom: var(--drawer-keyboard-inset, 0px);
+  }
+
+  .hoja {
+    /* Sobra por abajo para que al tirar hacia arriba no se vea el hueco */
+    --sobra: 48px;
+    box-sizing: border-box;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-height: calc(
+      100dvh - var(--barra-superior) - var(--drawer-keyboard-inset, 0px) + var(--sobra)
+    );
+    margin-bottom: calc(-1 * var(--sobra));
+    padding-bottom: var(--sobra);
+    background: var(--background);
+    border-top: 1px solid var(--border-hover);
+    color: var(--foreground);
+    outline: none;
+    transform: translateY(var(--drawer-swipe-movement-y));
+    transition: transform 320ms var(--ease-drawer);
+  }
+
+  .hoja[data-swiping] {
+    transition-duration: 0ms;
+    user-select: none;
+    -webkit-user-select: none;
+  }
+
+  .hoja[data-starting-style],
+  .hoja[data-ending-style] {
+    transform: translateY(calc(100% - var(--sobra) + 2px));
+  }
+
+  .hoja[data-ending-style] {
+    transition-duration: calc(var(--drawer-swipe-strength) * 260ms);
+  }
+
+  .hoja-asa {
+    flex: none;
+    width: 40px;
+    height: 4px;
+    margin: 10px auto 6px;
+    background: var(--border-hover);
+  }
+
+  .hoja-cuerpo {
+    flex: 1 1 auto;
+    min-height: 0;
+    padding-bottom: calc(16px + env(safe-area-inset-bottom, 0px));
+  }
+
+  /* En escritorio no hay pulgar: hoja centrada, sin asa */
+  @media (min-width: 768px) {
+    .hoja-marco {
+      align-items: center;
+      padding: 24px;
+    }
+
+    .hoja {
+      --sobra: 0px;
+      width: 100%;
+      max-width: 480px;
+      max-height: min(640px, calc(100dvh - 48px));
+      border: 1px solid var(--border-hover);
+      opacity: 1;
+      transition:
+        transform 200ms var(--ease-out),
+        opacity 200ms var(--ease-out);
+    }
+
+    .hoja[data-starting-style],
+    .hoja[data-ending-style] {
+      opacity: 0;
+      transform: translateY(8px);
+    }
+
+    .hoja-asa {
+      display: none;
+    }
+
+    .hoja-cuerpo {
+      padding-bottom: 16px;
+    }
+  }
+
+  /* ─── Avisos (sonner) ────────────────────────────────────────────────────── */
+  .aviso {
+    box-sizing: border-box;
+    width: 100%;
+    padding: 14px 16px;
+    background: var(--foreground);
+    color: var(--background);
+    font-family: var(--font-sans), Arial, sans-serif;
+    font-size: 15px;
+    line-height: 1.35;
+    font-weight: 500;
+  }
+
+  .aviso-error {
+    border-top: 4px solid var(--tarjeta);
   }
 }
 
-.animate-toast-in {
-  animation: toast-in 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+/* sonner mete sus estilos en <head> sin capa: html para ganarle. Solo el tiempo y la curva. */
+html [data-sonner-toast] {
+  transition-duration: 240ms, 240ms, 240ms, 200ms;
+  transition-timing-function: var(--ease-out);
+}
+
+/* ─── Flood: la pantalla entera es de tu peto ────────────────────────────── */
+html[data-flood="rojo"] {
+  --flood: var(--rojo);
+}
+
+html[data-flood="azul"] {
+  --flood: var(--azul);
+}
+
+html[data-flood],
+html[data-flood] body {
+  background: var(--flood);
+}
+
+/* Solo lo que está sobre el color. La barra inferior y las hojas siguen en negro. */
+html[data-flood] main,
+html[data-flood] .barra-superior {
+  --foreground: #ffffff;
+  --muted: #ffffff;
+  --border: rgb(255 255 255 / 0.4);
+  --border-hover: #ffffff;
+  --surface: rgb(0 0 0 / 0.18);
+  --surface-hover: rgb(0 0 0 / 0.3);
+  color: var(--foreground);
+}
+
+/* En escritorio el color ocupa la columna, no la pantalla */
+@media (min-width: 768px) {
+  html[data-flood],
+  html[data-flood] body {
+    background: var(--background);
+  }
+
+  html[data-flood] main {
+    background: var(--flood);
+  }
 }
 
 /* ─── Accesibilidad: movimiento reducido ──────────────────────────────────── */
@@ -115,8 +477,19 @@ input[type="range"] {
   *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
+    /* Sin desplazamientos: se quedan la opacidad y el color */
+    transition-property:
+      opacity, color, background-color, border-color, fill, stroke, fill-opacity, stroke-opacity !important;
+  }
+
+  .pulsable:active:not(:disabled) {
+    transform: none;
+  }
+
+  .hoja[data-starting-style],
+  .hoja[data-ending-style] {
+    opacity: 0;
+    transform: none;
   }
 }
 
@@ -129,10 +502,4 @@ input[type="range"] {
 .match-history-item {
   content-visibility: auto;
   contain-intrinsic-size: 0 80px;
-}
-
-/* ─── Focus: scroll-margin para compensar el BottomNav fijo ─────────────── */
-:focus-visible {
-  scroll-margin-bottom: 80px;
-  scroll-margin-top: 72px;
 }

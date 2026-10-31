@@ -1,7 +1,8 @@
 "use client";
 
+import { useEffect } from "react";
 import { Button } from "@/components/ui/Button";
-import { AlertCircle, RotateCcw } from "lucide-react";
+import { TriangleAlert } from "lucide-react";
 
 export default function GlobalError({
     error,
@@ -10,24 +11,22 @@ export default function GlobalError({
     error: Error & { digest?: string };
     reset: () => void;
 }) {
+    useEffect(() => {
+        console.error(error);
+    }, [error]);
+
     return (
-        <div className="flex min-h-[60vh] flex-col items-center justify-center px-4">
-            <div className="mb-6 flex h-20 w-20 items-center justify-center rounded-full bg-red-500/10">
-                <AlertCircle size={40} className="text-red-400" />
-            </div>
-            <h1 className="mb-2 text-2xl font-bold text-foreground">
-                Algo salió mal
-            </h1>
-            <p className="mb-6 max-w-md text-center text-muted">
-                Ha ocurrido un error inesperado. Puedes intentar recargar la página
-                o volver al inicio.
+        <div className="flex min-h-[60dvh] flex-col justify-center px-4 py-8">
+            <TriangleAlert size={18} strokeWidth={1.75} className="text-tarjeta" aria-hidden="true" />
+            <h1 className="t-titular mt-2">Algo salió mal.</h1>
+            <p className="mt-3 text-muted">
+                Se ha roto algo por el camino. Prueba otra vez o vuelve al inicio.
             </p>
-            <div className="flex gap-3">
-                <Button onClick={reset} variant="outline" size="lg">
-                    <RotateCcw size={18} />
+            <div className="mt-6 flex flex-col gap-2 md:flex-row">
+                <Button onClick={reset} size="lg">
                     Reintentar
                 </Button>
-                <Button onClick={() => (window.location.href = "/")} size="lg">
+                <Button onClick={() => (window.location.href = "/")} variant="outline" size="lg">
                     Volver al inicio
                 </Button>
             </div>

@@ -45,7 +45,7 @@ test("I1 e I3 no dejan una sincronización de perfiles fuera del RPC final", () 
     assert.doesNotMatch(actions, /syncLegacyProfileStats/);
     assert.doesNotMatch(actions, /\.from\("profiles"\)\s*\.update\([\s\S]{0,180}(?:matches_played|goals_scored)/);
 
-    const rpcIndex = actions.indexOf('rpc(\n            "finalize_match_with_elo"');
+    const rpcIndex = actions.search(/rpc\(\s*"finalize_match_with_elo"/);
     assert.ok(rpcIndex >= 0, "La finalización debe usar el RPC transaccional");
     const catchIndex = actions.indexOf("    } catch", rpcIndex);
     assert.ok(catchIndex > rpcIndex, "La finalización debe manejar el resultado del RPC");

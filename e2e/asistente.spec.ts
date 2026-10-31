@@ -46,7 +46,7 @@ test.describe("Asistente Panenka", () => {
 
     test("usuario autenticado ve la página de Panenka @smoke", async ({ page }) => {
         await page.goto("/asistente");
-        await expect(page.getByText("Panenka")).toBeVisible();
+        await expect(page.getByRole("heading", { name: "Panenka" })).toBeVisible();
         await expect(page.getByText("Tu asistente futbolero")).toBeVisible();
         await expect(page.getByPlaceholder("Pregunta a Panenka...")).toBeVisible();
     });
@@ -62,6 +62,7 @@ test.describe("Asistente Panenka", () => {
             data: { messages: [{ role: "user", content: "hola" }] },
             headers: { "Cookie": "" },
         });
-        expect(response.status()).toBe(401);
+        expect(response.status()).toBe(403);
+        expect(await response.json()).toEqual({ error: "Acceso no autorizado" });
     });
 });

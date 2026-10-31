@@ -51,8 +51,10 @@ test.describe("Bloque 1 — exportacion de datos", () => {
 });
 
 test.describe("Bloque 2 — enlaces legales", () => {
+    // Con sesión, /login redirige a Inicio, que ya no lleva el pie.
+    test.use({ storageState: { cookies: [], origins: [] } });
     test("el footer enlaza las paginas legales", async ({ page }) => {
-        await page.goto("/");
+        await page.goto("/login");
         await expect(page.getByRole("link", { name: "Privacidad" })).toBeVisible();
         await expect(page.getByRole("link", { name: "Aviso legal" })).toBeVisible();
         await expect(page.getByRole("link", { name: "Términos" })).toBeVisible();
@@ -65,7 +67,7 @@ test.describe("Bloque 2 — pagina de privacidad", () => {
         await page.goto("/privacidad");
         await expect(page.getByRole("heading", { name: "Política de Privacidad" })).toBeVisible();
         await expect(page.getByRole("heading", { name: "Cookies" })).toBeVisible();
-        await expect(page.getByText("Groq")).toBeVisible();
+        await expect(page.getByRole("listitem").filter({ hasText: "Groq" })).toBeVisible();
     });
 });
 
