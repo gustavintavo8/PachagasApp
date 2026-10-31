@@ -147,7 +147,8 @@ export function FilaTerminado({ partido, yo, origen = "" }: TerminadoProps) {
                     {titular}
                 </span>
             }
-            detalle={detalle}
+            // Dos líneas: el peto, el MVP y los goles no se pueden quedar en puntos suspensivos
+            detalle={<span className="line-clamp-2 whitespace-normal">{detalle}</span>}
             cifra={<MiniMarcador rojo={partido.team_a_score} azul={partido.team_b_score} />}
         />
     );

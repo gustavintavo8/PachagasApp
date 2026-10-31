@@ -215,8 +215,8 @@ export function InicioPortada({
                     <Respuesta texto={estado.respuesta} />
                     <p className="mt-3.5 text-balance text-lg font-medium leading-snug">{estado.linea}</p>
                     <p className="t-titular mt-7">{texto.con}</p>
-                    {texto.resto && <p className="mt-3 text-[17px] font-medium leading-snug">{texto.resto}</p>}
-                    {texto.enfrente && <p className="mt-3 text-[17px] font-medium leading-snug">{texto.enfrente}</p>}
+                    {texto.resto && <p className="mt-3 text-pretty text-[17px] font-medium leading-snug">{texto.resto}</p>}
+                    {texto.enfrente && <p className="mt-3 text-pretty text-[17px] font-medium leading-snug">{texto.enfrente}</p>}
                     {!cerrado && estado.faltan > 0 && <p className="t-seccion mt-5">{faltanTexto}</p>}
                 </div>
                 <BarraAccion
@@ -258,7 +258,7 @@ export function InicioPortada({
                         {!conEquipos && <p className="t-meta whitespace-nowrap text-muted">Sin equipos todavía</p>}
                     </div>
                     <PetoFila className="mt-2.5" ocupadas={plazas.length} plazas={partido.max_players} />
-                    {sinDecirNada && <p className="mt-3 text-[15px] leading-snug">{sinDecirNada}</p>}
+                    {sinDecirNada && <p className="mt-3 text-pretty text-[15px] leading-snug">{sinDecirNada}</p>}
                 </div>
                 {banda}
             </div>
@@ -315,16 +315,17 @@ function BarraAccion({
     return (
         <div
             className={cn(
-                "sticky bottom-[var(--barra-inferior)] z-10 px-4 pb-3",
+                // pb-5: la cara del balón asoma 16px sobre la barra y no puede pisar el botón
+                "sticky bottom-[var(--barra-inferior)] z-10 px-4 pb-5",
                 "[@media(max-height:700px)]:flex [@media(max-height:700px)]:items-center [@media(max-height:700px)]:gap-4",
-                "[@media(max-height:700px)]:border-t [@media(max-height:700px)]:pb-2 [@media(max-height:700px)]:pt-2",
+                "[@media(max-height:700px)]:border-t [@media(max-height:700px)]:pt-2",
                 color ? "border-foreground" : "border-border",
                 fondo,
                 !conDetalle && "pt-3"
             )}
         >
             {conDetalle && (
-                <div className="mb-1.5 flex min-h-11 items-center justify-between gap-3 [@media(max-height:700px)]:mb-0 [@media(max-height:700px)]:flex-none [@media(max-height:700px)]:flex-col [@media(max-height:700px)]:items-start [@media(max-height:700px)]:justify-center [@media(max-height:700px)]:gap-0">
+                <div className="mb-1.5 flex min-h-11 items-center justify-between gap-3 [@media(max-height:700px)]:mb-0 [@media(max-height:700px)]:flex-none [@media(max-height:700px)]:flex-col [@media(max-height:700px)]:items-start [@media(max-height:700px)]:justify-center [@media(max-height:700px)]:gap-0 [@media(max-height:700px)]:[&>p+a]:-mt-2.5">
                     {salida && <p className="t-meta whitespace-nowrap">{salida}</p>}
                     {acompanante}
                 </div>

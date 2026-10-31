@@ -173,7 +173,7 @@ function BandaResultado({ ultimo }: { ultimo: NonNullable<Awaited<ReturnType<typ
       />
       <p
         className={cn(
-          "min-h-[60px] py-2.5 text-[15px] font-medium leading-snug",
+          "min-h-[60px] text-pretty py-2.5 text-[15px] font-medium leading-snug",
           panenkaALaIzquierda ? "pl-[100px] pr-4" : "pl-4 pr-[100px]"
         )}
       >

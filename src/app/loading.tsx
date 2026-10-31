@@ -43,7 +43,7 @@ export default function Loading() {
             </div>
 
             {/* Acción */}
-            <div className="px-4 pb-3 pt-3">
+            <div className="px-4 pb-5 pt-3">
                 <div className="skeleton h-[52px] w-full" />
             </div>
         </div>
