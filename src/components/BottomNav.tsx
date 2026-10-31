@@ -61,8 +61,8 @@ export function BottomNav({ sesion }: { sesion?: boolean }) {
               )}
             >
               {esPanenka ? (
-                // La cara sobre la regla, como un punto de saque
-                <span className="absolute left-1/2 top-0 z-10 -translate-x-1/2 -translate-y-1/2 text-foreground in-active:text-muted">
+                // La cara sobre la regla, como un punto de saque. Asoma poco: encima hay enlaces que tocar.
+                <span className="absolute left-1/2 top-0 z-10 -translate-x-1/2 -translate-y-1/3 text-foreground in-active:text-muted">
                   <Panenka size={36} />
                 </span>
               ) : (

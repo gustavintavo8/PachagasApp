@@ -1,7 +1,7 @@
 import { createClient, SupabaseClient } from "@supabase/supabase-js";
 import { assertLocalSupabaseUrl } from "./local-supabase-url.mjs";
 
-function getAdminClient(): SupabaseClient {
+export function getAdminClient(): SupabaseClient {
     const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
     const key = process.env.SUPABASE_SERVICE_ROLE_KEY;
 
@@ -141,12 +141,49 @@ export async function createDummyUsers(count: number): Promise<string[]> {
     return ids;
 }
 
+/**
+ * La suite crea partidos más deprisa que nadie: el límite es para las personas, no para ella.
+ * Se recarga en vez de borrar: dos altas a la vez chocan al recrear la fila y el límite se cierra.
+ */
+export async function clearCreateMatchLimit() {
+    const db = getAdminClient();
+    const { error } = await db.from("rate_limits").update({ tokens: 1000 }).like("key", "create-match:%");
+    if (error) throw new Error(`clearCreateMatchLimit: ${error.message}`);
+}
+
+export const DUMMY_PASSWORD = "dummy-password-123";
+
+/** Un jugador con el que se puede entrar de verdad. Sin acceso, para probar la puerta. */
+export async function createLoginUser(
+    options: { acceso?: boolean; admin?: boolean } = {}
+): Promise<{ id: string; email: string }> {
+    const { acceso = true, admin = false } = options;
+    const db = getAdminClient();
+    const [id] = await createDummyUsers(1);
+    const { data, error } = await db.auth.admin.getUserById(id);
+    if (error || !data.user.email) throw new Error(`createLoginUser: ${error?.message ?? "sin email"}`);
+
+    if (acceso) {
+        const { error: grantError } = await db
+            .from("community_access_grants")
+            .upsert({ user_id: id, granted_at: new Date().toISOString(), revoked_at: null }, { onConflict: "user_id" });
+        if (grantError) throw new Error(`createLoginUser grant: ${grantError.message}`);
+    }
+    if (admin) {
+        const { error: adminError } = await db.from("profiles").update({ is_admin: true }).eq("id", id);
+        if (adminError) throw new Error(`createLoginUser admin: ${adminError.message}`);
+    }
+    return { id, email: data.user.email };
+}
+
 export async function deleteMatch(matchId: string) {
     const db = getAdminClient();
     const { error: votesError } = await db.from("mvp_votes").delete().eq("match_id", matchId);
     if (votesError) throw new Error(`deleteMatch mvp_votes: ${votesError.message}`);
     const { error: commentsError } = await db.from("match_comments").delete().eq("match_id", matchId);
     if (commentsError) throw new Error(`deleteMatch match_comments: ${commentsError.message}`);
+    const { error: photosError } = await db.from("match_photos").delete().eq("match_id", matchId);
+    if (photosError) throw new Error(`deleteMatch match_photos: ${photosError.message}`);
     const { error: participantsError } = await db.from("match_participants").delete().eq("match_id", matchId);
     if (participantsError) throw new Error(`deleteMatch match_participants: ${participantsError.message}`);
     const { error: matchError } = await db.from("matches").delete().eq("id", matchId);

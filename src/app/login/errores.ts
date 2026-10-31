@@ -1,3 +1,5 @@
+import type { ContextoPuerta } from "@/lib/titulares";
+
 // Supabase contesta en inglés. Lo que llega de las actions ya viene en español.
 const TRADUCCIONES: [RegExp, string][] = [
     [/invalid login credentials/i, "Email o contraseña incorrectos."],
@@ -10,7 +12,7 @@ const TRADUCCIONES: [RegExp, string][] = [
     [/provider is not enabled/i, "Ese acceso no está disponible ahora mismo."],
 ];
 
-const ESPANOL = /[áéíóúñ]|^Demasiados/i;
+const ESPANOL = /[áéíóúñ]|^Demasiados|^El apodo/i;
 
 export const ERROR_GENERICO = "Algo salió mal. Inténtalo de nuevo.";
 export const ERROR_CONEXION = "No hemos podido conectar. Inténtalo de nuevo.";
@@ -20,6 +22,16 @@ export function errorEnEspanol(mensaje: string | null | undefined): string {
     const traduccion = TRADUCCIONES.find(([patron]) => patron.test(mensaje));
     if (traduccion) return traduccion[1];
     return ESPANOL.test(mensaje) ? mensaje : ERROR_GENERICO;
+}
+
+/** «No me suena» solo para quien no ha acertado: una caída o un correo repetido no son un rechazo. */
+export function puertaDeError(mensaje: string): ContextoPuerta {
+    if (mensaje === ERROR_CONEXION || mensaje === ERROR_GENERICO) return "averia";
+    if (/ya está registrado/i.test(mensaje)) return "repetido";
+    if (/confirmar tu email/i.test(mensaje)) return "confirmar";
+    if (/^Demasiados/.test(mensaje)) return "espera";
+    if (/^El apodo/.test(mensaje)) return "registro";
+    return "rechazo";
 }
 
 /** redirect() en una action llega al cliente como un error con este digest. */

@@ -269,8 +269,7 @@ function conSitio(cuando: string, sitio: string): string {
 }
 
 /**
- * El día del partido manda «Hoy, 20:00.» sobre «Juegas.», «¿Juegas?» y «Sin plaza.»,
- * pero no sobre el peto: «De rojo.» es lo que tiñe la pantalla ese día.
+ * La respuesta contesta a «¿Juego?» también el día del partido: la hora va en la línea de debajo.
  * El estado no cambia con hoy, así que la acción se decide igual que cualquier otro día.
  */
 export function estadoPortada({
@@ -300,11 +299,7 @@ export function estadoPortada({
     }
 
     const hoy = diasHasta(partido.date, ahora) === 0;
-    const hora = horaMadrid(partido.date);
-    const respuestaHoy = `Hoy, ${hora}.`;
-    const linea = conSitio(hoy ? `Hoy, ${hora}` : fechaCorta(partido.date), partido.location);
-    // Si la respuesta ya dice la hora, debajo solo hace falta el sitio.
-    const lineaBajoHoy = hoy ? partido.location.trim() : linea;
+    const linea = conSitio(hoy ? `Hoy, ${horaMadrid(partido.date)}` : fechaCorta(partido.date), partido.location);
 
     const faltan = Math.max(0, partido.max_players - partido.participants.length);
     const miPlaza = yo ? partido.participants.find((p) => p.user_id === yo) : undefined;
@@ -315,39 +310,21 @@ export function estadoPortada({
         if (equipo) {
             return { estado: "con-equipo", respuesta: `De ${equipo}.`, linea, faltan, hoy, equipo, textoSalida: salida };
         }
-        return {
-            estado: "apuntado",
-            respuesta: hoy ? respuestaHoy : "Juegas.",
-            linea: lineaBajoHoy,
-            faltan,
-            hoy,
-            equipo: null,
-            textoSalida: salida,
-        };
+        return { estado: "apuntado", respuesta: "Juegas.", linea, faltan, hoy, equipo: null, textoSalida: salida };
     }
 
     if (partido.status === "open" && faltan > 0) {
-        return {
-            estado: "libre",
-            respuesta: hoy ? respuestaHoy : "¿Juegas?",
-            linea: lineaBajoHoy,
-            faltan,
-            hoy,
-            equipo: null,
-            textoSalida: null,
-        };
+        return { estado: "libre", respuesta: "¿Juegas?", linea, faltan, hoy, equipo: null, textoSalida: null };
     }
 
     // joinMatch solo admite partidos abiertos: cerrado con huecos es sin plaza igual.
-    return {
-        estado: "lleno",
-        respuesta: hoy ? respuestaHoy : "Sin plaza.",
-        linea: lineaBajoHoy,
-        faltan: 0,
-        hoy,
-        equipo: null,
-        textoSalida: null,
-    };
+    return { estado: "lleno", respuesta: "Sin plaza.", linea, faltan: 0, hoy, equipo: null, textoSalida: null };
+}
+
+/** Lo que pierdes al borrarte. Null si nada, y entonces no hace falta preguntar. */
+export function avisoBorrarse({ equipo, lleno }: { equipo: Equipo | null; lleno: boolean }): string | null {
+    if (equipo) return `Pierdes el peto ${equipo}. Si vuelves, irás sin equipo hasta que los rehagan.`;
+    return lleno ? "El partido está lleno. Tu plaza queda libre y puede cogerla otro." : null;
 }
 
 /** Lo que .t-cartel supone para cada carácter, en em. */
@@ -414,7 +391,8 @@ export function preguntaPortada(fecha: Fecha | null | undefined, ahora: Fecha): 
 export const PORTADA_SIN_DATOS = { respuesta: "Ni idea.", linea: "No se ha podido cargar el partido." } as const;
 
 /**
- * Portada: el próximo partido abierto o cerrado en el que estás; si no, el abierto más cercano.
+ * Portada: el próximo partido abierto o cerrado en el que estás; si no, el abierto más cercano,
+ * y si no hay ninguno abierto, el cerrado que aún no ha empezado: decir «No hay pachanga» sería mentira.
  * Los partidos en los que estás siguen aquí todo el día de partido, aunque ya hayan empezado.
  * "otros" son los abiertos que quedan, sin los que ya han empezado.
  */
@@ -432,6 +410,7 @@ export function elegirPartidoPortada<P extends PartidoPortada>(
     const partido =
         (yo ? vigentes.find((p) => p.participants.some((plaza) => plaza.user_id === yo)) : undefined) ??
         abiertos[0] ??
+        vigentes.find((p) => instante(p.date) >= instante(ahora)) ??
         null;
     return { partido, otros: abiertos.filter((p) => p.id !== partido?.id) };
 }
@@ -598,7 +577,7 @@ function titularResultado(
             titular: elegir(id, "titular-goleada", [
                 `El ${nombre} le hizo ${golesPalabra} al ${perdedor}`,
                 `Al ${perdedor} le cayeron ${golesPalabra}`,
-                `El ${perdedor} se llevó ${golesPalabra}`,
+                `El ${nombre} no tuvo piedad`,
                 `Goleada del ${nombre}`,
             ]),
         };
@@ -1276,12 +1255,15 @@ export function titularHistorial({
     jugados,
     victorias,
     derrotas,
+    archivada = false,
 }: {
     jugados: number;
     victorias: number;
     derrotas: number;
+    /** Temporada ya acabada: el «aún» prometería algo que ya no puede pasar. */
+    archivada?: boolean;
 }): string {
-    if (jugados <= 0) return "Aún no has jugado partidos";
+    if (jugados <= 0) return archivada ? "No jugaste esta temporada." : "Aún no has jugado partidos";
     const total = numeroPalabra(jugados);
     if (jugados === 1) {
         if (victorias === 1) return "Ganaste el único.";
@@ -1372,20 +1354,24 @@ export function elegidoPasado(valor: string, ahora: Fecha): boolean {
 /**
  * La línea enorme del partido. El peto solo manda cuando ya no falta nadie:
  * mientras haya huecos, lo que hay que saber es cuántos.
+ * Pasado y con menos de dos no hay resultado que pedir. Sin decir que no se jugó:
+ * un partido creado en pasado, para apuntar uno ya jugado, empieza así.
  */
 export function respuestaPartido({
     status,
     faltan,
     equipo = null,
     pasado = false,
+    jugadores = 2,
 }: {
     status: Match["status"];
     faltan: number;
     equipo?: Equipo | null;
     pasado?: boolean;
+    jugadores?: number;
 }): string {
     if (status === "cancelled") return "Cancelado";
-    if (pasado && status !== "finished") return "Falta el resultado";
+    if (pasado && status !== "finished") return jugadores < 2 ? "Faltan jugadores" : "Falta el resultado";
     if (status === "closed") return equipo ? `De ${equipo}.` : "Cerrado";
     if (faltan <= 0 && equipo) return `De ${equipo}.`;
     return textoFaltan(faltan);
@@ -1449,7 +1435,7 @@ export function textoWhatsApp({
 const CHISTES_CANCELADO = [
     "Se cayó. Como el 4-4-2.",
     "Cancelado. Mis rodillas, y las vuestras, lo agradecen.",
-    "No hubo partido. Tampoco hubo fallos, mira tú.",
+    "Sin partido no hay fallos, mira tú.",
     "Se suspende. El fútbol seguirá sin vosotros, que es lo normal.",
 ];
 
@@ -1485,6 +1471,12 @@ const VACIOS = {
         "Página en blanco. No durará.",
         "Aquí irán los partidos. Y las excusas.",
     ],
+    "temporada-pasada": [
+        "Se jugó sin ti. Se notó poco.",
+        "Temporada cerrada. Nada que reprochar.",
+        "Aquella temporada no contó contigo. Ni tú con ella.",
+        "Ni un partido. Y ya no hay remedio.",
+    ],
     goles: [
         "Goles: nadie.",
         "Ni un gol apuntado. Las redes, tranquilas.",
@@ -1498,16 +1490,16 @@ const VACIOS = {
         "Sin votos. Hubo partido, pero no para tanto.",
     ],
     fotos: [
-        "Nadie hizo fotos. Mejor.",
+        "Nadie ha subido fotos. Mejor.",
         "Sin fotos. Las pruebas no existen.",
         "Ni una foto. El fútbol de aquí lo agradece.",
-        "Cero fotos. Lo que pasó en el campo se queda en el campo.",
+        "Cero fotos. Lo que pasa en el campo se queda en el campo.",
     ],
     chat: [
         "Nadie ha dicho nada. Disfrutad, que dura poco.",
-        "Silencio. Se irá en cuanto alguien falle un gol.",
+        "Silencio. Aquí nadie se atreve a empezar.",
         "Aquí no habla nadie. Primera vez.",
-        "Sin mensajes. Las excusas llegarán después del partido.",
+        "Sin mensajes. Las excusas, para otro día.",
     ],
     ranking: [
         "Tabla vacía. Todos líderes, por una vez.",
@@ -1575,6 +1567,30 @@ const PUERTA = {
         "No me suena. Y tengo buena memoria.",
         "Así no entras. Ni con enchufe.",
         "Otra vez. Yo no tengo prisa.",
+    ],
+    repetido: [
+        "A ti ya te tengo apuntado.",
+        "Ya estás en la lista. Entra por la otra puerta.",
+        "Tú ya tienes cuenta. Yo de esto me acuerdo.",
+        "Cuenta repetida. Con una tienes de sobra.",
+    ],
+    confirmar: [
+        "Primero confirma el correo. Luego hablamos.",
+        "Falta confirmar el correo. Yo aquí espero.",
+        "Sin confirmar el correo no te busco en la lista.",
+        "Mira el correo. Sin eso no pasas.",
+    ],
+    espera: [
+        "Tranquilo. Espera un poco y vuelve.",
+        "Demasiada prisa. Da una vuelta y vuelve.",
+        "Ya basta por ahora. Luego sigo.",
+        "Respira. La lista no se va a ninguna parte.",
+    ],
+    averia: [
+        "Se ha caído la lista. No es culpa tuya.",
+        "No llega la señal. Prueba otra vez.",
+        "Aquí algo no funciona, y no eres tú.",
+        "Se ha ido la luz de la puerta. Inténtalo de nuevo.",
     ],
 } as const satisfies Record<string, readonly string[]>;
 

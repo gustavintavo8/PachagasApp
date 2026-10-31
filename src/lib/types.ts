@@ -36,7 +36,8 @@ export type Match = {
     status: MatchStatus;
     team_a_score: number | null;
     team_b_score: number | null;
-    created_by: string;
+    /** Null si quien lo organizó borró su cuenta */
+    created_by: string | null;
     finished_at: string | null;
 };
 

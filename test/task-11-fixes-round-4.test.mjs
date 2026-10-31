@@ -114,8 +114,8 @@ test("OAuth se inicia en el navegador para conservar el verificador PKCE", () =>
 test("las redirecciones al login no conservan códigos OAuth en la query", () => {
     const middleware = read("src/middleware.ts");
 
-    assert.match(
-        middleware,
-        /if\s*\(\s*pathname\s*===\s*["']\/login["']\s*\)\s*\{[\s\S]{0,100}?url\.search\s*=\s*["']["']/i
-    );
+    // La query original no pasa: solo el destino, y ese se guarda sin el código
+    assert.match(middleware, /url\.search\s*=\s*corte === -1 \? ""/);
+    assert.match(middleware, /parametros\.delete\(["']code["']\)/);
+    assert.doesNotMatch(middleware, /redirectTo\(request,\s*["']\/login["']\)/);
 });

@@ -13,8 +13,24 @@ interface NavbarClientProps {
   acciones?: React.ReactNode;
 }
 
+// Cuanto mayor el nivel, más hondo. Solo se recuerda de dónde vienes si vienes de más arriba:
+// así volver desde una ficha no cambia adónde lleva la flecha del partido.
+const NIVELES: { ruta: RegExp; nivel: number; nombre: string }[] = [
+  { ruta: /^\/$/, nivel: 0, nombre: "Inicio" },
+  { ruta: /^\/matches$/, nivel: 0, nombre: "Partidos" },
+  { ruta: /^\/leaderboard$/, nivel: 0, nombre: "Ranking" },
+  { ruta: /^\/asistente$/, nivel: 0, nombre: "Panenka" },
+  { ruta: /^\/profile$/, nivel: 0, nombre: "Perfil" },
+  { ruta: /^\/players$/, nivel: 1, nombre: "Jugadores" },
+  { ruta: /^\/history$/, nivel: 1, nombre: "Historial" },
+  { ruta: /^\/matches\/(?!new$)[^/]+$/, nivel: 2, nombre: "Partido" },
+  { ruta: /^\/players\/[^/]+$/, nivel: 3, nombre: "Ficha" },
+];
+
+const pantalla = (pathname: string) => NIVELES.find(({ ruta }) => ruta.test(pathname));
+
 // Detalle: flecha de vuelta y contexto en lugar de la palabra
-function vuelta(pathname: string, desdeJugadores: boolean, parametros: URLSearchParams) {
+function vuelta(pathname: string, origen: string | undefined, parametros: URLSearchParams) {
   if (pathname.startsWith("/matches/") || pathname === "/history") {
     // La lista que abrió esto lo dice en el enlace (?desde=): la flecha vuelve a ella
     const desde = parametros.get("desde");
@@ -22,9 +38,12 @@ function vuelta(pathname: string, desdeJugadores: boolean, parametros: URLSearch
       const temporada = parametros.get("temporada");
       return { href: temporada ? `/history?season=${encodeURIComponent(temporada)}` : "/history", label: "Historial" };
     }
-    return { href: desde === "terminados" ? "/matches?tab=terminados" : "/matches", label: "Partidos" };
+    if (desde === "terminados") return { href: "/matches?tab=terminados", label: "Partidos" };
   }
-  if (desdeJugadores) return { href: "/players", label: "Jugadores" };
+  const nombre = origen && pantalla(origen)?.nombre;
+  if (origen && nombre) return { href: origen, label: nombre };
+  // Entrando por un enlace directo no hay de dónde venir
+  if (pathname.startsWith("/matches/") || pathname === "/history") return { href: "/matches", label: "Partidos" };
   if (pathname === "/players" || pathname.startsWith("/players/")) {
     return { href: "/leaderboard", label: "Ranking" };
   }
@@ -65,15 +84,24 @@ export function NavbarClient({ enlaces, acciones }: NavbarClientProps) {
   const parametros = useSearchParams();
   const router = useRouter();
 
-  // La ruta anterior dentro de la app. Se recuerda al renderizar, no en un efecto, para que
-  // la flecha salga bien desde el primer pintado.
-  const [ruta, setRuta] = useState({ actual: pathname, anterior: null as string | null });
-  if (ruta.actual !== pathname) setRuta({ actual: pathname, anterior: ruta.actual });
+  // El camino dentro de la app. Se recuerda al renderizar, no en un efecto, para que la flecha
+  // salga bien desde el primer pintado. Volver al penúltimo es ir atrás: no cuenta como venir de allí.
+  const [ruta, setRuta] = useState({ pila: [pathname], avanzo: false, origenes: {} as Record<string, string> });
+  const anterior = ruta.pila.at(-2);
+  if (ruta.pila.at(-1) !== pathname) {
+    const actual = ruta.pila[ruta.pila.length - 1];
+    const vuelve = anterior === pathname;
+    const [desde, aqui] = [pantalla(actual), pantalla(pathname)];
+    setRuta({
+      pila: vuelve ? ruta.pila.slice(0, -1) : [...ruta.pila, pathname],
+      avanzo: !vuelve,
+      origenes: !vuelve && desde && aqui && desde.nivel < aqui.nivel ? { ...ruta.origenes, [pathname]: actual } : ruta.origenes,
+    });
+  }
 
   if (pathname === "/login" || pathname === "/access") return null;
 
-  const desdeJugadores = pathname.startsWith("/players/") && ruta.anterior === "/players";
-  const atras = vuelta(pathname, desdeJugadores, parametros);
+  const atras = vuelta(pathname, ruta.origenes[pathname], parametros);
 
   return (
     // Sin fondo y con z: los campos de color pasan por debajo. No flota, se va con el scroll.
@@ -83,8 +111,9 @@ export function NavbarClient({ enlaces, acciones }: NavbarClientProps) {
           <Link
             href={atras.href}
             onClick={(e) => {
-              // Volver de verdad: la lista conserva su búsqueda en la URL y su scroll
-              if (!desdeJugadores) return;
+              // Volver de verdad: la lista conserva su búsqueda en la URL y su scroll. Solo justo después
+              // de avanzar: tras volver, un enlace y el atrás del sistema se ven igual y la pila ya no es fiable.
+              if (!ruta.avanzo || atras.href.split("?")[0] !== anterior) return;
               e.preventDefault();
               router.back();
             }}

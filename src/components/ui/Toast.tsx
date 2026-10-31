@@ -26,11 +26,8 @@ function toast(message: string, type: ToastType = "info") {
     sonner(message, { className: type === "error" ? "aviso-error" : undefined });
 }
 
-// --barra-inferior ya incluye el safe area cuando hay barra.
-// --barra-accion la publica la barra fija del partido: un aviso no tapa el botón que acabas de pulsar.
-const separacion = {
-    bottom: "calc(max(var(--barra-inferior), env(safe-area-inset-bottom, 0px)) + var(--barra-accion, 0px) + 8px)",
-};
+// Arriba: abajo están el pulgar, el botón principal y las hojas, y un aviso no puede tapar nada de eso.
+const separacion = { top: "calc(env(safe-area-inset-top, 0px) + 8px)" };
 
 export function ToastProvider({ children }: { children: ReactNode }) {
     const value = useMemo(() => ({ toast }), []);
@@ -41,7 +38,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             {/* sonner ya es aria-live="polite". Sin role="alert": access.spec cuenta las alertas. */}
             <Toaster
                 theme="dark"
-                position="bottom-center"
+                position="top-center"
                 offset={separacion}
                 mobileOffset={separacion}
                 duration={4000}

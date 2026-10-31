@@ -120,18 +120,22 @@ export function PieInfo({
                 {estadoPartido(match.status)} · {seasonName}
                 {eresAdmin && " · Eres admin"}
             </p>
-            <Link
-                href={`/players/${match.created_by}`}
-                className="pulsable flex min-h-11 select-none items-center gap-2 active:text-foreground"
-            >
-                <Avatar
-                    src={getAvatarUrl(process.env.NEXT_PUBLIC_SUPABASE_URL!, organizerAvatarUrl)}
-                    fallback={organizerName}
-                    size="sm"
-                    className="h-6 w-6 text-sm"
-                />
-                {organizasTu ? "Organizas tú" : `Organiza ${organizerName}`}
-            </Link>
+            {match.created_by ? (
+                <Link
+                    href={`/players/${match.created_by}`}
+                    className="pulsable flex min-h-11 select-none items-center gap-2 active:text-foreground"
+                >
+                    <Avatar
+                        src={getAvatarUrl(process.env.NEXT_PUBLIC_SUPABASE_URL!, organizerAvatarUrl)}
+                        fallback={organizerName}
+                        size="sm"
+                        className="h-6 w-6 text-sm"
+                    />
+                    {organizasTu ? "Organizas tú" : `Organiza ${organizerName}`}
+                </Link>
+            ) : (
+                <p className="py-3">Sin organizador</p>
+            )}
         </div>
     );
 }

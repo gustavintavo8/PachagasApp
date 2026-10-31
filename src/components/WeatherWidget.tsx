@@ -15,6 +15,7 @@ import {
 import { cieloDeCodigo, diaIsoMadrid, diasHasta, lineaTiempo, type Cielo } from "@/lib/titulares";
 
 const DIAS_DE_PREVISION = 16;
+const ESPERA_MAXIMA_MS = 5000;
 
 const ICONOS: Record<Cielo, LucideIcon> = {
     despejado: Sun,
@@ -66,6 +67,8 @@ export function WeatherWidget({ date }: { date: string }) {
         if (!enVentana || previsiones.has(dia)) return;
 
         const peticion = new AbortController();
+        // A mano y no con AbortSignal.any: iOS no lo tiene hasta la 17.4
+        const limite = window.setTimeout(() => peticion.abort(), ESPERA_MAXIMA_MS);
         pedirPrevision(dia, peticion.signal)
             .then((prevision) => {
                 previsiones.set(dia, prevision);
@@ -75,19 +78,21 @@ export function WeatherWidget({ date }: { date: string }) {
                 if (!peticion.signal.aborted) setRecibida({ dia, prevision: null });
             });
 
-        return () => peticion.abort();
+        return () => {
+            window.clearTimeout(limite);
+            peticion.abort();
+        };
     }, [dia, enVentana]);
 
     if (!enVentana) return null;
 
     const prevision = previsiones.get(dia) ?? (recibida?.dia === dia ? recibida.prevision : null);
     const Icono = prevision?.cielo ? ICONOS[prevision.cielo] : null;
-    const cargando = !previsiones.has(dia) && recibida?.dia !== dia;
 
-    // La línea mide lo mismo cargando, con dato y sin él: la página no salta
+    // La línea mide lo mismo cargando, con dato y sin él: la página no salta. Mientras llega, nada:
+    // un bloque gris sobre «Copiar enlace» parecía un fallo, y el tiempo no es lo importante aquí.
     return (
         <p className="t-meta flex h-5 items-center gap-1.5 tabular-nums text-muted">
-            {cargando && <span aria-hidden="true" className="skeleton block h-4 w-40" />}
             {Icono && <Icono size={18} strokeWidth={1.75} aria-hidden="true" className="shrink-0" />}
             {prevision && <span>{prevision.texto}</span>}
         </p>

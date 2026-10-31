@@ -16,7 +16,7 @@ test.describe("Asistente Panenka — no autenticado", () => {
 
     test("usuario no autenticado es redirigido a login @smoke", async ({ page }) => {
         await page.goto("/asistente");
-        await page.waitForURL("**/login");
+        await page.waitForURL(/\/login\?next=%2Fasistente$/);
         await expect(page.locator('input[type="email"]')).toBeVisible();
     });
 });

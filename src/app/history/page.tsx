@@ -134,7 +134,7 @@ export default async function HistoryPage({
                 <p className="t-titular text-balance">
                     {jugados === 0 && finishedMatches.length > 0
                         ? SIN_RESULTADOS
-                        : titularHistorial({ jugados, victorias, derrotas })}
+                        : titularHistorial({ jugados, victorias, derrotas, archivada: season.status !== "active" })}
                 </p>
 
                 {historial.length > 0 && (
@@ -162,7 +162,7 @@ export default async function HistoryPage({
                 ) : (
                     <>
                         <PanenkaDice size={44} className="mt-5">
-                            {fraseVacio("historial", season.id)}
+                            {fraseVacio(season.status === "active" ? "historial" : "temporada-pasada", season.id)}
                         </PanenkaDice>
                         {season.status === "active" && (
                             <Link href="/matches" className={buttonClasses("outline", "lg", "mt-5 w-full")}>

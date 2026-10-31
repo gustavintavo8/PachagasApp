@@ -41,7 +41,7 @@ test.describe("Crear partido @smoke", () => {
         createdMatchId = url.split("/matches/")[1];
 
         // cacheComponents deja /matches/new oculto en el DOM, con este sitio entre los de siempre
-        await expect(page.getByText("Campo E2E Test").locator("visible=true")).toBeVisible();
+        await expect(page.getByText("Campo E2E Test", { exact: true }).locator("visible=true")).toBeVisible();
         await expect(page.getByText(/^Abierto ·/)).toBeVisible();
     });
 

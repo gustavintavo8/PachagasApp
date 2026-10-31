@@ -100,9 +100,10 @@ export function GraficoRP({ inicio, puntos, resumen }: { inicio: number; puntos:
     const minimo = Math.min(...valores);
     const maximo = Math.max(...valores);
     const rango = Math.max(maximo - minimo, 20);
-    // Arriba, sitio para la etiqueta del pico. Abajo, para la de la salida.
+    // Arriba, sitio para la etiqueta del pico. Abajo, para la de la salida: con 0,18 aún cabe bajo la
+    // línea de 1000 si es el mínimo, y es el único sitio libre cuando la curva sube nada más salir.
     const margenSuperior = rango * 0.3;
-    const margenInferior = rango * 0.16;
+    const margenInferior = rango * 0.18;
     const y = (valor: number) =>
         100 - ((valor - minimo + margenInferior) / (rango + margenInferior + margenSuperior)) * 100;
     const x = (i: number) => ((i + 0.5) / n) * 100;

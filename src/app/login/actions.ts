@@ -2,6 +2,7 @@
 
 import { hasCommunityAccess } from "@/lib/access";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { conDestino, rutaInterna } from "@/lib/destino";
 import { createClient } from "@/lib/supabase/server";
 import { rateLimit } from "@/lib/rate-limit";
 import { PRIVACY_POLICY_VERSION } from "@/lib/legal";
@@ -35,11 +36,13 @@ export async function login(formData: FormData): Promise<ActionResult> {
         data: { user },
     } = await supabase.auth.getUser();
 
+    const destino = rutaInterna(formData.get("next"));
+
     if (user && !user.is_anonymous && !(await hasCommunityAccess(user.id))) {
-        redirect("/access");
+        redirect(conDestino("/access", destino));
     }
 
-    redirect("/");
+    redirect(destino ?? "/");
 }
 
 export async function signup(formData: FormData): Promise<ActionResult<string>> {
@@ -51,9 +54,15 @@ export async function signup(formData: FormData): Promise<ActionResult<string>> 
 
     const email = formData.get("email") as string;
     const password = formData.get("password") as string;
+    const apodo = (formData.get("username") as string | null)?.trim() ?? "";
 
     if (!email || !password) {
         return { success: false, error: "Email y contraseña son obligatorios" };
+    }
+
+    // Lo mismo que pide Editar perfil. Sin apodo, el alta usaría lo que va antes de la arroba.
+    if (apodo.length < 2 || apodo.length > 30) {
+        return { success: false, error: "El apodo debe tener entre 2 y 30 caracteres" };
     }
 
     if (password.length < 6) {
@@ -90,12 +99,13 @@ export async function signup(formData: FormData): Promise<ActionResult<string>> 
     }
 
     // Sign up — sends confirmation email via configured SMTP
-    const { error } = await supabase.auth.signUp({
+    const { data: alta, error } = await supabase.auth.signUp({
         email,
         password,
         options: {
             emailRedirectTo: `${origin}/auth/callback`,
             data: {
+                username: apodo,
                 accepted_privacy_version: PRIVACY_POLICY_VERSION,
                 confirmed_age_14: "true",
             },
@@ -107,6 +117,11 @@ export async function signup(formData: FormData): Promise<ActionResult<string>> 
             return { success: false, error: "Este email ya está registrado. Inicia sesión." };
         }
         return { success: false, error: error.message };
+    }
+
+    // Con la confirmación por correo desactivada ya hay sesión: no queda nada que confirmar
+    if (alta.session) {
+        redirect(conDestino("/access", rutaInterna(formData.get("next"))));
     }
 
     return {
