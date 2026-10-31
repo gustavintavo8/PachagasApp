@@ -67,7 +67,7 @@ test.describe("Bloque 2 — pagina de privacidad", () => {
         await page.goto("/privacidad");
         await expect(page.getByRole("heading", { name: "Política de Privacidad" })).toBeVisible();
         await expect(page.getByRole("heading", { name: "Cookies" })).toBeVisible();
-        await expect(page.getByText("Groq")).toBeVisible();
+        await expect(page.getByRole("listitem").filter({ hasText: "Groq" })).toBeVisible();
     });
 });
 

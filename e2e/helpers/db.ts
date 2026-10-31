@@ -119,7 +119,7 @@ export async function createDummyUsers(count: number): Promise<string[]> {
     const db = getAdminClient();
     const ids: string[] = [];
     for (let i = 0; i < count; i++) {
-        const email = `dummy-${Date.now()}-${i}@pachanga.local`;
+        const email = `dummy-${Date.now()}-${crypto.randomUUID().slice(0, 8)}-${i}@pachanga.local`;
         const { data, error } = await db.auth.admin.createUser({
             email,
             password: "dummy-password-123",
@@ -127,7 +127,8 @@ export async function createDummyUsers(count: number): Promise<string[]> {
         });
         if (error) throw new Error(`createDummyUsers: ${error.message}`);
         const uid = data.user.id;
-        const { error: profileError } = await db.from("profiles").insert({
+        // Un trigger de auth ya crea el perfil: esto solo le pone los valores del test.
+        const { error: profileError } = await db.from("profiles").upsert({
             id: uid,
             username: `dummy-${i}`,
             position: "MID",
