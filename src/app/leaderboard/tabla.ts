@@ -17,6 +17,14 @@ export type FilaRanking = {
     mvps: number;
 };
 
+/** La palabra de la fila: el filtro dice «Medios», así que aquí no puede decir «Mediocampista». */
+export const POSICION: Record<NonNullable<Profile["position"]>, string> = {
+    GK: "Portero",
+    DEF: "Defensa",
+    MID: "Medio",
+    FWD: "Delantero",
+};
+
 export type Orden = "rp" | "goles" | "mvps" | "partidos" | "victorias";
 
 export const ETIQUETAS: Record<Orden, string> = {

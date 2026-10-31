@@ -144,7 +144,8 @@ function Marca({
             </span>
             <span
                 className={cn(
-                    "max-w-full truncate bg-background px-[3px] text-[13px] leading-[1.25]",
+                    // Puede salirse un poco de su celda: a 320px cinco en fila no dan para «Rubén M.»
+                    "max-w-[calc(100%+6px)] truncate bg-background px-[2px] text-[13px] leading-[1.25]",
                     plaza.tu ? "font-bold" : "font-medium"
                 )}
             >

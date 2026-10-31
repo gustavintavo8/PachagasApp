@@ -1,4 +1,4 @@
-import type { CSSProperties } from "react";
+import { Fragment, type CSSProperties } from "react";
 import type { Metadata } from "next";
 import { redirect, notFound } from "next/navigation";
 import { Trophy } from "lucide-react";
@@ -6,12 +6,18 @@ import { Fila, Filas } from "@/components/Filas";
 import { Flood } from "@/components/Flood";
 import { PanenkaDice } from "@/components/PanenkaDice";
 import { Peto } from "@/components/Peto";
-import { GolesPorMes, GraficoRP, type GolesMes, type PuntoRP } from "@/components/PlayerCharts";
+import {
+    GolesPorMes,
+    GraficoRP,
+    GraficoVictorias,
+    type GolesMes,
+    type PuntoRP,
+    type PuntoVictorias,
+} from "@/components/PlayerCharts";
 import { Avatar } from "@/components/ui/Avatar";
 import { getTemporada } from "@/app/leaderboard/datos";
-import { clasificados, ordenar } from "@/app/leaderboard/tabla";
+import { POSICION, clasificados, ordenar } from "@/app/leaderboard/tabla";
 import { PROVISIONAL_THRESHOLD } from "@/lib/elo";
-import { POSITION_FULL } from "@/lib/positions";
 import { getActiveSeason } from "@/lib/seasons";
 import { createClient } from "@/lib/supabase/server";
 import {
@@ -23,6 +29,7 @@ import {
     equipoDeTeam,
     frasePanenkaJugador,
     fraseVacio,
+    charsCartel,
     lineasCartel,
     mesMadrid,
     ordinalCorto,
@@ -57,8 +64,8 @@ function jsonLd(datos: unknown): string {
     return JSON.stringify(datos).replace(/</g, "\\u003c");
 }
 
-function posicionDe(position: string | null | undefined): string {
-    return (position && POSITION_FULL[position]) || "Jugador";
+function posicionDe(position: keyof typeof POSICION | null | undefined): string {
+    return (position && POSICION[position]) || "Jugador";
 }
 
 export async function generateMetadata({
@@ -277,9 +284,17 @@ export default async function PlayerProfilePage({
             ? `Sin partidos: ${rp} RP`
             : `RP de ${nombre}: de ${inicio} a ${rp} en ${plural(puntos.length, "partido")}, con un pico de ${pico}.`;
 
-    const porcentaje = partidosJugados > 0 ? Math.round((victorias / partidosJugados) * 100) : 0;
+    // ─── Tasa de victoria, partido a partido ──────────────────────────────────
+    const conResultado = [...terminados].reverse().filter((m) => m.resultado);
+    const tasa: PuntoVictorias[] = conResultado.map((m, i) => ({
+        fecha: m.date,
+        porcentaje: Math.round(
+            (conResultado.slice(0, i + 1).filter((previo) => previo.resultado === "V").length / (i + 1)) * 100
+        ),
+    }));
+    const tasaActual = tasa.at(-1)?.porcentaje ?? 0;
+
     const cifras = [
-        { valor: partidosJugados, etiqueta: elegirPlural(partidosJugados, "Partido") },
         {
             valor: goles,
             etiqueta:
@@ -290,10 +305,7 @@ export default async function PlayerProfilePage({
                       : `${elegirPlural(goles, "Gol")}, ${ordinalCorto(puestoGoles)} pichichi`,
         },
         { valor: mvps, etiqueta: elegirPlural(mvps, "MVP", "MVPs") },
-        {
-            valor: `${victorias}-${empates}-${derrotas}`,
-            etiqueta: partidosJugados > 0 ? `V-E-D, ${porcentaje} % ganados` : "V-E-D",
-        },
+        { valor: `${victorias}-${empates}-${derrotas}`, etiqueta: `V-E-D, ${plural(partidosJugados, "partido")}` },
     ];
 
     return (
@@ -312,16 +324,23 @@ export default async function PlayerProfilePage({
             />
             {equipo && <Flood color={equipo} />}
 
-            <section className="px-4 pt-2 pb-6">
+            <section className="px-4 pb-5">
+                {/* En el móvil sube a la barra, entre la flecha y la campana: el nombre manda aquí */}
                 {equipo && proximo && (
-                    <p className="t-seccion mb-3">
+                    <p className="pointer-events-none -mt-12 flex h-12 items-center justify-end pr-11 font-display text-[22px] leading-none font-extrabold md:mt-2 md:h-auto md:justify-start md:pr-0 md:pb-2">
                         {titularPetoJugador({ equipo, fecha: proximo.fecha, ahora })}
                     </p>
                 )}
 
                 <h1
-                    className="t-cartel"
-                    style={{ "--chars": Math.max(...lineas.map((l) => l.length)) } as CSSProperties}
+                    className="t-cartel pt-1"
+                    style={
+                        {
+                            "--chars": Math.max(...lineas.map((l) => charsCartel(l))),
+                            // Como .t-cartel, con el techo del mockup: un nombre corto llena la pantalla
+                            fontSize: "min(226px, calc((min(100vw, 640px) - 32px) / (var(--chars) * 0.42)))",
+                        } as CSSProperties
+                    }
                 >
                     {lineas.map((linea) => (
                         <span key={linea} className="block">
@@ -330,45 +349,49 @@ export default async function PlayerProfilePage({
                     ))}
                 </h1>
 
-                <div className="mt-4 flex items-center gap-3">
+                <div className="mt-3 grid grid-cols-[1fr_auto] items-end gap-x-3">
+                    <div className="min-w-0">
+                        {/* Sin separadores: al partir la línea, uno quedaría colgando al final */}
+                        <p className="flex flex-wrap gap-x-3 text-[15px] leading-snug font-medium">
+                            {identidad.map((dato, i) => (
+                                <Fragment key={dato}>
+                                    {i > 0 && " "}
+                                    <span>{dato}</span>
+                                </Fragment>
+                            ))}
+                        </p>
+                        <p className="mt-1 flex flex-wrap items-baseline gap-x-2.5">
+                            <span className="t-cifra text-[56px] font-black">{rp} RP</span>
+                            {puntos.length > 0 && (
+                                <span className="text-[15px] font-medium">
+                                    {conSigno(rp - inicio)} en {plural(puntos.length, "partido")}
+                                </span>
+                            )}
+                        </p>
+                    </div>
                     <Avatar
                         src={getAvatarUrl(process.env.NEXT_PUBLIC_SUPABASE_URL!, profile.avatar_url)}
                         fallback={nombre}
                         size="lg"
                         priority
                     />
-                    <p className="min-w-0 text-[15px] leading-snug font-medium">
-                        {identidad.map((dato, i) => (
-                            <span key={dato} className="whitespace-nowrap">
-                                {i > 0 && " · "}
-                                {dato}
-                            </span>
-                        ))}
-                    </p>
                 </div>
 
-                <p className="t-titular mt-4 text-balance">{titularJugador(datosJugador)}</p>
+                <p className="t-seccion mt-3 text-balance">{titularJugador(datosJugador)}</p>
 
-                <p className="mt-4 flex flex-wrap items-baseline gap-x-3">
-                    <span className="t-cifra text-[56px] font-black">{rp} RP</span>
-                    {puntos.length > 0 && (
-                        <span className="text-[15px] font-medium">
-                            {conSigno(rp - inicio)} en {plural(puntos.length, "partido")}
-                        </span>
-                    )}
-                </p>
-
-                <div className="mt-2">
+                <div className="mt-1">
                     <GraficoRP inicio={inicio} puntos={puntos} resumen={resumenGrafico} />
                 </div>
             </section>
 
             <div className={cn("flex-1 bg-background pb-8 text-foreground", SUELO)}>
-                <section className="px-4 pt-6">
-                    <div className="grid grid-cols-2 gap-x-4 gap-y-5">
+                <section className="px-4 pt-5">
+                    <div className="grid grid-cols-[auto_1fr_auto] gap-x-5">
                         {cifras.map(({ valor, etiqueta }) => (
                             <div key={etiqueta}>
-                                <p className="t-cifra text-[56px] font-black">{valor}</p>
+                                <p className="t-cifra text-[length:min(56px,14vw)] font-black whitespace-nowrap">
+                                    {valor}
+                                </p>
                                 <p className="t-meta mt-1 text-muted">{etiqueta}</p>
                             </div>
                         ))}
@@ -434,6 +457,19 @@ export default async function PlayerProfilePage({
                         <p className="mt-2 text-muted">{fraseVacio("goles", id)}</p>
                     )}
                 </section>
+
+                {tasa.length > 1 && (
+                    <section className="px-4 pt-10">
+                        <div className="flex items-baseline justify-between gap-4">
+                            <h2 className="t-seccion">Tasa de victoria</h2>
+                            <p className="t-cifra text-[30px]">{tasaActual} %</p>
+                        </div>
+                        <GraficoVictorias
+                            puntos={tasa}
+                            resumen={`Tasa de victoria de ${nombre}: ${tasaActual} % tras ${plural(tasa.length, "partido")}.`}
+                        />
+                    </section>
+                )}
 
                 <section className="pt-10">
                     <h2 className="t-seccion px-4 pb-2">Partidos recientes</h2>

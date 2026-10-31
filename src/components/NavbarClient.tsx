@@ -1,8 +1,9 @@
 // src/components/NavbarClient.tsx
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { ChevronLeft } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { barrasVisibles, tabActiva, tabs } from "./BottomNav";
@@ -13,10 +14,11 @@ interface NavbarClientProps {
 }
 
 // Detalle: flecha de vuelta y contexto en lugar de la palabra
-function vuelta(pathname: string) {
+function vuelta(pathname: string, desdeJugadores: boolean) {
   if (pathname.startsWith("/matches/") || pathname === "/history") {
     return { href: "/matches", label: "Partidos" };
   }
+  if (desdeJugadores) return { href: "/players", label: "Jugadores" };
   if (pathname === "/players" || pathname.startsWith("/players/")) {
     return { href: "/leaderboard", label: "Ranking" };
   }
@@ -54,9 +56,17 @@ export function EnlacesBarra({ sesion }: { sesion?: boolean }) {
 
 export function NavbarClient({ enlaces, acciones }: NavbarClientProps) {
   const pathname = usePathname();
+  const router = useRouter();
+
+  // La ruta anterior dentro de la app. Se recuerda al renderizar, no en un efecto, para que
+  // la flecha salga bien desde el primer pintado.
+  const [ruta, setRuta] = useState({ actual: pathname, anterior: null as string | null });
+  if (ruta.actual !== pathname) setRuta({ actual: pathname, anterior: ruta.actual });
+
   if (pathname === "/login" || pathname === "/access") return null;
 
-  const atras = vuelta(pathname);
+  const desdeJugadores = pathname.startsWith("/players/") && ruta.anterior === "/players";
+  const atras = vuelta(pathname, desdeJugadores);
 
   return (
     // Sin fondo y con z: los campos de color pasan por debajo. No flota, se va con el scroll.
@@ -65,6 +75,12 @@ export function NavbarClient({ enlaces, acciones }: NavbarClientProps) {
         {atras ? (
           <Link
             href={atras.href}
+            onClick={(e) => {
+              // Volver de verdad: la lista conserva su búsqueda en la URL y su scroll
+              if (!desdeJugadores) return;
+              e.preventDefault();
+              router.back();
+            }}
             className="-ml-1 flex min-h-11 items-center gap-0.5 pr-3 text-[15px] font-medium text-foreground active:text-muted"
           >
             <ChevronLeft size={18} strokeWidth={1.75} aria-hidden="true" />

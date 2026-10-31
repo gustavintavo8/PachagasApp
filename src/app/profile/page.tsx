@@ -101,7 +101,8 @@ function Cifra({ valor, nombre }: { valor: string | number; nombre: string }) {
         // dt va antes que dd en el HTML; la cifra se ve arriba
         <div className="flex flex-col-reverse">
             <dt className="t-meta mt-1 text-muted">{nombre}</dt>
-            <dd className="t-cifra text-[56px]">{valor}</dd>
+            {/* 10-12-11 no parte por el guion: a 320px también cabe entero */}
+            <dd className="t-cifra whitespace-nowrap text-[min(56px,13vw)]">{valor}</dd>
         </div>
     );
 }
@@ -136,7 +137,9 @@ export default async function ProfilePage() {
 
     return (
         <div>
+            {/* La key: otra cuenta en la misma pestaña no hereda lo que había oculto */}
             <ProfileForm
+                key={user.id}
                 userId={user.id}
                 profile={profile}
                 titular={temporada.estado === "ok" ? temporada.titular : undefined}
@@ -182,7 +185,7 @@ export default async function ProfilePage() {
                 </Filas>
             </ProfileForm>
 
-            <AccountDataPanel />
+            <AccountDataPanel key={`datos-${user.id}`} />
         </div>
     );
 }

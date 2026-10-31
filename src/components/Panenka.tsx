@@ -288,14 +288,18 @@ export function Panenka({
     animated = false,
     className,
     title,
+    idClip,
 }: {
     size?: number;
     mood?: Mood;
     animated?: boolean;
     className?: string;
     title?: string;
+    /** Para un dibujo que sale en dos ramas de Suspense: useId daría un id distinto en cada una. */
+    idClip?: string;
 }) {
-    const clip = `panenka-${useId().replace(/[^a-zA-Z0-9_-]/g, "")}`;
+    const id = useId();
+    const clip = idClip ?? `panenka-${id.replace(/[^a-zA-Z0-9_-]/g, "")}`;
     const pequeno = size <= 40;
     const clases = [animated ? "panenka-vivo" : "", className].filter(Boolean).join(" ") || undefined;
 

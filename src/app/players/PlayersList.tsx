@@ -1,15 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Search, X } from "lucide-react";
 import { Fila, Filas } from "@/components/Filas";
 import { PanenkaDice } from "@/components/PanenkaDice";
 import { Avatar } from "@/components/ui/Avatar";
 import { buttonClasses } from "@/components/ui/Button";
-import { POSITION_FULL } from "@/lib/positions";
 import { fraseVacio, plural } from "@/lib/titulares";
 import { cn, getAvatarUrl } from "@/lib/utils";
-import type { FilaRanking } from "@/app/leaderboard/tabla";
+import { POSICION, type FilaRanking } from "@/app/leaderboard/tabla";
 
 const POSICIONES = [
     { clave: "ALL", etiqueta: "Todos" },
@@ -20,6 +20,10 @@ const POSICIONES = [
 ] as const;
 
 type Posicion = (typeof POSICIONES)[number]["clave"];
+
+function posicionDeUrl(valor: string | null): Posicion {
+    return POSICIONES.find(({ clave }) => clave === valor)?.clave ?? "ALL";
+}
 
 /** Sin mayúsculas ni tildes: «ruben» encuentra a Rubén. */
 function normalizar(texto: string): string {
@@ -37,8 +41,20 @@ export function PlayersList({
     adminUserIds: string[];
     semilla: string;
 }) {
-    const [busqueda, setBusqueda] = useState("");
-    const [posicion, setPosicion] = useState<Posicion>("ALL");
+    const parametros = useSearchParams();
+    const [busqueda, setBusqueda] = useState(parametros.get("q") ?? "");
+    const [posicion, setPosicion] = useState<Posicion>(posicionDeUrl(parametros.get("pos")));
+    const entrada = useRef<HTMLInputElement>(null);
+
+    // En la URL, para volver de un jugador con la lista como estaba
+    useEffect(() => {
+        const url = new URL(window.location.href);
+        if (busqueda) url.searchParams.set("q", busqueda);
+        else url.searchParams.delete("q");
+        if (posicion !== "ALL") url.searchParams.set("pos", posicion);
+        else url.searchParams.delete("pos");
+        if (url.href !== window.location.href) window.history.replaceState(null, "", url);
+    }, [busqueda, posicion]);
 
     const texto = normalizar(busqueda.trim());
     const visibles = jugadores.filter(
@@ -66,6 +82,7 @@ export function PlayersList({
                         className="pointer-events-none absolute top-1/2 left-3 -translate-y-1/2 text-muted"
                     />
                     <input
+                        ref={entrada}
                         type="search"
                         inputMode="search"
                         enterKeyHint="search"
@@ -82,7 +99,11 @@ export function PlayersList({
                         <button
                             type="button"
                             aria-label="Borrar la búsqueda"
-                            onClick={() => setBusqueda("")}
+                            onClick={() => {
+                                setBusqueda("");
+                                // El botón desaparece: sin esto el teclado se cierra
+                                entrada.current?.focus();
+                            }}
                             className="absolute top-0 right-0 flex h-[52px] w-12 items-center justify-center text-muted"
                         >
                             <X size={18} strokeWidth={1.75} aria-hidden="true" />
@@ -127,8 +148,8 @@ export function PlayersList({
                         const nombre = jugador.username || "Desconocido";
                         const tu = jugador.id === yo;
                         const detalle = [
-                            jugador.position && POSITION_FULL[jugador.position],
-                            plural(jugador.matches_played, "partido"),
+                            jugador.position && POSICION[jugador.position],
+                            `${jugador.matches_played} PJ`,
                             plural(jugador.goals_scored, "gol"),
                         ]
                             .filter(Boolean)

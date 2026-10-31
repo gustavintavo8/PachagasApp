@@ -98,6 +98,7 @@ export function AvatarUpload({ uid, url, fallback, onUpload }: AvatarUploadProps
                         src={avatarUrl}
                         fallback={fallback}
                         priority
+                        sizes="176px"
                         className="h-[min(176px,45vw)] w-[min(176px,45vw)] text-[min(136px,34vw)]"
                     />
                     {uploading && (

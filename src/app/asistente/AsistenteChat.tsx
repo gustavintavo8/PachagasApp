@@ -2,7 +2,7 @@
 
 import { useChat } from "@ai-sdk/react";
 import { DefaultChatTransport } from "ai";
-import { useRef, useEffect, useState, type CSSProperties } from "react";
+import { Children, isValidElement, useRef, useEffect, useState, type CSSProperties, type ReactNode } from "react";
 import { Send } from "lucide-react";
 import ReactMarkdown from "react-markdown";
 import remarkGfm from "remark-gfm";
@@ -12,8 +12,25 @@ import { Fila, Filas } from "@/components/Filas";
 import { Panenka } from "@/components/Panenka";
 import { Button } from "@/components/ui/Button";
 import { frasePensando, fraseVacio } from "@/lib/titulares";
+import { useTeclado } from "@/lib/useTeclado";
+import { cn } from "@/lib/utils";
 
 const MD_PLUGINS = [remarkGfm];
+
+function textoPlano(nodo: ReactNode): string {
+    return Children.toArray(nodo)
+        .map((hijo) => {
+            if (typeof hijo === "string" || typeof hijo === "number") return String(hijo);
+            return isValidElement<{ children?: ReactNode }>(hijo) ? textoPlano(hijo.props.children) : "";
+        })
+        .join("");
+}
+
+// 1134, 10-2-1, +12, 3.º, 1.134 RP: si parte, se lee otra cifra
+function esCifra(celda: ReactNode) {
+    return /^[+\-−–]?\d[\d.,:/%ºª-]*(\s\p{L}{1,3})?$/u.test(textoPlano(celda).trim());
+}
+
 const MD_COMPONENTS: Components = {
     p: ({ children }) => <p className="mb-3 whitespace-pre-wrap break-words last:mb-0">{children}</p>,
     strong: ({ children }) => <strong className="font-bold">{children}</strong>,
@@ -34,18 +51,26 @@ const MD_COMPONENTS: Components = {
     hr: () => <hr className="my-4 border-border" />,
     pre: ({ children }) => <pre className="mb-3 overflow-x-auto bg-surface p-3 font-sans text-[14px]">{children}</pre>,
     code: ({ children }) => <code className="bg-surface px-1 py-0.5 font-sans text-[15px]">{children}</code>,
-    // A sangre: la tabla tiene todo el ancho del móvil y solo se desplaza si de verdad no cabe
+    // A sangre: la tabla tiene todo el ancho del móvil y solo se desplaza si de verdad no cabe.
+    // El foco es para poder desplazarla con el teclado.
     table: ({ children }) => (
-        <div className="-mx-4 mb-3 overflow-x-auto px-4 last:mb-0">
+        <div
+            role="group"
+            aria-label="Tabla de Panenka"
+            tabIndex={0}
+            className="-mx-4 mb-3 overflow-x-auto overscroll-x-contain px-4 last:mb-0"
+        >
             <table className="w-full border-collapse text-[14px] leading-[1.3] tabular-nums">{children}</table>
         </div>
     ),
     thead: ({ children }) => <thead>{children}</thead>,
     th: ({ children }) => (
-        <th className="border-b border-border-hover py-2 pr-3 text-left font-medium text-muted last:pr-0">{children}</th>
+        <th className="whitespace-nowrap border-b border-border-hover py-2 pr-3 text-left font-medium text-muted last:pr-0">{children}</th>
     ),
     td: ({ children }) => (
-        <td className="border-b border-border py-2 pr-3 align-top [overflow-wrap:anywhere] last:pr-0">{children}</td>
+        <td className={cn("border-b border-border py-2 pr-3 align-top last:pr-0", esCifra(children) ? "whitespace-nowrap" : "break-words")}>
+            {children}
+        </td>
     ),
 };
 
@@ -77,8 +102,12 @@ function fraseDeError(error: Error) {
 export function AsistenteChat() {
     const { messages, sendMessage, status, error, regenerate, clearError } = useChat({ transport });
     const [input, setInput] = useState("");
+    const raizRef = useRef<HTMLDivElement>(null);
     const scrollRef = useRef<HTMLDivElement>(null);
+    const inputRef = useRef<HTMLInputElement>(null);
     const pegado = useRef(true);
+
+    useTeclado(raizRef);
 
     const isLoading = status === "submitted" || status === "streaming";
     const vacio = messages.length === 0;
@@ -115,6 +144,8 @@ export function AsistenteChat() {
         e.preventDefault();
         const text = input.trim();
         if (!text || isLoading) return;
+        // Antes de vaciar: el botón se desactiva y se llevaría el foco, y con él el teclado
+        inputRef.current?.focus();
         setInput("");
         pegado.current = true;
         sendMessage({ text });
@@ -127,7 +158,10 @@ export function AsistenteChat() {
     }
 
     return (
-        <div className="flex h-[calc(100dvh-var(--barra-superior)-var(--barra-inferior))] flex-col">
+        <div
+            ref={raizRef}
+            className="flex h-[calc(100dvh-var(--barra-superior)-var(--barra-inferior)-var(--teclado,0px))] flex-col"
+        >
             {!vacio && (
                 <header className="flex h-12 flex-none items-center gap-2 border-b border-border px-4">
                     <Panenka size={32} />
@@ -220,12 +254,14 @@ export function AsistenteChat() {
                 )}
             </div>
 
-            {/* El abajo de más deja sitio a la cara de Panenka, que asoma sobre la barra */}
+            {/* El abajo de más deja sitio a la cara de Panenka, que asoma sobre la barra.
+                Con el teclado abierto no hay barra ni cara. */}
             <form
                 onSubmit={handleSubmit}
-                className="flex flex-none items-center gap-2 border-t border-border bg-background px-4 pb-6 pt-3 md:pb-3"
+                className="flex flex-none items-center gap-2 border-t border-border bg-background px-4 pb-6 pt-3 md:pb-3 in-data-teclado:pb-3"
             >
                 <input
+                    ref={inputRef}
                     value={input}
                     onChange={(e) => setInput(e.target.value)}
                     placeholder="Pregunta a Panenka..."
@@ -238,6 +274,8 @@ export function AsistenteChat() {
                     type="submit"
                     disabled={!input.trim() || isLoading}
                     aria-label="Enviar mensaje"
+                    // Sin esto, tocar el botón le quita el foco al input y se cierra el teclado
+                    onPointerDown={(e) => e.preventDefault()}
                     className="w-12 shrink-0 px-0"
                 >
                     <Send size={18} strokeWidth={1.75} aria-hidden="true" />

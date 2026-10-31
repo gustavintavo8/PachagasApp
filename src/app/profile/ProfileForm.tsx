@@ -7,16 +7,13 @@ import { AvatarUpload } from "@/components/AvatarUpload";
 import { AvisoError } from "@/components/AvisoError";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
+import { POSITION_FULL } from "@/lib/positions";
+import { charsCartel, lineasCartel } from "@/lib/titulares";
 import { getAvatarUrl } from "@/lib/utils";
 import { cn } from "@/lib/utils";
 import type { Profile } from "@/lib/types";
 
-const posiciones = [
-    { valor: "GK", etiqueta: "Portero" },
-    { valor: "DEF", etiqueta: "Defensa" },
-    { valor: "MID", etiqueta: "Medio" },
-    { valor: "FWD", etiqueta: "Delantero" },
-] as const;
+const posiciones = ["GK", "DEF", "MID", "FWD"] as const;
 
 interface ProfileFormProps {
     userId: string;
@@ -46,6 +43,7 @@ export function ProfileForm({ userId, profile, titular, lateral, children }: Pro
     );
 
     const nombre = profile?.username?.trim() || "Sin apodo";
+    const lineas = lineasCartel(nombre);
 
     async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
         e.preventDefault();
@@ -73,8 +71,10 @@ export function ProfileForm({ userId, profile, titular, lateral, children }: Pro
     return (
         <>
             <header className="px-4 pt-1">
-                <h1 className="t-cartel" style={{ "--chars": nombre.length } as CSSProperties}>
-                    {nombre}
+                <h1 className="t-cartel" style={{ "--chars": Math.max(...lineas.map((l) => charsCartel(l))) } as CSSProperties}>
+                    {lineas.map((linea) => (
+                        <span key={linea} className="block">{linea}</span>
+                    ))}
                 </h1>
                 {titular && <p className="t-seccion mt-3">{titular}</p>}
             </header>
@@ -111,7 +111,7 @@ export function ProfileForm({ userId, profile, titular, lateral, children }: Pro
                         Posición
                     </p>
                     <div className="grid grid-cols-4 border border-border-hover">
-                        {posiciones.map(({ valor, etiqueta }, i) => (
+                        {posiciones.map((valor, i) => (
                             <label key={valor} className={cn("relative cursor-pointer", i > 0 && "border-l border-border-hover")}>
                                 {/* Oculto a la vista y no a display:none: las flechas del teclado siguen funcionando */}
                                 <input
@@ -124,7 +124,7 @@ export function ProfileForm({ userId, profile, titular, lateral, children }: Pro
                                     required
                                 />
                                 <span className="pulsable flex min-h-14 select-none items-center justify-center text-center font-display text-[min(23px,5.6vw)] font-semibold text-muted active:bg-surface-hover peer-checked:bg-foreground peer-checked:text-background peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-foreground">
-                                    {etiqueta}
+                                    {POSITION_FULL[valor]}
                                 </span>
                             </label>
                         ))}

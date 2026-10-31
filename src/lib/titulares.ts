@@ -350,6 +350,36 @@ export function estadoPortada({
     };
 }
 
+/** Lo que .t-cartel supone para cada carácter, en em. */
+const ANCHO_LETRA_CARTEL = 0.42;
+
+/** Avance de un grafema en la display a peso 900, en em. Redondeado hacia arriba. */
+function anchoGrafema(grafema: string): number {
+    // Las banderas no son pictográficas: son dos letras regionales
+    if (/\p{Extended_Pictographic}|\p{Regional_Indicator}/u.test(grafema)) return 1.4;
+    const letra = grafema.normalize("NFD")[0];
+    if (/[iljIJ.,:;'’`|!\s]/.test(letra)) return 0.22;
+    if (/[frt]/.test(letra)) return 0.33;
+    if (letra === "W") return 0.65;
+    if (/[mwM]/.test(letra)) return 0.59;
+    if (/\p{Lu}/u.test(letra)) return 0.48;
+    if (/[\p{Ll}\p{Nd}_-]/u.test(letra)) return 0.44;
+    // Lo que la display no tiene sale de otra fuente, mucho más ancha
+    return 1;
+}
+
+/**
+ * El --chars de .t-cartel: el ancho real del nombre, no su número de caracteres.
+ * Un emoji ocupa más que tres letras y una W más que una i. Va por grafemas porque
+ * un emoji compuesto es uno solo.
+ */
+export function charsCartel(nombre: string): number {
+    const grafemas = new Intl.Segmenter("es", { granularity: "grapheme" }).segment(nombre.trim());
+    let ancho = 0;
+    for (const { segment } of grafemas) ancho += anchoGrafema(segment);
+    return Math.round((ancho / ANCHO_LETRA_CARTEL) * 100) / 100;
+}
+
 const MAX_LINEA_RESPUESTA = 12;
 
 /**

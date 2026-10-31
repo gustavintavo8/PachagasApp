@@ -4,7 +4,7 @@ import { useState } from "react";
 import { Fila, Filas } from "@/components/Filas";
 import { PanenkaDice } from "@/components/PanenkaDice";
 import { PROVISIONAL_THRESHOLD } from "@/lib/elo";
-import { elegirPlural, fraseVacio, plural } from "@/lib/titulares";
+import { elegirPlural, fraseVacio } from "@/lib/titulares";
 import { cn } from "@/lib/utils";
 import {
     ETIQUETAS,
@@ -37,14 +37,31 @@ const COLUMNAS: Record<Orden, [Columna, Columna, Columna, Columna]> = {
 
 const ORDENES = Object.keys(ETIQUETAS) as Orden[];
 
-// Misma rejilla en la cabecera y en las filas
-const REJILLA = "grid grid-cols-[30px_30px_38px_58px] items-baseline text-right";
+// Misma rejilla en la cabecera y en las filas. Una por pestaña: cambian las columnas y lo
+// que pide cada una (MVP necesita 36px para su etiqueta, RP como secundaria 44px).
+const REJILLA = "grid items-baseline text-right";
+const ANCHOS: Record<Orden, string> = {
+    rp: "grid-cols-[28px_30px_38px_52px]",
+    goles: "grid-cols-[28px_38px_46px_40px]",
+    mvps: "grid-cols-[28px_30px_46px_42px]",
+    partidos: "grid-cols-[30px_30px_30px_44px]",
+    victorias: "grid-cols-[30px_30px_34px_44px]",
+};
 
-function Cabecera({ titulo, orden }: { titulo: string; orden: Orden }) {
+function Cabecera({ titulo, orden, estrecha = false }: { titulo: string; orden: Orden; estrecha?: boolean }) {
     return (
-        <div className="flex items-end justify-between gap-3 px-4 pb-2">
-            <h2 className="t-seccion">{titulo}</h2>
-            <div aria-hidden="true" className={cn(REJILLA, "text-[13px] leading-none text-muted")}>
+        <div className="flex items-end justify-between gap-3 px-4 pb-1">
+            <h2 className="t-seccion whitespace-nowrap">{titulo}</h2>
+            <div
+                aria-hidden="true"
+                className={cn(
+                    REJILLA,
+                    ANCHOS[orden],
+                    "text-[13px] leading-none text-muted",
+                    // El título largo no cabe con las etiquetas en 320
+                    estrecha && "max-[359px]:hidden"
+                )}
+            >
                 {COLUMNAS[orden].map((columna, i) => (
                     <span key={columna.corta} className={cn(i === 3 && "text-foreground")}>
                         {columna.corta}
@@ -87,7 +104,7 @@ function FilaTabla({
             nombre={tu ? `${nombre}, tú` : nombre}
             detalle={detalle}
             cifra={
-                <span className={REJILLA}>
+                <span className={cn(REJILLA, ANCHOS[orden])}>
                     {COLUMNAS[orden].map((columna, i) => (
                         <span
                             key={columna.corta}
@@ -124,7 +141,7 @@ export function LeaderboardTabs({
     const sinPuesto = orden === "rp" ? provisionales(filas) : [];
 
     return (
-        <div data-testid="leaderboard" className="mt-6">
+        <div data-testid="leaderboard" className="mt-1">
             <div
                 role="group"
                 aria-label="Ordenar la tabla"
@@ -139,7 +156,7 @@ export function LeaderboardTabs({
                             aria-pressed={activo}
                             onClick={() => setOrden(clave)}
                             className={cn(
-                                "min-h-12 min-w-11 font-display text-[length:min(22px,5.6vw)] leading-none",
+                                "min-h-11 min-w-11 font-display text-[length:min(22px,5.6vw)] leading-none",
                                 activo
                                     ? "font-extrabold text-foreground underline decoration-2 underline-offset-[6px]"
                                     : "font-semibold text-muted"
@@ -156,7 +173,7 @@ export function LeaderboardTabs({
             )}
 
             {titulares.length > 0 && (
-                <section className="pt-6">
+                <section className="pt-2">
                     <Cabecera titulo="Titulares" orden={orden} />
                     <Filas aria-label="Titulares">
                         {titulares.map((fila, i) => (
@@ -185,7 +202,7 @@ export function LeaderboardTabs({
 
             {sinPuesto.length > 0 && (
                 <section className="pt-8">
-                    <Cabecera titulo="Aún no cuentan" orden={orden} />
+                    <Cabecera titulo="Aún no cuentan" orden={orden} estrecha />
                     <Filas aria-label="Aún no cuentan">
                         {sinPuesto.map((fila) => {
                             const faltan = PROVISIONAL_THRESHOLD - fila.matches_played;
@@ -196,7 +213,7 @@ export function LeaderboardTabs({
                                     puesto={null}
                                     orden={orden}
                                     yo={yo}
-                                    detalle={`${elegirPlural(faltan, "Falta", "Faltan")} ${plural(faltan, "partido")}`}
+                                    detalle={`${elegirPlural(faltan, "Falta", "Faltan")} ${faltan}`}
                                 />
                             );
                         })}

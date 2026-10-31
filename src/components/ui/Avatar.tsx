@@ -10,6 +10,8 @@ interface AvatarProps {
     size?: "sm" | "md" | "lg" | "xl";
     className?: string;
     priority?: boolean;
+    /** El tamaño real en pantalla, si className lo agranda: next/image elige la foto con esto */
+    sizes?: string;
 }
 
 const sizeMap = {
@@ -33,6 +35,7 @@ export function Avatar({
     size = "md",
     className,
     priority = false,
+    sizes = "80px",
 }: AvatarProps) {
     // Se guarda qué URL falló, así una foto nueva se vuelve a intentar
     const [fallida, setFallida] = useState<string | null>(null);
@@ -54,7 +57,7 @@ export function Avatar({
                     alt={fallback}
                     fill
                     className="object-cover"
-                    sizes="80px"
+                    sizes={sizes}
                     priority={priority}
                     // next.config solo optimiza Supabase. Las de Google se piden tal cual y sin referer
                     unoptimized={!/^https:\/\/[^/]+\.supabase\.co\/storage\/v1\/object\/public\//.test(src)}

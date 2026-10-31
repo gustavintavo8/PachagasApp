@@ -195,7 +195,7 @@ export function PartidoEnJuego({
                                 type="button"
                                 size="lg"
                                 variant={principal ? "outline" : "primary"}
-                                className={cn(principal ? "flex-none px-4" : "flex-1")}
+                                className={cn(principal ? "flex-none px-3 min-[360px]:px-4" : "flex-1")}
                                 onClick={onOrganizar}
                             >
                                 Organizar
@@ -232,7 +232,7 @@ export function PartidoEnJuego({
                                 className={buttonClasses(
                                     "primary",
                                     "lg",
-                                    "min-w-0 flex-1 px-2 text-[clamp(15px,4.4vw,17px)]"
+                                    "min-w-0 flex-1 whitespace-nowrap px-1 text-[clamp(14px,4.4vw,17px)]"
                                 )}
                             >
                                 {textoBuscar(faltan)}

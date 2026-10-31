@@ -8,6 +8,10 @@ const ANCHO_CELDA = 46;
 const CELDAS_VACIAS = 7;
 const ALTO = 150;
 const ALTO_VACIO = 64;
+/** El ancho más estrecho del gráfico: 320 menos los márgenes. */
+const ANCHO_MINIMO = 288;
+const ALTO_VICTORIAS = 110;
+const NIVELES = [0, 50, 100];
 
 type Resultado = "V" | "E" | "D";
 
@@ -35,6 +39,53 @@ function posicionEtiqueta(porcentaje: number) {
     return "-50%";
 }
 
+type Punto = readonly [x: number, y: number];
+type Caja = { x0: number; x1: number; y0: number; y1: number };
+
+/** La línea entre dos x: basta con los vértices del tramo y sus dos extremos. */
+function tocaLaLinea(linea: readonly Punto[], caja: Caja) {
+    const alturaEn = (x: number) => {
+        const i = linea.findIndex(([xFin]) => xFin >= x);
+        if (i <= 0) return linea[0][1];
+        const [x0, y0] = linea[i - 1];
+        const [x1, y1] = linea[i];
+        return y0 + ((x - x0) / (x1 - x0 || 1)) * (y1 - y0);
+    };
+    const ultimoX = linea[linea.length - 1][0];
+    if (caja.x0 > ultimoX) return false;
+
+    const alturas = [caja.x0, Math.min(caja.x1, ultimoX), ...linea.flatMap(([x]) => (x > caja.x0 && x < caja.x1 ? [x] : []))].map(alturaEn);
+    return Math.min(...alturas) <= caja.y1 && Math.max(...alturas) >= caja.y0;
+}
+
+function seSolapan(a: Caja, b: Caja) {
+    return a.x0 < b.x1 && b.x0 < a.x1 && a.y0 < b.y1 && b.y0 < a.y1;
+}
+
+/** El primer sitio donde «1000, salida» no lo cruza la línea ni la etiqueta del pico. */
+function sitioSalida(linea: readonly Punto[], ySalida: number, pico: Caja | null, aLaDerecha: boolean, ancho: number, alto: number) {
+    const anchoEtiqueta = (82 / ancho) * 100;
+    const altoEtiqueta = (13 / alto) * 100;
+    const hueco = (5 / alto) * 100;
+
+    const lados = aLaDerecha ? (["right", "left"] as const) : (["left", "right"] as const);
+    const opciones = lados.flatMap((lado) => [
+        { lado, arriba: true },
+        { lado, arriba: false },
+    ]);
+
+    const libre = opciones.find(({ lado, arriba }) => {
+        const caja: Caja = {
+            x0: lado === "left" ? 0 : 100 - anchoEtiqueta,
+            x1: lado === "left" ? anchoEtiqueta : 100,
+            y0: arriba ? ySalida - hueco - altoEtiqueta : ySalida + hueco,
+            y1: arriba ? ySalida - hueco : ySalida + hueco + altoEtiqueta,
+        };
+        return caja.y0 >= 0 && caja.y1 <= 100 && !tocaLaLinea(linea, caja) && !(pico && seSolapan(caja, pico));
+    });
+    return libre ?? opciones[0];
+}
+
 /**
  * RP de la temporada, un punto por partido, centrado sobre su celda de la tira.
  * El SVG se estira con el ancho (por eso el trazo no escala) y las etiquetas son HTML
@@ -43,6 +94,8 @@ function posicionEtiqueta(porcentaje: number) {
  */
 export function GraficoRP({ inicio, puntos, resumen }: { inicio: number; puntos: PuntoRP[]; resumen: string }) {
     const n = puntos.length;
+    const alto = n === 0 ? ALTO_VACIO : ALTO;
+    const ancho = Math.max(ANCHO_MINIMO, n * ANCHO_CELDA);
     const valores = [SALIDA, inicio, ...puntos.map((punto) => punto.rp)];
     const minimo = Math.min(...valores);
     const maximo = Math.max(...valores);
@@ -54,18 +107,32 @@ export function GraficoRP({ inicio, puntos, resumen }: { inicio: number; puntos:
         100 - ((valor - minimo + margenInferior) / (rango + margenInferior + margenSuperior)) * 100;
     const x = (i: number) => ((i + 0.5) / n) * 100;
 
-    const linea =
+    const trazo: Punto[] =
         n === 0
-            ? `0,${y(SALIDA)} 100,${y(SALIDA)}`
-            : [`0,${y(inicio)}`, ...puntos.map((punto, i) => `${x(i)},${y(punto.rp)}`)].join(" ");
+            ? [
+                  [0, y(SALIDA)],
+                  [100, y(SALIDA)],
+              ]
+            : [[0, y(inicio)], ...puntos.map((punto, i): Punto => [x(i), y(punto.rp)])];
 
     const pico = n > 0 ? puntos.reduce((mejor, punto, i) => (punto.rp >= puntos[mejor].rp ? i : mejor), 0) : -1;
 
+    let cajaPico: Caja | null = null;
+    if (pico >= 0) {
+        const izquierda = x(pico);
+        const anchoPico = (72 / ancho) * 100;
+        const desplazamiento = izquierda < 18 ? 0 : izquierda > 82 ? anchoPico : anchoPico / 2;
+        const techo = y(puntos[pico].rp) - (23 / alto) * 100;
+        cajaPico = {
+            x0: izquierda - desplazamiento,
+            x1: izquierda - desplazamiento + anchoPico,
+            y0: techo,
+            y1: techo + (13 / alto) * 100,
+        };
+    }
+
     // Con la tira desplazable se empieza viendo el final: la referencia va a ese lado
-    const aLaDerecha = n > CELDAS_VACIAS;
-    const cercanos = aLaDerecha ? puntos.slice(-3) : puntos.slice(0, Math.max(1, Math.ceil(n / 3)));
-    const porArriba = cercanos.filter((punto) => punto.rp >= SALIDA).length;
-    const etiquetaAbajo = n > 0 && porArriba * 2 >= cercanos.length;
+    const salida = sitioSalida(trazo, y(SALIDA), cajaPico, n > CELDAS_VACIAS, ancho, alto);
 
     return (
         <figure>
@@ -75,7 +142,7 @@ export function GraficoRP({ inicio, puntos, resumen }: { inicio: number; puntos:
                     className="mx-4 flex-none"
                     style={{ width: `max(calc(100% - 32px), ${n * ANCHO_CELDA}px)` }}
                 >
-                    <div className="relative" style={{ height: n === 0 ? ALTO_VACIO : ALTO }}>
+                    <div className="relative" style={{ height: alto }}>
                         <svg
                             viewBox="0 0 100 100"
                             preserveAspectRatio="none"
@@ -94,7 +161,7 @@ export function GraficoRP({ inicio, puntos, resumen }: { inicio: number; puntos:
                                 vectorEffect="non-scaling-stroke"
                             />
                             <polyline
-                                points={linea}
+                                points={trazo.map((punto) => punto.join(",")).join(" ")}
                                 fill="none"
                                 stroke="currentColor"
                                 strokeWidth="2"
@@ -109,8 +176,8 @@ export function GraficoRP({ inicio, puntos, resumen }: { inicio: number; puntos:
                             className="absolute text-xs leading-none font-medium whitespace-nowrap text-muted"
                             style={{
                                 top: `${y(SALIDA)}%`,
-                                [aLaDerecha ? "right" : "left"]: 0,
-                                transform: etiquetaAbajo ? "translateY(5px)" : "translateY(calc(-100% - 5px))",
+                                [salida.lado]: 0,
+                                transform: salida.arriba ? "translateY(calc(-100% - 5px))" : "translateY(5px)",
                             }}
                         >
                             {SALIDA}, salida
@@ -187,6 +254,71 @@ export function GraficoRP({ inicio, puntos, resumen }: { inicio: number; puntos:
             <figcaption className="t-meta mt-2 text-muted">
                 {n === 0 ? "Sin partidos todavía" : "Forma, el último a la derecha"}
             </figcaption>
+        </figure>
+    );
+}
+
+export type PuntoVictorias = { fecha: string; porcentaje: number };
+
+/** Porcentaje de partidos ganados hasta cada partido. Mismo trazo que el de RP. */
+export function GraficoVictorias({ puntos, resumen }: { puntos: PuntoVictorias[]; resumen: string }) {
+    const n = puntos.length;
+    const x = (i: number) => (i / (n - 1)) * 100;
+    const y = (porcentaje: number) => 100 - porcentaje;
+
+    return (
+        <figure className="mt-3 pr-11">
+            <div className="relative" style={{ height: ALTO_VICTORIAS }}>
+                <svg
+                    viewBox="0 0 100 100"
+                    preserveAspectRatio="none"
+                    role="img"
+                    aria-label={resumen}
+                    className="absolute inset-0 h-full w-full overflow-visible"
+                >
+                    {NIVELES.map((nivel) => (
+                        <line
+                            key={nivel}
+                            x1="0"
+                            x2="100"
+                            y1={y(nivel)}
+                            y2={y(nivel)}
+                            stroke="currentColor"
+                            strokeOpacity="0.25"
+                            strokeWidth="1"
+                            vectorEffect="non-scaling-stroke"
+                        />
+                    ))}
+                    <polyline
+                        points={puntos.map((punto, i) => `${x(i)},${y(punto.porcentaje)}`).join(" ")}
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinejoin="round"
+                        strokeLinecap="round"
+                        vectorEffect="non-scaling-stroke"
+                    />
+                </svg>
+                <span
+                    aria-hidden="true"
+                    className="absolute size-2.5 -translate-x-1/2 -translate-y-1/2 bg-foreground"
+                    style={{ left: "100%", top: `${y(puntos[n - 1].porcentaje)}%` }}
+                />
+                {NIVELES.map((nivel) => (
+                    <span
+                        key={nivel}
+                        aria-hidden="true"
+                        className="absolute left-full -translate-y-1/2 pl-2 text-xs leading-none whitespace-nowrap text-muted tabular-nums"
+                        style={{ top: `${y(nivel)}%` }}
+                    >
+                        {nivel} %
+                    </span>
+                ))}
+            </div>
+            <div aria-hidden="true" className="mt-2 flex justify-between text-xs leading-none text-muted tabular-nums">
+                <span>{diaYMes(puntos[0].fecha)}</span>
+                <span>{diaYMes(puntos[n - 1].fecha)}</span>
+            </div>
         </figure>
     );
 }

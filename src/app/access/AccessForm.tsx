@@ -29,6 +29,12 @@ export function AccessForm() {
         if (error && !isPending) inputRef.current?.focus();
     }, [error, isPending]);
 
+    // La pantalla se guarda oculta al salir: quien vuelva con otra cuenta la encuentra limpia
+    useEffect(() => () => {
+        setCode("");
+        setError(null);
+    }, []);
+
     function handleSubmit(event: React.FormEvent<HTMLFormElement>) {
         event.preventDefault();
         setError(null);

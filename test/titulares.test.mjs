@@ -1394,3 +1394,33 @@ test("fraseCancelado es estable por partido y no exclama", () => {
     assert.equal(fraseCancelado("x"), fraseCancelado("x"));
     for (const id of ["a", "b", "c", "d", "e", "f"]) assert.doesNotMatch(fraseCancelado(id), /[!¡]/);
 });
+
+import { charsCartel } from "../src/lib/titulares.ts";
+
+test("charsCartel: mide el nombre, no cuenta caracteres", () => {
+    // Lo que de verdad ocupa cada caso, en em, medido en la fuente a peso 900
+    const medidos = [
+        ["WWWWWWWWWW", 6.49],
+        ["M".repeat(30), 17.46],
+        ["MANOLÍN", 3.06],
+        ["Cristian moreira s", 5.77],
+        ["Panenka", 2.77],
+        ["🔥🔥🔥 Pelayín 🔥🔥", 9.4],
+    ];
+    for (const [nombre, em] of medidos) {
+        assert.ok(charsCartel(nombre) * 0.42 >= em, nombre);
+    }
+});
+
+test("charsCartel: un nombre normal no encoge, y lo ancho ocupa más que su longitud", () => {
+    assert.ok(charsCartel("Pelayo") <= "Pelayo".length + 0.5);
+    assert.ok(charsCartel("Lu") < 3);
+    assert.ok(charsCartel("MANOLÍN") > charsCartel("Manolín"));
+    assert.ok(charsCartel("🔥🔥🔥 Pelayín 🔥🔥") > "🔥🔥🔥 Pelayín 🔥🔥".length);
+});
+
+test("charsCartel: un emoji compuesto es un solo grafema", () => {
+    assert.equal(charsCartel("👨‍👩‍👧"), charsCartel("🔥"));
+    assert.equal(charsCartel("🇪🇸"), charsCartel("🔥"));
+    assert.equal(charsCartel("á"), charsCartel("a"));
+});

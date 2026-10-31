@@ -24,7 +24,7 @@ export const POSITION_SHORT: Record<string, string> = {
 export const POSITION_FULL: Record<string, string> = {
     GK: "Portero",
     DEF: "Defensa",
-    MID: "Mediocampista",
+    MID: "Medio",
     FWD: "Delantero",
 };
 

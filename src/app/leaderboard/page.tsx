@@ -6,7 +6,6 @@ import { PROVISIONAL_THRESHOLD } from "@/lib/elo";
 import { getActiveSeason } from "@/lib/seasons";
 import {
     frasePanenkaRanking,
-    MAX_TITULAR,
     lineaPorDetras,
     rachaDeEquipo,
     titularRanking,
@@ -20,6 +19,9 @@ export const metadata: Metadata = {
     title: "Ranking — Pachanga",
     description: "Clasificación de los mejores jugadores de la comunidad.",
 };
+
+// A 84px, dos líneas. Con más texto serían tres y la tabla se iría de la pantalla.
+const MAX_TITULAR_GRANDE = 24;
 
 function rival(fila: FilaRanking | undefined, yo: FilaRanking) {
     if (!fila) return null;
@@ -68,10 +70,13 @@ export default async function LeaderboardPage() {
     // El líder ya dice en el titular quién viene detrás
     const porDetras = puesto && puesto > 1 ? lineaPorDetras(siguiente) : null;
     const balance = miFila ? `${miFila.wins}-${miFila.draws}-${miFila.losses}, V-E-D` : null;
+    const lineas = puesto
+        ? [`${puesto} de ${tabla.length}`, porDetras ?? balance]
+        : ["Provisional", `${partidos} de ${PROVISIONAL_THRESHOLD} partidos`];
 
     return (
         <>
-            <header className="px-4 pt-2">
+            <header className="px-4">
                 <div className="flex items-baseline justify-between gap-4">
                     <h1 className="t-seccion font-black">Ranking</h1>
                     <p className="text-[15px] leading-tight text-muted">{season.name}</p>
@@ -79,28 +84,25 @@ export default async function LeaderboardPage() {
 
                 <p
                     className={cn(
-                        "t-titular mt-6 font-black text-balance [overflow-wrap:anywhere]",
-                        // La frase larga de quien aún no cuenta no puede empujar la tabla fuera de la pantalla
-                        titular.length <= MAX_TITULAR && "text-[length:min(84px,21.5vw)] leading-[0.92]"
+                        "t-titular mt-2 font-black text-balance [overflow-wrap:anywhere]",
+                        titular.length <= MAX_TITULAR_GRANDE && "text-[length:min(84px,21.5vw)] leading-[0.92]"
                     )}
                 >
                     {titular}
                 </p>
 
-                <div className="mt-6 grid grid-cols-[auto_1fr] gap-x-8">
-                    {/* Sin .º: por encima de décimo el titular ya lo dice con esa misma cifra */}
-                    <p className="t-cifra text-[64px] font-black">
-                        {puesto ?? partidos}
-                        <span className="t-meta ml-1.5 font-sans text-muted">
-                            de {puesto ? tabla.length : PROVISIONAL_THRESHOLD}
-                        </span>
+                <div className="mt-2 flex flex-wrap items-end gap-x-4 gap-y-1">
+                    <p className="t-cifra text-[56px] font-black">{miFila?.elo_rating ?? 1000} RP</p>
+                    <p className="t-meta pb-1 text-muted">
+                        {lineas.map((linea) => (
+                            <span key={linea} className="block">
+                                {linea}
+                            </span>
+                        ))}
                     </p>
-                    <p className="t-cifra text-[64px] font-black">{miFila?.elo_rating ?? 1000} RP</p>
-                    <p className="t-meta mt-1 text-muted">{puesto ? "En la tabla" : "Para contar"}</p>
-                    <p className="t-meta mt-1 text-muted">{puesto ? (porDetras ?? balance) : "Provisional"}</p>
                 </div>
 
-                <PanenkaDice size={56} className="mt-6">
+                <PanenkaDice size={44} className="mt-3">
                     {frase}
                 </PanenkaDice>
             </header>

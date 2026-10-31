@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, type CSSProperties } from "react";
+import { useEffect, useRef, useState, type CSSProperties } from "react";
 import { Check, Loader2 } from "lucide-react";
 import { login, signup } from "./actions";
 import { ERROR_CONEXION, ERROR_GENERICO, errorEnEspanol, esRedireccion } from "./errores";
@@ -20,8 +20,26 @@ export default function LoginPage() {
     const [oauthLoading, setOauthLoading] = useState<string | null>(null);
     const [consent, setConsent] = useState(false);
     const [ageOk, setAgeOk] = useState(false);
+    const formRef = useRef<HTMLFormElement>(null);
 
     const signupBlocked = isSignUp && (!consent || !ageOk);
+
+    // cacheComponents guarda esta pantalla oculta tras entrar y la devuelve al cerrar
+    // sesión: la limpieza corre al ocultarse, y con ella se va la contraseña del DOM.
+    // El formulario se apunta antes porque React suelta la ref al ocultar.
+    useEffect(() => {
+        const form = formRef.current;
+        return () => {
+            form?.reset();
+            setLoading(false);
+            setOauthLoading(null);
+            setError(null);
+            setSuccessMessage(null);
+            setIsSignUp(false);
+            setConsent(false);
+            setAgeOk(false);
+        };
+    }, []);
 
     function cambiarModo(registro: boolean) {
         setIsSignUp(registro);
@@ -128,7 +146,7 @@ export default function LoginPage() {
                         </p>
                     )}
 
-                    <form onSubmit={handleSubmit} className="space-y-4">
+                    <form ref={formRef} onSubmit={handleSubmit} className="space-y-4">
                         <Input
                             id="email"
                             name="email"
@@ -165,13 +183,19 @@ export default function LoginPage() {
                         </div>
 
                         {isSignUp && (
-                            <div className="space-y-1">
+                            <div>
                                 <Casilla name="accept_terms" checked={consent} onChange={setConsent}>
-                                    He leído y acepto la{" "}
-                                    <a href="/privacidad" target="_blank" className="py-2.5 underline underline-offset-2">Política de Privacidad</a>{" "}
-                                    y los{" "}
-                                    <a href="/terminos" target="_blank" className="py-2.5 underline underline-offset-2">Términos</a>.
+                                    He leído y acepto la Política de Privacidad y los Términos.
                                 </Casilla>
+                                {/* Fuera de la frase: dentro de la etiqueta, un toque bajo marca la casilla */}
+                                <div className="flex gap-6 pl-9">
+                                    <a href="/privacidad" target="_blank" className="t-meta inline-flex min-h-11 items-center underline underline-offset-2">
+                                        Leer la política
+                                    </a>
+                                    <a href="/terminos" target="_blank" className="t-meta inline-flex min-h-11 items-center underline underline-offset-2">
+                                        Leer los términos
+                                    </a>
+                                </div>
                                 <Casilla name="confirm_age" checked={ageOk} onChange={setAgeOk}>
                                     Confirmo que tengo 14 años o más.
                                 </Casilla>

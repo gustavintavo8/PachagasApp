@@ -14,5 +14,6 @@ export default async function AsistentePage() {
 
     if (!user) redirect("/login");
 
-    return <AsistenteChat />;
+    // La key: la conversación oculta no pasa a otra cuenta en la misma pestaña
+    return <AsistenteChat key={user.id} />;
 }

@@ -42,6 +42,16 @@ export function AccountDataPanel() {
         abierto.current = confirming;
     }, [confirming]);
 
+    // Perfil se guarda oculto al cambiar de pestaña o salir: el borrado no se queda armado
+    useEffect(() => () => {
+        abierto.current = false;
+        setConfirming(false);
+        setConfirmText("");
+        setLoading(false);
+        setError(null);
+        setErrorExportar(null);
+    }, []);
+
     async function handleDelete() {
         setLoading(true);
         setError(null);
