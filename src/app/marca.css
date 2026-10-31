@@ -135,6 +135,7 @@
     --cuerpo: min(
       270px,
       68cqw,
+      32svh, /* en un teléfono bajo, la votación no se va a la segunda pantalla */
       calc(var(--campo-rojo) / (var(--cifras-rojo) * var(--ancho-cifra))),
       calc(var(--campo-azul) / (var(--cifras-azul) * var(--ancho-cifra)))
     );
@@ -161,14 +162,14 @@
     font-size: var(--cuerpo);
     font-weight: 900;
     font-variant-numeric: tabular-nums;
-    line-height: 0.8;
+    line-height: 0.72;
     text-align: center;
     white-space: nowrap;
   }
 
   .marcador-pie {
     position: relative;
-    margin-top: 16px;
+    margin-top: 10px;
   }
 
   /* Se sienta en la parte baja del campo, como en el mockup */
@@ -192,11 +193,23 @@
     grid-template-columns: var(--costura) minmax(0, 1fr);
     align-items: center;
     min-height: var(--cara);
-    margin-top: 12px;
+    margin-top: 8px;
   }
 
   .marcador-saque[data-cara="media"] {
     --cara: 96px;
+  }
+
+  /* Empate en un teléfono estrecho: la frase necesita ese ancho más que la cara */
+  @media (max-width: 359px) {
+    .marcador-saque[data-cara="media"] {
+      --cara: 80px;
+    }
+
+    .marcador-saque[data-cara="media"] svg {
+      width: 68px;
+      height: 68px;
+    }
   }
 
   .marcador-frase {

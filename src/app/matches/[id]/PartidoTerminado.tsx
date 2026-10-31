@@ -29,6 +29,11 @@ const NOCHE = {
     "--foreground": "#f4f4f4",
 } as CSSProperties;
 
+/** En una línea siempre que se pueda: con dos, la votación se iría a la segunda pantalla. */
+function cuerpoTitular(letras: number) {
+    return { fontSize: `max(30px, min(48px, calc((min(100vw, 640px) - 32px) / ${(letras * 0.35).toFixed(2)})))` };
+}
+
 function Goleadores({ equipo, enDosColumnas }: { equipo: Participante[]; enDosColumnas: boolean }) {
     const goleadores = equipo
         .filter((p) => p.goals > 0)
@@ -127,8 +132,10 @@ export function PartidoTerminado({
             <div style={NOCHE} className="flex-1 bg-background text-foreground">
                 {conResultado ? (
                     // Fuera del Marcador: la costura corre entera, de la barra superior a Panenka
-                    <header className="px-4 pt-4">
-                        <h1 className="t-titular text-[clamp(38px,11.8vw,48px)] font-black leading-none">{titular}</h1>
+                    <header className="px-4 pt-3">
+                        <h1 className="t-titular text-balance font-black leading-none" style={cuerpoTitular(titular.length)}>
+                            {titular}
+                        </h1>
                         {fecha}
                     </header>
                 ) : (

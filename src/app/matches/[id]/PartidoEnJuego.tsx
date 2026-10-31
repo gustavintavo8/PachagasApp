@@ -91,8 +91,9 @@ export function PartidoEnJuego({
         equipo: yo ? equipoDeTeam(yo.team) : null,
         pasado,
     });
+    // Con dos cifras no cabe al lado de la respuesta, y con diez libres aún no dice nada
     const nota =
-        abierto && !pasado && faltan > 0
+        abierto && !pasado && faltan > 0 && faltan < 10
             ? notaPlantilla(
                   jugadores.map((p) => ({ nombre: p.profiles?.username ?? null, posicion: p.profiles?.position ?? null }))
               )

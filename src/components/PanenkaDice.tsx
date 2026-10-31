@@ -17,7 +17,7 @@ export function PanenkaDice({
             <Panenka size={size} className="shrink-0" />
             <figcaption className="min-w-0 self-center text-base font-medium leading-[1.35]">
                 <div>{children}</div>
-                {firma && <div className="mt-1 text-sm">Por Panenka, que lo vio todo</div>}
+                {firma && <div className="mt-1 text-balance text-sm">Por Panenka, que lo vio todo</div>}
             </figcaption>
         </figure>
     );
