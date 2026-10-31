@@ -87,11 +87,22 @@ export function PartidoTerminado({
     const costura = total === 0 ? 50 : ((rojo ?? 0) / total) * 100;
     const dosColumnasAzul = costura <= 40 && delAzul.filter((p) => p.goals > 0).length > 4;
     const dosColumnasRojo = costura >= 60 && delRojo.filter((p) => p.goals > 0).length > 4;
+    const marcaronRojo = delRojo.filter((p) => p.goals > 0).length;
+    const marcaronAzul = delAzul.filter((p) => p.goals > 0).length;
+    const filasGoleadores = Math.max(
+        dosColumnasRojo ? Math.ceil(marcaronRojo / 2) : marcaronRojo,
+        dosColumnasAzul ? Math.ceil(marcaronAzul / 2) : marcaronAzul
+    );
 
     const campo = (p: Participante) => aJugadorCampo(p, currentUserId, false);
+    const lineaFecha = `${fechaCorta(match.date)} · ${match.location}`;
+    // Con marcador, una línea: el sitio entero va al pie para no empujar la votación
     const fecha = (
-        <p className="t-meta mt-1.5 text-muted [overflow-wrap:anywhere]">
-            {fechaCorta(match.date)} · {match.location}
+        <p
+            title={conResultado ? lineaFecha : undefined}
+            className={cn("t-meta mt-1.5 text-muted", conResultado ? "truncate" : "[overflow-wrap:anywhere]")}
+        >
+            {lineaFecha}
         </p>
     );
 
@@ -104,6 +115,7 @@ export function PartidoTerminado({
                 <Marcador
                     rojo={rojo}
                     azul={azul}
+                    filas={filasGoleadores}
                     className="bajo-barra md:mt-0 md:pt-0"
                     saque={
                         // La cara ya está en el punto de saque: aquí solo la frase y la firma
@@ -200,6 +212,9 @@ export function PartidoTerminado({
                 {sinEquipo.length > 0 && <ListaSinEquipo jugadores={sinEquipo} onVerJugador={onVerJugador} />}
 
                 <Compartir urlPartido={urlPartido} enlaceWhatsApp={enlaceWhatsApp} match={match} className="mt-4" />
+                {conResultado && match.location.length > 34 && (
+                    <p className="t-meta px-4 pt-3 text-muted [overflow-wrap:anywhere]">{match.location}</p>
+                )}
                 <PieInfo
                     match={match}
                     seasonName={seasonName}

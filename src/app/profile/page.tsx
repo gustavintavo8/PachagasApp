@@ -7,7 +7,7 @@ import { requireCommunityAccess } from "@/lib/access";
 import { PROVISIONAL_THRESHOLD } from "@/lib/elo";
 import { getActiveSeason } from "@/lib/seasons";
 import { createClient } from "@/lib/supabase/server";
-import { elegirPlural, frasePanenkaRanking, titularRanking } from "@/lib/titulares";
+import { cuerpoCifras, elegirPlural, frasePanenkaRanking, titularRanking } from "@/lib/titulares";
 import { redirect } from "next/navigation";
 import { ProfileForm } from "./ProfileForm";
 import { AccountDataPanel } from "./AccountDataPanel";
@@ -96,13 +96,15 @@ async function leerTemporada(supabase: Supabase, userId: string): Promise<Tempor
     };
 }
 
-function Cifra({ valor, nombre }: { valor: string | number; nombre: string }) {
+function Cifra({ valor, nombre, cuerpo }: { valor: string | number; nombre: string; cuerpo: string }) {
     return (
         // dt va antes que dd en el HTML; la cifra se ve arriba
         <div className="flex flex-col-reverse">
             <dt className="t-meta mt-1 text-muted">{nombre}</dt>
             {/* 10-12-11 no parte por el guion: a 320px también cabe entero */}
-            <dd className="t-cifra whitespace-nowrap text-[min(56px,13vw)]">{valor}</dd>
+            <dd className="t-cifra whitespace-nowrap" style={{ fontSize: cuerpo }}>
+                {valor}
+            </dd>
         </div>
     );
 }
@@ -123,9 +125,20 @@ export default async function ProfilePage() {
         leerTemporada(supabase, user.id),
     ]);
 
+    const balance =
+        temporada.estado === "ok" ? `${temporada.victorias}-${temporada.empates}-${temporada.derrotas}` : "";
+    const cuerpoFila =
+        temporada.estado === "ok" ? cuerpoCifras([temporada.goles, temporada.mvps, balance], "13vw") : "";
+
     const lateral = temporada.estado === "ok" && (
         <>
-            <p className="t-cifra text-[min(84px,21vw)] leading-[0.9]">{temporada.rp}</p>
+            <p
+                className={`t-cifra leading-[0.9] ${
+                    String(temporada.rp).length > 4 ? "text-[min(64px,16vw)]" : "text-[min(84px,21vw)]"
+                }`}
+            >
+                {temporada.rp}
+            </p>
             <p className="t-seccion mt-1">RP</p>
             <p className="t-meta mt-3 text-muted">
                 {temporada.partidos} {elegirPlural(temporada.partidos, "partido")}
@@ -148,12 +161,17 @@ export default async function ProfilePage() {
                 {temporada.estado === "ok" && (
                     <div className="mt-6 px-4">
                         <dl className="flex items-start justify-between gap-4 border-t border-border pt-5">
-                            <Cifra valor={temporada.goles} nombre={elegirPlural(temporada.goles, "Gol", "Goles")} />
-                            <Cifra valor={temporada.mvps} nombre={elegirPlural(temporada.mvps, "MVP", "MVPs")} />
                             <Cifra
-                                valor={`${temporada.victorias}-${temporada.empates}-${temporada.derrotas}`}
-                                nombre="V-E-D"
+                                valor={temporada.goles}
+                                nombre={elegirPlural(temporada.goles, "Gol", "Goles")}
+                                cuerpo={cuerpoFila}
                             />
+                            <Cifra
+                                valor={temporada.mvps}
+                                nombre={elegirPlural(temporada.mvps, "MVP", "MVPs")}
+                                cuerpo={cuerpoFila}
+                            />
+                            <Cifra valor={balance} nombre="V-E-D" cuerpo={cuerpoFila} />
                         </dl>
                         <PanenkaDice className="mt-6">{temporada.frase}</PanenkaDice>
                     </div>

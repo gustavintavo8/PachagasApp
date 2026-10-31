@@ -83,7 +83,7 @@ export function ProfileForm({ userId, profile, titular, lateral, children }: Pro
                 <AvatarUpload
                     uid={userId}
                     url={avatarUrl}
-                    fallback={profile?.username || "P"}
+                    fallback={nombre}
                     onUpload={(storagePath) => setAvatarPath(storagePath)}
                 />
                 <div className="min-w-0 flex-1">{lateral}</div>

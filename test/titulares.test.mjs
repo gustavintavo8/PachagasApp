@@ -1455,3 +1455,9 @@ test("charsCartel: un emoji compuesto es un solo grafema", () => {
     assert.equal(charsCartel("🇪🇸"), charsCartel("🔥"));
     assert.equal(charsCartel("á"), charsCartel("a"));
 });
+
+test("cuerpoCifras: una fila normal se queda en su tope y una larga baja para caber", async () => {
+    const { cuerpoCifras } = await import("../src/lib/titulares.ts");
+    assert.equal(cuerpoCifras([9, 2, "4-1-1"], "14vw"), "min(56px, 14vw, calc((min(100vw, 640px) - 64px) / 3.29))");
+    assert.match(cuerpoCifras([1234, 99, "120-30-50"], "13vw"), /\/ 7\.05\)\)$/);
+});

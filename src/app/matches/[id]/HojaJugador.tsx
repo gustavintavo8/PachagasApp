@@ -60,7 +60,7 @@ export function HojaJugador({
                     <div className="flex items-center gap-4">
                         <Avatar
                             src={getAvatarUrl(process.env.NEXT_PUBLIC_SUPABASE_URL!, perfil?.avatar_url ?? null)}
-                            fallback={perfil?.username || "P"}
+                            fallback={nombre}
                             size="xl"
                         />
                         <div className="t-meta min-w-0 space-y-0.5 text-muted">
@@ -96,7 +96,7 @@ export function HojaJugador({
                                     type="button"
                                     variant="danger"
                                     size="lg"
-                                    className="w-full"
+                                    className="h-auto min-h-[52px] w-full py-2"
                                     onClick={() => {
                                         setConfirmando(false);
                                         onExpulsar(jugador);

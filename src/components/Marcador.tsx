@@ -6,11 +6,14 @@ export function Marcador({
     azul,
     children,
     saque,
+    filas = 0,
     className,
 }: {
     rojo: number;
     azul: number;
     children?: ReactNode;
+    /** Filas de goleadores debajo: cada una de más de dos quita alto a las cifras */
+    filas?: number;
     /** Lo que va junto a Panenka, en el lado ancho del campo */
     saque?: ReactNode;
     className?: string;
@@ -22,6 +25,7 @@ export function Marcador({
         "--costura-n": costura,
         "--cifras-rojo": String(rojo).length,
         "--cifras-azul": String(azul).length,
+        "--filas-extra": Math.max(0, filas - 2),
     } as CSSProperties;
 
     const anchoLibre = Math.max(costura, 100 - costura);

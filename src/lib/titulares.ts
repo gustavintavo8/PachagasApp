@@ -1093,6 +1093,13 @@ export function frasePanenkaJugador({ id, ...datos }: DatosJugador & { id: strin
 // ─── Tabla y ficha: piezas pequeñas ───────────────────────────────────────────
 
 /** "2.º", "11.º": para las cifras, donde la palabra no cabe. */
+/** Una fila de cifras (1234, 99, 120-30-50) a un solo cuerpo: el que quepa, sin pasar de 56px. */
+export function cuerpoCifras(valores: Array<string | number>, tope: string): string {
+    const letras = valores.reduce<number>((total, valor) => total + String(valor).length, 0);
+    // 32 de márgenes y 32 de los dos huecos; una cifra de 900 mide 0,47 em
+    return `min(56px, ${tope}, calc((min(100vw, 640px) - 64px) / ${(letras * 0.47).toFixed(2)}))`;
+}
+
 export function ordinalCorto(n: number): string {
     return `${n}.º`;
 }

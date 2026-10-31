@@ -145,7 +145,7 @@ export function PlayersList({
             {visibles.length > 0 ? (
                 <Filas aria-label="Jugadores">
                     {visibles.map((jugador) => {
-                        const nombre = jugador.username || "Desconocido";
+                        const nombre = jugador.username || "Anónimo";
                         const tu = jugador.id === yo;
                         const detalle = [
                             jugador.position && POSICION[jugador.position],

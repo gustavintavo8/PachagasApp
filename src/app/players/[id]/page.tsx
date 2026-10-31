@@ -38,6 +38,7 @@ import {
     titularJugador,
     titularPetoJugador,
     type DatosJugador,
+    cuerpoCifras,
 } from "@/lib/titulares";
 import type { MatchParticipant } from "@/lib/types";
 import { cn, getAvatarUrl } from "@/lib/utils";
@@ -169,7 +170,7 @@ export default async function PlayerProfilePage({
     if (!profile) notFound();
 
     const ahora = new Date();
-    const nombre = profile.username || "Desconocido";
+    const nombre = profile.username || "Anónimo";
     const lineas = lineasCartel(nombre);
     const rp = stats?.elo_rating ?? 1000;
     const partidosJugados = stats?.matches_played ?? 0;
@@ -389,7 +390,10 @@ export default async function PlayerProfilePage({
                     <div className="grid grid-cols-[1.7fr_1fr_auto] gap-x-4">
                         {cifras.map(({ valor, etiqueta }) => (
                             <div key={etiqueta}>
-                                <p className="t-cifra text-[length:min(56px,14vw)] font-black whitespace-nowrap">
+                                <p
+                                    className="t-cifra font-black whitespace-nowrap"
+                                    style={{ fontSize: cuerpoCifras(cifras.map((c) => c.valor), "14vw") }}
+                                >
                                     {valor}
                                 </p>
                                 <p className="t-meta mt-1 text-muted">{etiqueta}</p>

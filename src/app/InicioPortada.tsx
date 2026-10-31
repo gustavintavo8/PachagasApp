@@ -71,9 +71,16 @@ function Telon({ partidoId, equipo }: { partidoId: string; equipo: string }) {
     }, [partidoId, equipo]);
 
     return (
-        <div ref={telon} hidden aria-hidden className="pointer-events-none fixed inset-0 z-30 motion-reduce:hidden">
-            <div className="absolute inset-y-0 left-0 w-1/2 animate-[marcador-abre-azul_220ms_var(--ease-out)_reverse_both] bg-black" />
-            <div className="absolute inset-y-0 right-0 w-1/2 animate-[marcador-abre-rojo_220ms_var(--ease-out)_reverse_both] bg-black" />
+        <div
+            ref={telon}
+            hidden
+            aria-hidden
+            // Se quita al acabar: al volver a Inicio la ruta se reactiva y la animación empezaría de nuevo
+            onAnimationEnd={() => telon.current?.setAttribute("hidden", "")}
+            className="pointer-events-none fixed inset-0 z-30 motion-reduce:hidden"
+        >
+            <div className="absolute inset-y-0 left-0 w-1/2 animate-[telon-izquierda_220ms_var(--ease-out)_both] bg-black" />
+            <div className="absolute inset-y-0 right-0 w-1/2 animate-[telon-derecha_220ms_var(--ease-out)_both] bg-black" />
         </div>
     );
 }
@@ -197,7 +204,7 @@ export function InicioPortada({
         const nombres = (equipo: typeof estado.equipo) =>
             plazas
                 .filter((plaza) => plaza.user_id !== yo && equipoDeTeam(plaza.team) === equipo)
-                .map((plaza) => plaza.nombre ?? "Sin nombre")
+                .map((plaza) => plaza.nombre ?? "Anónimo")
                 .sort((a, b) => a.localeCompare(b, "es"));
         const texto = textoConEquipo({
             equipo: estado.equipo,
@@ -213,7 +220,7 @@ export function InicioPortada({
                 <div className="flex-1 px-4 pb-6 pt-1">
                     <Cabecera pregunta={pregunta} puesto={puesto} />
                     <Respuesta texto={estado.respuesta} />
-                    <p className="mt-3.5 text-balance text-lg font-medium leading-snug">{estado.linea}</p>
+                    <p className="mt-3.5 line-clamp-2 text-balance text-lg font-medium leading-snug">{estado.linea}</p>
                     <p className="t-titular mt-7">{texto.con}</p>
                     {texto.resto && <p className="mt-3 text-pretty text-[17px] font-medium leading-snug">{texto.resto}</p>}
                     {texto.enfrente && <p className="mt-3 text-pretty text-[17px] font-medium leading-snug">{texto.enfrente}</p>}
@@ -251,7 +258,7 @@ export function InicioPortada({
                 <div className="px-4 pt-1">
                     <Cabecera pregunta={pregunta} puesto={puesto} />
                     <Respuesta texto={estado.respuesta} />
-                    <p className="mt-3.5 text-balance text-lg font-medium leading-snug">{estado.linea}</p>
+                    <p className="mt-3.5 line-clamp-2 text-balance text-lg font-medium leading-snug">{estado.linea}</p>
 
                     <div className="mt-5 flex flex-wrap items-baseline justify-between gap-x-2">
                         <p className="t-titular whitespace-nowrap text-[length:min(80px,20vw)]">{faltanTexto}</p>

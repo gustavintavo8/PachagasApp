@@ -35,6 +35,9 @@ interface NotificationBellProps {
     userId: string;
 }
 
+// Se leen las últimas: de ahí para arriba no sabemos cuántas son
+const LIMITE = 20;
+
 // Los tipos que manda src/app/matches/actions.ts. Lo malo va en tarjeta amarilla.
 const iconos: Record<string, { Icono: LucideIcon; aviso?: boolean }> = {
     join: { Icono: UserPlus },
@@ -63,7 +66,7 @@ export function NotificationBell({ userId }: NotificationBellProps) {
             .select("*")
             .eq("user_id", userId)
             .order("created_at", { ascending: false })
-            .limit(20);
+            .limit(LIMITE);
         setFallo(!!error);
         if (!error) setNotifications((data as Notification[]) || []);
         setLoading(false);
@@ -129,7 +132,13 @@ export function NotificationBell({ userId }: NotificationBellProps) {
                 onClick={abrir}
                 aria-haspopup="dialog"
                 aria-expanded={open}
-                aria-label={unreadCount > 0 ? `Notificaciones, ${unreadCount} sin leer` : "Notificaciones"}
+                aria-label={
+                    unreadCount >= LIMITE
+                        ? `Notificaciones, ${LIMITE} o más sin leer`
+                        : unreadCount > 0
+                          ? `Notificaciones, ${unreadCount} sin leer`
+                          : "Notificaciones"
+                }
                 className="pulsable relative flex h-11 w-11 items-center justify-center text-foreground"
             >
                 <Bell size={18} strokeWidth={1.75} aria-hidden="true" />
@@ -222,14 +231,16 @@ function FilaNotificacion({ n }: { n: Notification }) {
             />
             <div className="min-w-0 flex-1">
                 <div className="flex items-baseline justify-between gap-3">
-                    <p className={n.read ? "min-w-0 truncate font-medium" : "min-w-0 truncate font-bold"}>
+                    <p
+                        className={`line-clamp-2 min-w-0 [overflow-wrap:anywhere] ${n.read ? "font-medium" : "font-bold"}`}
+                    >
                         {n.title}
                     </p>
                     <span className="t-meta flex-none tabular-nums text-muted">
                         {timeAgo(n.created_at)}
                     </span>
                 </div>
-                <p className="t-meta text-muted">{n.message}</p>
+                <p className="t-meta text-muted [overflow-wrap:anywhere]">{n.message}</p>
             </div>
             {!n.read && (
                 <>

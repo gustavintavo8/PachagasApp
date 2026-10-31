@@ -86,6 +86,25 @@
   }
 }
 
+/* El telón de Inicio: keyframes propios porque con reverse la curva también se invierte y arranca lenta */
+@keyframes telon-izquierda {
+  from {
+    clip-path: inset(0);
+  }
+  to {
+    clip-path: inset(0 100% 0 0);
+  }
+}
+
+@keyframes telon-derecha {
+  from {
+    clip-path: inset(0);
+  }
+  to {
+    clip-path: inset(0 0 0 100%);
+  }
+}
+
 /* En una capa para que pt-*, -mt-* y compañía puedan ajustarlo desde fuera */
 @layer components {
   .marcador {
@@ -137,7 +156,8 @@
     --cuerpo: min(
       270px,
       68cqw,
-      32svh, /* en un teléfono bajo, la votación no se va a la segunda pantalla */
+      /* En un teléfono bajo o con muchos goleadores, la votación no se va a la segunda pantalla */
+      max(150px, calc(32svh - var(--filas-extra, 0) * 33px)),
       calc(var(--campo-rojo) / (var(--cifras-rojo) * var(--ancho-cifra))),
       calc(var(--campo-azul) / (var(--cifras-azul) * var(--ancho-cifra)))
     );
@@ -217,6 +237,7 @@
   .marcador-frase {
     grid-column: 2;
     min-width: 0;
+    overflow-wrap: anywhere; /* un apellido de 30 letras no cabe en medio campo */
     padding: 6px 16px 10px calc(var(--cara) / 2 + 10px);
   }
 
@@ -261,6 +282,12 @@
 
 ::view-transition {
   pointer-events: none;
+}
+
+/* Lo de antes se va con el mismo tiempo y la misma curva */
+::view-transition-old(root) {
+  animation-duration: 200ms;
+  animation-timing-function: var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1));
 }
 
 ::view-transition-new(.detalle-entra) {

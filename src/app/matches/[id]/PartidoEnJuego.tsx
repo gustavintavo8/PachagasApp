@@ -127,7 +127,7 @@ export function PartidoEnJuego({
                         {jugadores.length} de {match.max_players}
                     </p>
                 </div>
-                <div className="mt-1 flex items-end justify-between gap-x-3">
+                <div className="mt-1 flex flex-wrap items-end justify-between gap-x-3">
                     <p
                         className={cn(
                             "t-titular flex-none whitespace-nowrap font-black leading-[0.95]",
@@ -138,7 +138,13 @@ export function PartidoEnJuego({
                         {respuesta}
                     </p>
                     {nota && (
-                        <p className="min-w-0 flex-1 pb-2 text-right text-[15px] leading-tight text-muted [overflow-wrap:anywhere]">
+                        // Con un nombre largo no cabe al lado de la respuesta: va debajo, en una línea
+                        <p
+                            className={cn(
+                                "min-w-0 text-[15px] leading-tight text-muted [overflow-wrap:anywhere]",
+                                nota.length > 24 ? "basis-full pt-1" : "flex-1 pb-2 text-right"
+                            )}
+                        >
                             {nota}
                         </p>
                     )}

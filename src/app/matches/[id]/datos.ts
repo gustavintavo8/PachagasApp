@@ -24,7 +24,7 @@ export function enlaceRepetir(match: Pick<Match, "location" | "max_players">): s
 }
 
 export function nombreDe(p: Participante): string {
-    return p.profiles?.username || "Desconocido";
+    return p.profiles?.username || "Anónimo";
 }
 
 /** Quién puede hacer qué. Las mismas reglas que las actions: la interfaz solo las refleja. */

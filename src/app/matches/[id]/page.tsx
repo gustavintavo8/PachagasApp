@@ -150,7 +150,7 @@ export default async function MatchPage({
                 participants={seasonalParticipants}
                 seasonName={season?.name ?? "Temporada"}
                 currentUserId={user.id}
-                organizerName={organizerProfile?.username || "Desconocido"}
+                organizerName={organizerProfile?.username || "Anónimo"}
                 organizerAvatarUrl={organizerProfile?.avatar_url || null}
                 currentUserProfile={{
                     username: currentProfile?.username ?? null,
