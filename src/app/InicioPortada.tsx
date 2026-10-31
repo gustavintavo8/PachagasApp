@@ -102,7 +102,7 @@ export function InicioPortada({
     miNombre: string | null;
     /** Del servidor: el mismo instante en los dos lados, para no romper la hidratación. */
     ahora: string;
-    /** Mismas reglas que el detalle del partido: abierto, sin empezar y sin organizarlo tú. */
+    /** Mismas reglas que el detalle del partido: abierto, sin organizarlo tú, y sin peto si ya empezó. */
     puedeBorrarse: boolean;
     /** Quienes han jugado esta temporada, los que más juegan primero. */
     candidatos: { id: string; nombre: string }[];

@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { conDestino, rutaInterna } from "../src/lib/destino.ts";
 import { barajarEquipos, balanceTeams } from "../src/lib/team-balancer.ts";
-import { puertaDeError, ERROR_CONEXION, ERROR_GENERICO } from "../src/app/login/errores.ts";
+import { errorEnEspanol, puertaDeError, ERROR_CONEXION, ERROR_GENERICO } from "../src/app/login/errores.ts";
 import {
     avisoBorrarse,
     frasePuerta,
@@ -20,7 +20,11 @@ test("rutaInterna acepta rutas de la app con su consulta", () => {
 });
 
 test("rutaInterna no deja salir de la app", () => {
-    for (const malo of ["https://evil.com", "//evil.com", "/\\evil.com", "\\\\evil.com", "evil.com", "", null, undefined, 3]) {
+    const malos = [
+        "https://evil.com", "//evil.com", "/\\evil.com", "\\\\evil.com", "evil.com", "", null, undefined, 3,
+        "/..//evil.com", "/.//evil.com", "/%2e//evil.com", "/%2E%2E//evil.com", "/x/..//evil.com",
+    ];
+    for (const malo of malos) {
         assert.equal(rutaInterna(malo), null, String(malo));
     }
 });
@@ -91,6 +95,14 @@ test("barajar cuenta a quien entró después de hacer los equipos", () => {
     assert.equal(nuevo.assignments.length, 14);
 });
 
+test("barajar no se queda sin reparto si afinar siempre lleva al actual", () => {
+    const cuatro = [1200, 1150, 1050, 1000].map((elo_rating, i) => ({ user_id: `m${i}`, position: "MID", elo_rating }));
+    const actual = balanceTeams(cuatro);
+    const nuevo = barajarEquipos(cuatro, conEquipos(actual));
+    assert.ok(nuevo);
+    assert.equal(mismoReparto(actual, nuevo), false);
+});
+
 test("barajar con dos no tiene otro reparto, y lo dice", () => {
     const dos = plantilla.slice(2, 4);
     assert.equal(barajarEquipos(dos, conEquipos(balanceTeams(dos))), null);
@@ -106,8 +118,8 @@ test("una goleada nunca suena a que ganó el que perdió", () => {
 });
 
 test("pasado y sin rival no pide resultado", () => {
-    assert.equal(respuestaPartido({ status: "open", faltan: 13, pasado: true, jugadores: 1 }), "No se jugó");
-    assert.equal(respuestaPartido({ status: "open", faltan: 14, pasado: true, jugadores: 0 }), "No se jugó");
+    assert.equal(respuestaPartido({ status: "open", faltan: 13, pasado: true, jugadores: 1 }), "Faltan jugadores");
+    assert.equal(respuestaPartido({ status: "open", faltan: 14, pasado: true, jugadores: 0 }), "Faltan jugadores");
     assert.equal(respuestaPartido({ status: "open", faltan: 12, pasado: true, jugadores: 2 }), "Falta el resultado");
     assert.equal(respuestaPartido({ status: "open", faltan: 13, jugadores: 1 }), "Faltan 13");
 });
@@ -129,6 +141,7 @@ test("el portero no contesta «no me suena» a todo", () => {
     assert.equal(puertaDeError("Este email ya está registrado. Inicia sesión."), "repetido");
     assert.equal(puertaDeError("Debes confirmar tu email antes de iniciar sesión. Revisa tu bandeja de entrada."), "confirmar");
     assert.equal(puertaDeError("Demasiados intentos. Espera un minuto."), "espera");
+    assert.equal(puertaDeError("El apodo debe tener entre 2 y 30 caracteres"), "registro");
     assert.equal(puertaDeError(ERROR_CONEXION), "averia");
     assert.equal(puertaDeError(ERROR_GENERICO), "averia");
     for (const contexto of ["repetido", "confirmar", "espera", "averia"]) {
@@ -136,6 +149,19 @@ test("el portero no contesta «no me suena» a todo", () => {
     }
 });
 
+test("el error del apodo llega tal cual", () => {
+    const mensaje = "El apodo debe tener entre 2 y 30 caracteres";
+    assert.equal(errorEnEspanol(mensaje), mensaje);
+});
+
 test("las fotos no dan por jugado un partido que aún no se ha jugado", () => {
     for (let i = 0; i < 40; i++) assert.doesNotMatch(fraseVacio("fotos", `p${i}`), /pasó|hizo/);
+});
+
+test("el chat vacío vale antes y después del partido", () => {
+    for (let i = 0; i < 40; i++) assert.doesNotMatch(fraseVacio("chat", `p${i}`), /después del partido|falle un gol/);
+});
+
+test("una temporada acabada no promete futuro", () => {
+    for (let i = 0; i < 40; i++) assert.doesNotMatch(fraseVacio("temporada-pasada", `t${i}`), /todavía|aún|irán|durará/i);
 });

@@ -1354,7 +1354,8 @@ export function elegidoPasado(valor: string, ahora: Fecha): boolean {
 /**
  * La línea enorme del partido. El peto solo manda cuando ya no falta nadie:
  * mientras haya huecos, lo que hay que saber es cuántos.
- * Pasado y con menos de dos no hay resultado que pedir: no se pudo jugar.
+ * Pasado y con menos de dos no hay resultado que pedir. Sin decir que no se jugó:
+ * un partido creado en pasado, para apuntar uno ya jugado, empieza así.
  */
 export function respuestaPartido({
     status,
@@ -1370,7 +1371,7 @@ export function respuestaPartido({
     jugadores?: number;
 }): string {
     if (status === "cancelled") return "Cancelado";
-    if (pasado && status !== "finished") return jugadores < 2 ? "No se jugó" : "Falta el resultado";
+    if (pasado && status !== "finished") return jugadores < 2 ? "Faltan jugadores" : "Falta el resultado";
     if (status === "closed") return equipo ? `De ${equipo}.` : "Cerrado";
     if (faltan <= 0 && equipo) return `De ${equipo}.`;
     return textoFaltan(faltan);
@@ -1470,6 +1471,12 @@ const VACIOS = {
         "Página en blanco. No durará.",
         "Aquí irán los partidos. Y las excusas.",
     ],
+    "temporada-pasada": [
+        "Se jugó sin ti. Se notó poco.",
+        "Temporada cerrada. Nada que reprochar.",
+        "Aquella temporada no contó contigo. Ni tú con ella.",
+        "Ni un partido. Y ya no hay remedio.",
+    ],
     goles: [
         "Goles: nadie.",
         "Ni un gol apuntado. Las redes, tranquilas.",
@@ -1490,9 +1497,9 @@ const VACIOS = {
     ],
     chat: [
         "Nadie ha dicho nada. Disfrutad, que dura poco.",
-        "Silencio. Se irá en cuanto alguien falle un gol.",
+        "Silencio. Aquí nadie se atreve a empezar.",
         "Aquí no habla nadie. Primera vez.",
-        "Sin mensajes. Las excusas llegarán después del partido.",
+        "Sin mensajes. Las excusas, para otro día.",
     ],
     ranking: [
         "Tabla vacía. Todos líderes, por una vez.",

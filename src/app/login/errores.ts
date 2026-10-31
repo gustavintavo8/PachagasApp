@@ -12,7 +12,7 @@ const TRADUCCIONES: [RegExp, string][] = [
     [/provider is not enabled/i, "Ese acceso no está disponible ahora mismo."],
 ];
 
-const ESPANOL = /[áéíóúñ]|^Demasiados/i;
+const ESPANOL = /[áéíóúñ]|^Demasiados|^El apodo/i;
 
 export const ERROR_GENERICO = "Algo salió mal. Inténtalo de nuevo.";
 export const ERROR_CONEXION = "No hemos podido conectar. Inténtalo de nuevo.";
@@ -30,6 +30,7 @@ export function puertaDeError(mensaje: string): ContextoPuerta {
     if (/ya está registrado/i.test(mensaje)) return "repetido";
     if (/confirmar tu email/i.test(mensaje)) return "confirmar";
     if (/^Demasiados/.test(mensaje)) return "espera";
+    if (/^El apodo/.test(mensaje)) return "registro";
     return "rechazo";
 }
 

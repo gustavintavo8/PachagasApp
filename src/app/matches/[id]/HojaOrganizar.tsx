@@ -82,7 +82,7 @@ export function HojaOrganizar({
                     <Fila
                         inicio={<Ban {...ICONO} className="text-tarjeta" />}
                         nombre={<span className="text-tarjeta">Cancelar partido</span>}
-                        detalle={pasado && pocos ? "No se pudo jugar: así queda cerrado" : undefined}
+                        detalle={pasado && pocos ? "Si no se jugó, así queda cerrado" : undefined}
                         onClick={() => onAbrir("cancelar")}
                     />
                 )}

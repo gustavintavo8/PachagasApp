@@ -9,7 +9,7 @@
 [![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)](https://nextjs.org/)
 [![Supabase](https://img.shields.io/badge/Supabase-Database%20%26%20Auth-3fcf8e?logo=supabase)](https://supabase.com/)
 [![TypeScript](https://img.shields.io/badge/TypeScript-5-3178c6?logo=typescript)](https://typescriptlang.org/)
-[![Playwright](https://img.shields.io/badge/Playwright-87%20E2E%20tests-45ba4b?logo=playwright)](https://playwright.dev/)
+[![Playwright](https://img.shields.io/badge/Playwright-88%20E2E%20tests-45ba4b?logo=playwright)](https://playwright.dev/)
 [![PWA](https://img.shields.io/badge/PWA-Installable-5a0fc8?logo=pwa)](https://web.dev/progressive-web-apps/)
 
 [Demo](#-demo) · [Flujos](#-flujos) · [Diseño](#-diseño) · [Highlights](#-highlights-técnicos) · [Características](#-características) · [Tech Stack](#️-tech-stack) · [Decisiones Técnicas](#-decisiones-técnicas) · [Instalación](#-instalación) · [Deploy](#-deploy)
@@ -105,7 +105,7 @@ Especificación completa en [docs/superpowers/specs/2026-10-31-rediseno-focos-de
 ## ⚡ Highlights técnicos
 
 - **ELO + balanceo en 3 fases** — Draft posicional → igualación de tamaño → swap-optimisation iterativo. Converge en óptimo local en 2-3 pasadas.
-- **Server Components + Server Actions** — Las páginas de lectura pesada (perfil, ranking) no envían JS al cliente. Solo se hidratan los componentes interactivos (chat, notificaciones, votación). Las gráficas son SVG renderizado en servidor.
+- **Server Components + Server Actions** — Los datos se leen en servidor y las pantallas interactivas son Client Components. Las gráficas son SVG renderizado en servidor.
 - **Realtime sobre CDC de PostgreSQL** — Chat y notificaciones via Supabase Realtime, sin polling. La misma conexión que la base de datos.
 - **RLS como capa de autorización** — Todas las reglas de acceso viven en PostgreSQL como políticas declarativas, no en la capa de aplicación.
 - **Rate limiting por token bucket** — Protección contra spam en server actions críticos implementada desde cero, sin librerías externas.
@@ -166,7 +166,7 @@ Especificación completa en [docs/superpowers/specs/2026-10-31-rediseno-focos-de
 | 📱 **PWA** | Instalable en el móvil con manifest. `public/sw.js` existe, pero no está registrado |
 | 🔦 **Diseño Focos** | Negro de campo de noche; los petos rojo y azul inundan la pantalla cuando hay equipos o resultado |
 | 🛡️ **Rate Limiting** | Protección contra spam en acciones críticas |
-| 🧪 **E2E Tests** | 87 tests de Playwright, con comprobaciones de accesibilidad (axe-core). Los marcados `@smoke` y `@mobile` se repiten en Pixel 5 y iPhone 13 |
+| 🧪 **E2E Tests** | 88 tests de Playwright, con comprobaciones de accesibilidad (axe-core). Los marcados `@smoke` y `@mobile` se repiten en Pixel 5 y iPhone 13 |
 
 ---
 
@@ -356,7 +356,7 @@ Firebase fue descartado por dos razones concretas: su modelo de datos (documento
 
 ### Por qué Next.js App Router
 
-El App Router permite mezclar Server Components y Client Components en el mismo árbol. Las páginas de perfil, ranking y detalle de partido son mayoritariamente lecturas: se renderizan en servidor (sin JavaScript en cliente, sin spinner de carga), y solo los componentes interactivos — chat, campana de notificaciones, votación — se hidratan como Client Components. Esto da tiempos de carga percibidos bajos sin sacrificar interactividad. Los Server Actions eliminan la necesidad de una API REST propia para las mutaciones.
+El App Router permite mezclar Server Components y Client Components en el mismo árbol. Las páginas de perfil, ranking y detalle de partido son mayoritariamente lecturas: los datos se leen en servidor, con un esqueleto mientras llegan, y solo los componentes interactivos — chat, campana de notificaciones, votación — se hidratan como Client Components. Esto da tiempos de carga percibidos bajos sin sacrificar interactividad. Los Server Actions eliminan la necesidad de una API REST propia para las mutaciones.
 
 ### Algoritmo de balanceo de equipos
 

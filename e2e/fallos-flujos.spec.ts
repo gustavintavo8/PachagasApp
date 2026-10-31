@@ -73,6 +73,10 @@ test.describe("Volver a donde ibas", () => {
             await page.goto("/login?next=https://example.com/");
             await entrar(page, usuario.email);
             await page.waitForURL("http://localhost:3000/");
+
+            // Con sesión ya abierta lo redirige el middleware, y «/..//» se resolvería a «//»
+            await page.goto("/login?next=/..//example.com");
+            await page.waitForURL("http://localhost:3000/");
         } finally {
             await deleteDummyUsers([usuario.id]);
         }
@@ -96,6 +100,14 @@ test.describe("Volver a donde ibas", () => {
             await page.waitForURL("**/players/**");
             await barra.getByRole("link", { name: "Partido", exact: true }).click();
             await page.waitForURL(`**/matches/${matchId}`);
+
+            // El atrás del sistema no es venir de Ranking: la flecha no puede prometerlo
+            await page.goto(`/matches/${matchId}`);
+            await page.waitForLoadState("networkidle");
+            await page.goto("/leaderboard");
+            await page.goBack();
+            await page.waitForURL(`**/matches/${matchId}`);
+            await expect(barra.locator("a:has(svg)").first()).toHaveText("Partidos");
         } finally {
             await deleteMatch(matchId);
             await deleteDummyUsers([usuario.id]);
@@ -155,8 +167,15 @@ test.describe("Borrarse", () => {
         const page = await context.newPage();
         try {
             await irAlLogin(page, admin.email);
+            await page.setViewportSize({ width: 375, height: 812 });
             const matchPage = new MatchPage(page);
             await matchPage.goto(matchId);
+
+            // Organizar, Me borro y Buscar: las tres sin pisarse
+            const borrarse = await matchPage.leaveButton.boundingBox();
+            const buscar = await page.getByRole("link", { name: /^Buscar \d+ por WhatsApp/ }).boundingBox();
+            expect(borrarse!.y + borrarse!.height).toBeLessThanOrEqual(buscar!.y);
+
             await matchPage.leave();
         } finally {
             await context.close();
@@ -188,17 +207,33 @@ test.describe("Borrarse", () => {
         }
     });
 
-    test("un partido ya empezado no tiene Me borro", async ({ page }) => {
+    test("ya empezado, con peto no hay Me borro", async ({ page }) => {
         const testUserId = await getTestUserId();
         const [organizador] = await createDummyUsers(1);
         const matchId = await createTestMatch({ createdBy: organizador });
-        await seedParticipants(matchId, [{ userId: organizador }, { userId: testUserId }]);
+        await seedParticipants(matchId, [{ userId: organizador, team: "A" }, { userId: testUserId, team: "B" }]);
         await ponerEnPasado(matchId);
         try {
             const matchPage = new MatchPage(page);
             await matchPage.goto(matchId);
             await expect(page.getByText("Falta el resultado")).toBeVisible();
             await expect(matchPage.leaveButton).toHaveCount(0);
+        } finally {
+            await deleteMatch(matchId);
+            await deleteDummyUsers([organizador]);
+        }
+    });
+
+    test("ya empezado y sin peto, apuntarse se puede deshacer", async ({ page }) => {
+        const [organizador] = await createDummyUsers(1);
+        const matchId = await createTestMatch({ createdBy: organizador });
+        await seedParticipants(matchId, [{ userId: organizador }]);
+        await ponerEnPasado(matchId);
+        try {
+            const matchPage = new MatchPage(page);
+            await matchPage.goto(matchId);
+            await matchPage.join();
+            await matchPage.leave();
         } finally {
             await deleteMatch(matchId);
             await deleteDummyUsers([organizador]);
@@ -252,7 +287,7 @@ test.describe("Organizar", () => {
         try {
             const matchPage = new MatchPage(page);
             await matchPage.goto(matchId);
-            await expect(page.getByText("No se jugó")).toBeVisible();
+            await expect(page.getByText("Faltan jugadores")).toBeVisible();
             await matchPage.openOrganizer();
             const hoja = page.getByRole("dialog", { name: "Organizar" });
             await expect(hoja.getByText("Hacen falta dos jugadores")).toBeVisible();
@@ -378,6 +413,12 @@ test.describe("Borrar la cuenta", () => {
         await db.from("match_photos").insert({ match_id: ajeno, user_id: usuario.id, photo_url: publica.publicUrl });
         await db.from("match_comments").insert({ match_id: ajeno, user_id: usuario.id, content: "Hola" });
 
+        // Una fila con la URL de la foto de otro no le da permiso para borrarla
+        const rutaAjena = `${ajeno}/${organizador.id}-1.png`;
+        await db.storage.from("match_photos").upload(rutaAjena, imagen);
+        const { data: ajena } = db.storage.from("match_photos").getPublicUrl(rutaAjena);
+        await db.from("match_photos").insert({ match_id: ajeno, user_id: usuario.id, photo_url: ajena.publicUrl });
+
         try {
             await irAlLogin(page, usuario.email);
             await page.goto("/profile");
@@ -385,16 +426,18 @@ test.describe("Borrar la cuenta", () => {
             await page.getByPlaceholder("ELIMINAR").fill("ELIMINAR");
             await page.getByRole("button", { name: "Confirmar borrado" }).click();
             await page.waitForURL("**/login**");
+            await expect(page.locator('input[type="email"]')).toBeVisible();
 
             const { data: perfil } = await db.from("profiles").select("id").eq("id", usuario.id).maybeSingle();
             expect(perfil).toBeNull();
             const { data: avatares } = await db.storage.from("avatars").list(usuario.id);
             expect(avatares ?? []).toHaveLength(0);
             const { data: fotos } = await db.storage.from("match_photos").list(ajeno);
-            expect(fotos ?? []).toHaveLength(0);
+            expect((fotos ?? []).map((f) => f.name)).toEqual([`${organizador.id}-1.png`]);
             const { data: partido } = await db.from("matches").select("created_by").eq("id", propio).single();
             expect(partido?.created_by).toBeNull();
         } finally {
+            await db.storage.from("match_photos").remove([rutaAjena]);
             await deleteMatch(ajeno);
             await deleteMatch(propio);
             await deleteDummyUsers([organizador.id]);

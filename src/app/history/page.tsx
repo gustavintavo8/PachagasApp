@@ -162,7 +162,7 @@ export default async function HistoryPage({
                 ) : (
                     <>
                         <PanenkaDice size={44} className="mt-5">
-                            {fraseVacio("historial", season.id)}
+                            {fraseVacio(season.status === "active" ? "historial" : "temporada-pasada", season.id)}
                         </PanenkaDice>
                         {season.status === "active" && (
                             <Link href="/matches" className={buttonClasses("outline", "lg", "mt-5 w-full")}>

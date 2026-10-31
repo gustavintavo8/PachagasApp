@@ -95,9 +95,7 @@ export default function LoginPage() {
         try {
             // Google vuelve a /auth/callback, y esa URL no admite parámetros: el destino espera en una cookie
             const destino = destinoPedido();
-            if (destino) {
-                document.cookie = `${COOKIE_DESTINO}=${encodeURIComponent(destino)}; Path=/; Max-Age=600; SameSite=Lax`;
-            }
+            document.cookie = `${COOKIE_DESTINO}=${encodeURIComponent(destino ?? "")}; Path=/; Max-Age=${destino ? 600 : 0}; SameSite=Lax`;
 
             const supabase = createBrowserClient();
             const { data, error: oauthError } = await supabase.auth.signInWithOAuth({

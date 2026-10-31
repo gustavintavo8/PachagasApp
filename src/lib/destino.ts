@@ -12,7 +12,9 @@ export function rutaInterna(destino: unknown): string | null {
     if (typeof destino !== "string" || !destino.startsWith("/") || destino.includes("\\")) return null;
     try {
         const url = new URL(destino, BASE);
-        if (url.origin !== BASE || url.pathname === "/" || PUERTA.test(url.pathname)) return null;
+        // «/..//evil.com» se resuelve a «//evil.com» sin cambiar de origen, y al redirigir sí saldría
+        if (url.origin !== BASE || url.pathname.startsWith("//")) return null;
+        if (url.pathname === "/" || PUERTA.test(url.pathname)) return null;
         return `${url.pathname}${url.search}`;
     } catch {
         return null;

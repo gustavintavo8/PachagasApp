@@ -6,10 +6,27 @@ import { createAdminClient } from "@/lib/supabase/admin";
 import { rateLimit } from "@/lib/rate-limit";
 import type { ActionResult } from "@/lib/types";
 
-/** Lo que va detrás del nombre del bucket en la URL pública. */
-function rutaEnBucket(url: string, bucket: string): string | null {
-    const [, ruta] = url.split(`/${bucket}/`);
-    return ruta ? decodeURIComponent(ruta.split("?")[0]) : null;
+const BUCKET_FOTOS = "match_photos";
+
+/**
+ * La ruta de una foto propia, sacada de su URL pública. photo_url la escribe el cliente,
+ * así que solo vale lo que tenga la forma de lo que sube MatchPhotos: <partido>/<usuario>-<fecha>.<ext>.
+ */
+function rutaDeFotoPropia(url: string, uid: string): string | null {
+    try {
+        const ruta = decodeURIComponent(url.split(`/${BUCKET_FOTOS}/`)[1]?.split("?")[0] ?? "");
+        const [partido, fichero, ...sobra] = ruta.split("/");
+        return partido && fichero?.startsWith(`${uid}-`) && sobra.length === 0 ? ruta : null;
+    } catch {
+        return null;
+    }
+}
+
+async function borrarFicheros(admin: ReturnType<typeof createAdminClient>, bucket: string, rutas: string[]) {
+    if (rutas.length === 0) return;
+    const { error } = await admin.storage.from(bucket).remove(rutas);
+    // La cuenta ya no está: se avisa en el log, pero no al usuario
+    if (error) console.error("[data-actions] deleteAccount storage error:", bucket, error.message);
 }
 
 async function requireProfileDataAccess(
@@ -38,24 +55,27 @@ export async function deleteAccount(): Promise<ActionResult> {
     const admin = createAdminClient();
 
     // El cascade no llega a los ficheros, y se lleva las filas que dicen cuáles son: se leen antes.
-    const [{ data: avatares }, { data: fotos }] = await Promise.all([
+    const [avatares, fotos, mvps] = await Promise.all([
         admin.storage.from("avatars").list(currentUser.id, { limit: 1000 }),
-        admin.from("match_photos").select("photo_url").eq("user_id", currentUser.id),
+        admin.from(BUCKET_FOTOS).select("photo_url").eq("user_id", currentUser.id),
+        admin.from("match_participants").select("match_id").eq("user_id", currentUser.id).eq("is_mvp", true),
     ]);
+    if (avatares.error || fotos.error || mvps.error) {
+        return { success: false, error: "No se pudo eliminar la cuenta. Inténtalo de nuevo." };
+    }
 
     // Borra el usuario de auth.users; el ON DELETE CASCADE limpia profiles y todo lo dependiente.
     const { error } = await admin.auth.admin.deleteUser(currentUser.id);
     if (error) return { success: false, error: "No se pudo eliminar la cuenta. Inténtalo de nuevo." };
 
-    // La cuenta ya no está: si esto falla se avisa en el log, pero no al usuario.
-    const borrados = await Promise.all([
-        admin.storage.from("avatars").remove((avatares ?? []).map((f) => `${currentUser.id}/${f.name}`)),
-        admin.storage
-            .from("match_photos")
-            .remove((fotos ?? []).flatMap((f) => rutaEnBucket(f.photo_url, "match_photos") ?? [])),
+    await Promise.all([
+        borrarFicheros(admin, "avatars", avatares.data.map((f) => `${currentUser.id}/${f.name}`)),
+        borrarFicheros(admin, BUCKET_FOTOS, fotos.data.flatMap((f) => rutaDeFotoPropia(f.photo_url, currentUser.id) ?? [])),
     ]);
-    for (const { error: errorFichero } of borrados) {
-        if (errorFichero) console.error("[data-actions] deleteAccount storage error:", errorFichero.message);
+
+    // Sin su fila, un partido resuelto parecería sin resolver y los votos que quedan elegirían a otro MVP
+    if (mvps.data.length > 0) {
+        await admin.from("mvp_votes").delete().in("match_id", mvps.data.map((m) => m.match_id));
     }
 
     await supabase.auth.signOut();

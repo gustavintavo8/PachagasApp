@@ -211,8 +211,12 @@ export function barajarEquipos(
     const tope = balanceTeams(participants).eloDelta + HOLGURA_RP;
 
     let mejor: BalanceResult | null = null;
+    // Con pocos jugadores afinar puede llevar siempre al reparto actual: esto es lo que había antes de afinar
+    let reserva: BalanceResult | null = null;
     for (let intento = 0; intento < INTENTOS_BARAJAR; intento++) {
         const { teamA, teamB } = repartoAlAzar(participants, azar);
+        if (!reserva && huellaReparto(teamA, teamB) !== huellaActual) reserva = resultado([...teamA], [...teamB]);
+
         afinar(teamA, teamB);
         if (huellaReparto(teamA, teamB) === huellaActual) continue;
 
@@ -220,5 +224,5 @@ export function barajarEquipos(
         if (reparto.eloDelta <= tope) return reparto;
         if (!mejor || reparto.eloDelta < mejor.eloDelta) mejor = reparto;
     }
-    return mejor;
+    return mejor ?? reserva;
 }

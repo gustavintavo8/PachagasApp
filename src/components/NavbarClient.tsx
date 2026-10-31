@@ -84,19 +84,17 @@ export function NavbarClient({ enlaces, acciones }: NavbarClientProps) {
   const parametros = useSearchParams();
   const router = useRouter();
 
-  // La ruta anterior dentro de la app. Se recuerda al renderizar, no en un efecto, para que
-  // la flecha salga bien desde el primer pintado.
-  const [ruta, setRuta] = useState({
-    actual: pathname,
-    anterior: null as string | null,
-    origenes: {} as Record<string, string>,
-  });
-  if (ruta.actual !== pathname) {
-    const [desde, aqui] = [pantalla(ruta.actual), pantalla(pathname)];
+  // El camino dentro de la app. Se recuerda al renderizar, no en un efecto, para que la flecha
+  // salga bien desde el primer pintado. Volver al penúltimo es ir atrás: no cuenta como venir de allí.
+  const [ruta, setRuta] = useState({ pila: [pathname], origenes: {} as Record<string, string> });
+  const anterior = ruta.pila.at(-2);
+  if (ruta.pila.at(-1) !== pathname) {
+    const actual = ruta.pila[ruta.pila.length - 1];
+    const vuelve = anterior === pathname;
+    const [desde, aqui] = [pantalla(actual), pantalla(pathname)];
     setRuta({
-      actual: pathname,
-      anterior: ruta.actual,
-      origenes: desde && aqui && desde.nivel < aqui.nivel ? { ...ruta.origenes, [pathname]: ruta.actual } : ruta.origenes,
+      pila: vuelve ? ruta.pila.slice(0, -1) : [...ruta.pila, pathname],
+      origenes: !vuelve && desde && aqui && desde.nivel < aqui.nivel ? { ...ruta.origenes, [pathname]: actual } : ruta.origenes,
     });
   }
 
@@ -113,7 +111,7 @@ export function NavbarClient({ enlaces, acciones }: NavbarClientProps) {
             href={atras.href}
             onClick={(e) => {
               // Volver de verdad: la lista conserva su búsqueda en la URL y su scroll
-              if (atras.href.split("?")[0] !== ruta.anterior) return;
+              if (atras.href.split("?")[0] !== anterior) return;
               e.preventDefault();
               router.back();
             }}

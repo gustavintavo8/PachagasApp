@@ -88,12 +88,15 @@ export function PartidoEnJuego({
         ahora,
     });
 
-    const sePuedeBorrar = abierto && !!yo && !isOrganizer && !pasado;
+    const sePuedeBorrar = abierto && !!yo && !isOrganizer && !(pasado && yo.team !== null);
     const aviso = avisoBorrarse({ equipo: yo ? equipoDeTeam(yo.team) : null, lleno: faltan === 0 });
     const sePuedeApuntar = abierto && !yo && faltan > 0;
     const seBusca = abierto && !!yo && faltan > 0 && !pasado;
     const principal = sePuedeApuntar ? "apuntarse" : seBusca ? "buscar" : null;
     const hayBarra = puede.gestiona || sePuedeBorrar || principal !== null;
+    // Un admin apuntado a un partido ajeno tiene tres acciones: en una fila, «Buscar 3 por WhatsApp» no cabe
+    const borrarseAparte = sePuedeBorrar && puede.gestiona && principal !== null;
+    const pedirBorrarme = () => (aviso ? setConfirmando(true) : onBorrarme());
 
     const rojo = jugadores.filter((p) => p.team === "A");
     const azul = jugadores.filter((p) => p.team === "B");
@@ -206,7 +209,22 @@ export function PartidoEnJuego({
                 <div
                     className="sticky bottom-[var(--barra-inferior)] z-30 mt-4 border-t border-border bg-background px-4 pb-5 pt-2 md:pb-2"
                 >
-                    {sePuedeBorrar && textoSalida && <p className="t-meta pb-1.5 text-muted">{textoSalida}</p>}
+                    {sePuedeBorrar && (textoSalida || borrarseAparte) && (
+                        <div className="flex items-center justify-between gap-3 pb-1.5">
+                            <p className="t-meta text-muted">{textoSalida}</p>
+                            {borrarseAparte && (
+                                <Button
+                                    type="button"
+                                    size="sm"
+                                    variant="outline"
+                                    disabled={apuntandose}
+                                    onClick={pedirBorrarme}
+                                >
+                                    Me borro
+                                </Button>
+                            )}
+                        </div>
+                    )}
                     <div className="flex gap-2">
                         {puede.gestiona && (
                             <Button
@@ -219,14 +237,14 @@ export function PartidoEnJuego({
                                 Organizar
                             </Button>
                         )}
-                        {sePuedeBorrar && (
+                        {sePuedeBorrar && !borrarseAparte && (
                             <Button
                                 type="button"
                                 size="lg"
                                 variant="outline"
                                 className={cn(principal ? "flex-none px-4" : "flex-1")}
                                 disabled={apuntandose}
-                                onClick={() => (aviso ? setConfirmando(true) : onBorrarme())}
+                                onClick={pedirBorrarme}
                             >
                                 Me borro
                             </Button>

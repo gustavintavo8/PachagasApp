@@ -21,6 +21,11 @@ export default function GlobalError({
 
     // reset() solo vuelve a pintar lo que ya había: el refresh pide los datos otra vez
     function reintentar() {
+        // Sin red, router.refresh() acaba en la página de error del navegador
+        if (navigator.onLine === false) {
+            reset();
+            return;
+        }
         empezar(() => {
             router.refresh();
             reset();

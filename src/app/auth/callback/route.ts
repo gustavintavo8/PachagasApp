@@ -95,12 +95,14 @@ export async function GET(request: NextRequest) {
                 }
             }
 
-            const destino = rutaInterna(decodeURIComponent(request.cookies.get(COOKIE_DESTINO)?.value ?? ""));
+            // cookies.get ya devuelve el valor decodificado
+            const destino = rutaInterna(request.cookies.get(COOKIE_DESTINO)?.value);
             const targetPath = await hasCommunityAccess(data.user.id) ? destino ?? "/" : conDestino("/access", destino);
             response.headers.set("Location", `${origin}${targetPath}`);
-            response.cookies.delete(COOKIE_DESTINO);
         }
     }
 
+    // Siempre: si no, un intento abandonado mandaría al siguiente a un sitio viejo
+    response.cookies.delete(COOKIE_DESTINO);
     return response;
 }

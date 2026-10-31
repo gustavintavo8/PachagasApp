@@ -175,7 +175,7 @@ export async function joinMatch(matchId: string): Promise<ActionResult> {
         .select("created_by, location")
         .eq("id", matchId)
         .single();
-    if (matchForNotif && matchForNotif.created_by !== currentUser.id) {
+    if (matchForNotif?.created_by && matchForNotif.created_by !== currentUser.id) {
         await sendNotification(
             [matchForNotif.created_by],
             "join",
@@ -207,13 +207,18 @@ export async function leaveMatch(matchId: string): Promise<ActionResult> {
 
     const { data: match } = await supabase
         .from("matches")
-        .select("status, date")
+        .select("status, date, match_participants(team)")
         .eq("id", matchId)
+        .eq("match_participants.user_id", currentUser.id)
         .single();
 
     if (!match) return { success: false, error: "Partido no encontrado" };
     if (match.status === "finished") return { success: false, error: "No puedes abandonar un partido que ya ha finalizado" };
-    if (new Date(match.date).getTime() < Date.now()) return { success: false, error: "Este partido ya ha empezado" };
+    // Con peto ya cuentas en el reparto. Sin él se puede deshacer: los partidos en pasado se rellenan apuntándose.
+    const conPeto = match.match_participants.some((plaza) => plaza.team !== null);
+    if (conPeto && new Date(match.date).getTime() < Date.now()) {
+        return { success: false, error: "Este partido ya ha empezado" };
+    }
 
     const { error } = await supabase
         .from("match_participants")
@@ -461,7 +466,7 @@ export async function generateTeams(matchId: string): Promise<ActionResult<{ cam
     // Verify organizer or admin
     const { data: match } = await supabase
         .from("matches")
-        .select("created_by, season_id")
+        .select("created_by, season_id, status")
         .eq("id", matchId)
         .single();
 
@@ -470,6 +475,9 @@ export async function generateTeams(matchId: string): Promise<ActionResult<{ cam
     const admin = await isAdmin(currentUser.id);
     if (match.created_by !== currentUser.id && !admin)
         return { success: false, error: "Solo el organizador puede generar equipos" };
+
+    // Barajar cambia el reparto seguro: en un partido terminado reescribiría quién jugó con quién
+    if (match.status !== "open") return { success: false, error: "El partido ya no admite cambios de equipos" };
 
     // Fetch participants with positions AND elo_rating
     const { data: participants } = await supabase
