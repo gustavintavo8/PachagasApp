@@ -73,7 +73,7 @@ export function MatchesTabs({ proximos, terminados, totalProximos, totalTerminad
                                 "-mb-px flex min-h-11 items-center gap-1.5 border-b-2 text-[18px]",
                                 seleccionada
                                     ? "border-foreground font-bold text-foreground"
-                                    : "border-transparent text-muted"
+                                    : "border-transparent text-muted active:text-foreground"
                             )}
                         >
                             {etiqueta}

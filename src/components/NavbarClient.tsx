@@ -88,13 +88,13 @@ export function NavbarClient({ enlaces, acciones }: NavbarClientProps) {
               e.preventDefault();
               router.back();
             }}
-            className="-ml-1 flex min-h-11 items-center gap-0.5 pr-3 text-[15px] font-medium text-foreground active:text-muted"
+            className="pulsable -ml-1 flex min-h-11 items-center gap-0.5 pr-3 text-[15px] font-medium text-foreground active:text-muted"
           >
             <ChevronLeft size={18} strokeWidth={1.75} aria-hidden="true" />
             {atras.label}
           </Link>
         ) : (
-          <Link href="/" className="flex min-h-11 items-center font-display text-[30px] font-black leading-none">
+          <Link href="/" className="pulsable flex min-h-11 items-center font-display text-[30px] font-black leading-none active:text-muted">
             Pachanga
           </Link>
         )}

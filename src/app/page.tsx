@@ -157,7 +157,7 @@ function BandaResultado({ ultimo }: { ultimo: NonNullable<Awaited<ReturnType<typ
       href={`/matches/${ultimo.id}`}
       prefetch={false}
       aria-label={`Último resultado: Rojo ${rojo}, Azul ${azul}. ${frasePanenka}`}
-      className="relative mt-6 block select-none"
+      className="pulsable relative mt-6 block select-none"
     >
       <div className="grid h-[min(84px,21.5vw)] text-white" style={{ gridTemplateColumns: `${costura}% 1fr` }}>
         <div className="flex items-center justify-end bg-rojo pr-3.5">

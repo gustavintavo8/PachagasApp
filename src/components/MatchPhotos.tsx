@@ -303,8 +303,8 @@ export function MatchPhotos({ matchId, currentUserId }: MatchPhotosProps) {
                     loading={uploading}
                     onClick={() => fileInputRef.current?.click()}
                 >
-                    {!uploading && <Plus size={18} strokeWidth={1.75} aria-hidden="true" />}
-                    {uploading ? "Subiendo…" : "Subir foto"}
+                    <Plus size={18} strokeWidth={1.75} aria-hidden="true" />
+                    Subir foto
                 </Button>
             </div>
             <p className="t-meta px-4 pb-4 text-muted">

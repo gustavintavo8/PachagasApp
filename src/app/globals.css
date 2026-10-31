@@ -235,17 +235,36 @@
 
   /* ─── Toque ──────────────────────────────────────────────────────────────── */
 
-  /* Cualquier cosa pulsable: responde al bajar el dedo, no al soltar */
+  /* Cualquier cosa pulsable: responde al bajar el dedo, no al soltar.
+     Al bajar la inversión es inmediata, si no un toque rápido no llega a verla.
+     Al soltar vuelve algo más despacio. */
   .pulsable {
     transition:
-      transform 100ms var(--ease-out),
-      background-color 100ms var(--ease-out),
-      border-color 100ms var(--ease-out),
-      color 100ms var(--ease-out);
+      transform 160ms var(--ease-out),
+      background-color 160ms var(--ease-out),
+      border-color 160ms var(--ease-out),
+      color 160ms var(--ease-out);
   }
 
   .pulsable:active:not(:disabled) {
     transform: scale(0.98);
+    transition-duration: 100ms, 0ms, 0ms, 0ms;
+  }
+
+  /* Botón ocupado: la etiqueta sigue ahí, sin pintar, para que no cambie el ancho.
+     text-fill-color y no color: el spinner va en currentColor. */
+  .ocupado {
+    -webkit-text-fill-color: transparent;
+  }
+
+  .ocupado > svg:not(.ocupado-giro) {
+    opacity: 0;
+  }
+
+  .ocupado-giro {
+    position: absolute;
+    inset: 0;
+    margin: auto;
   }
 
   /* Scroll interno: rebota él, no la página de detrás */
@@ -407,6 +426,12 @@
   }
 }
 
+/* sonner mete sus estilos en <head> sin capa: html para ganarle. Solo el tiempo y la curva. */
+html [data-sonner-toast] {
+  transition-duration: 240ms, 240ms, 240ms, 200ms;
+  transition-timing-function: var(--ease-out);
+}
+
 /* ─── Flood: la pantalla entera es de tu peto ────────────────────────────── */
 html[data-flood="rojo"] {
   --flood: var(--rojo);
@@ -453,7 +478,8 @@ html[data-flood] .barra-superior {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     /* Sin desplazamientos: se quedan la opacidad y el color */
-    transition-property: opacity, color, background-color, border-color !important;
+    transition-property:
+      opacity, color, background-color, border-color, fill, stroke, fill-opacity, stroke-opacity !important;
   }
 
   .pulsable:active:not(:disabled) {

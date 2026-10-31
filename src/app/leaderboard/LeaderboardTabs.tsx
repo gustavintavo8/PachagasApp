@@ -159,7 +159,7 @@ export function LeaderboardTabs({
                                 "min-h-11 min-w-11 font-display text-[length:min(22px,5.6vw)] leading-none",
                                 activo
                                     ? "font-extrabold text-foreground underline decoration-2 underline-offset-[6px]"
-                                    : "font-semibold text-muted"
+                                    : "font-semibold text-muted active:text-foreground"
                             )}
                         >
                             {ETIQUETAS[clave]}

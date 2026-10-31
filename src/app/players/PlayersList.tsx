@@ -104,7 +104,7 @@ export function PlayersList({
                                 // El botón desaparece: sin esto el teclado se cierra
                                 entrada.current?.focus();
                             }}
-                            className="absolute top-0 right-0 flex h-[52px] w-12 items-center justify-center text-muted"
+                            className="pulsable absolute top-0 right-0 flex h-[52px] w-12 items-center justify-center text-muted active:text-foreground"
                         >
                             <X size={18} strokeWidth={1.75} aria-hidden="true" />
                         </button>
@@ -129,7 +129,7 @@ export function PlayersList({
                                 "min-h-12 min-w-11 font-display text-[length:min(22px,5.3vw)] leading-none",
                                 activo
                                     ? "font-extrabold text-foreground underline decoration-2 underline-offset-[6px]"
-                                    : "font-semibold text-muted"
+                                    : "font-semibold text-muted active:text-foreground"
                             )}
                         >
                             {etiqueta}

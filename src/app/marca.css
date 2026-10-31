@@ -61,6 +61,8 @@
 /* El peto libre se llena en su sitio */
 .peto-cuerpo {
   transition:
+    fill 160ms var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1)),
+    stroke 160ms var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1)),
     fill-opacity 160ms var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1)),
     stroke-opacity 160ms var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1));
 }
@@ -240,5 +242,58 @@
     .marcador-azul {
       animation: marcador-abre-azul 220ms var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1)) both;
     }
+  }
+}
+
+/* ─── Empujar a un detalle ───────────────────────────────────────────────── */
+@keyframes detalle-entra {
+  from {
+    opacity: 0;
+    transform: translateX(12px);
+  }
+}
+
+@keyframes detalle-funde {
+  from {
+    opacity: 0;
+  }
+}
+
+::view-transition {
+  pointer-events: none;
+}
+
+::view-transition-new(.detalle-entra) {
+  animation: detalle-entra 200ms var(--ease-out, cubic-bezier(0.23, 1, 0.32, 1)) both;
+}
+
+/* Las barras no se mueven y van por encima del detalle que entra */
+.barra-superior {
+  view-transition-name: barra-superior;
+}
+
+.barra-inferior {
+  view-transition-name: barra-inferior;
+}
+
+::view-transition-group(barra-superior),
+::view-transition-group(barra-inferior) {
+  z-index: 10;
+  animation: none;
+}
+
+::view-transition-old(barra-superior),
+::view-transition-old(barra-inferior) {
+  display: none;
+}
+
+::view-transition-new(barra-superior),
+::view-transition-new(barra-inferior) {
+  animation: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  ::view-transition-new(.detalle-entra) {
+    animation-name: detalle-funde;
   }
 }

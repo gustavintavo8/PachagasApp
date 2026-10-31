@@ -37,7 +37,7 @@ export function buttonClasses(
     className?: string
 ) {
     return cn(
-        "pulsable inline-flex select-none items-center justify-center gap-2 text-center disabled:cursor-not-allowed disabled:opacity-50",
+        "pulsable relative inline-flex select-none items-center justify-center gap-2 text-center disabled:cursor-not-allowed disabled:opacity-50 aria-busy:cursor-wait aria-busy:opacity-100",
         variantStyles[variant],
         sizeStyles[size],
         className
@@ -62,12 +62,12 @@ const Button = forwardRef<HTMLButtonElement, ButtonProps>(
                 ref={ref}
                 disabled={disabled || loading}
                 aria-busy={loading || undefined}
-                className={buttonClasses(variant, size, className)}
+                className={buttonClasses(variant, size, cn(loading && "ocupado", className))}
                 {...props}
             >
                 {loading && (
                     <svg
-                        className="h-4 w-4 animate-spin"
+                        className="ocupado-giro h-5 w-5 animate-spin"
                         viewBox="0 0 24 24"
                         fill="none"
                         aria-hidden="true"

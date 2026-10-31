@@ -16,6 +16,8 @@ const display = Sofia_Sans_Extra_Condensed({
   variable: "--font-display",
   weight: ["600", "800", "900"],
   subsets: ["latin"],
+  // A estos tamaños un Arial encogido se ve más que un instante en blanco. Va precargada.
+  display: "block",
 });
 const sans = Archivo({
   variable: "--font-sans",

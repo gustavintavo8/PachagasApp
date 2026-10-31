@@ -196,7 +196,7 @@ export function HojaResultado({
                             size={18}
                             strokeWidth={1.75}
                             aria-hidden="true"
-                            className={cn("flex-none transition-transform duration-200", verGoleadores && "rotate-180")}
+                            className={cn("flex-none transition-transform duration-200 ease-out", verGoleadores && "rotate-180")}
                         />
                     </button>
                     {verGoleadores && (

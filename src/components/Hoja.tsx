@@ -42,7 +42,7 @@ export function Hoja({ open, onClose, title, description, children, className, i
                                 </div>
                                 <Drawer.Close
                                     aria-label="Cerrar"
-                                    className="-mr-2.5 -mt-1.5 flex h-11 w-11 flex-none items-center justify-center text-muted hover:text-foreground active:text-foreground"
+                                    className="pulsable -mr-2.5 -mt-1.5 flex h-11 w-11 flex-none items-center justify-center text-muted hover:text-foreground active:text-foreground"
                                 >
                                     <X size={18} strokeWidth={1.75} aria-hidden="true" />
                                 </Drawer.Close>
