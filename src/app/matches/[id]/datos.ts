@@ -41,7 +41,7 @@ export function permisos(match: Match, yo: string, esAdmin: boolean) {
         cancelar: gestiona && vivo,
         cobros: gestiona && match.status === "open",
         repetir: gestiona && match.status === "finished",
-        expulsar: esAdmin && match.status === "open",
+        expulsar: gestiona && match.status === "open",
     };
 }
 

@@ -783,19 +783,19 @@ export async function kickPlayer(
     const parsedKick = KickSchema.safeParse({ matchId, targetUserId });
     if (!parsedKick.success) return { success: false, error: parsedKick.error.issues[0].message };
 
-    if (!(await isAdmin(currentUser.id)))
-        return { success: false, error: "Solo el administrador puede expulsar jugadores" };
-
     if (targetUserId === currentUser.id)
-        return { success: false, error: "No puedes expulsarte a ti mismo" };
+        return { success: false, error: "Para salirte usa «Me borro»" };
 
     const { data: matchData } = await supabase
         .from("matches")
-        .select("status, location")
+        .select("status, location, created_by")
         .eq("id", matchId)
         .single();
 
     if (!matchData) return { success: false, error: "Partido no encontrado" };
+    // Sacar a alguien es cosa de quien gestiona el partido: su organizador o un admin
+    if (matchData.created_by !== currentUser.id && !(await isAdmin(currentUser.id)))
+        return { success: false, error: "Solo el organizador o un administrador puede expulsar jugadores" };
     if (matchData.status === "finished")
         return { success: false, error: "No se puede expulsar jugadores de un partido finalizado" };
 
@@ -827,7 +827,7 @@ export async function kickPlayer(
         [targetUserId],
         "kick",
         "Te han sacado del partido",
-        `${quienExpulsa?.username || "Un administrador"} te ha sacado de ${match?.location || "un partido"}. Si hay plaza, puedes volver a apuntarte.`,
+        `${quienExpulsa?.username || "El organizador"} te ha sacado de ${match?.location || "un partido"}. Si hay plaza, puedes volver a apuntarte.`,
         matchId
     );
 
