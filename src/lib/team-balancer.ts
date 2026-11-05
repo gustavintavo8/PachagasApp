@@ -229,3 +229,37 @@ export function barajarEquipos(
     }
     return mejor ?? reserva;
 }
+
+/**
+ * Con los equipos ya hechos nadie se queda sin peto: cada uno entra en el equipo que tiene menos.
+ * Si van iguales, al de media de ELO más baja. Sin equipos hechos no toca a nadie.
+ */
+export function colocarSinPeto(
+    plazas: { user_id: string; team: "A" | "B" | null }[],
+    eloDe: (userId: string) => number
+): { user_id: string; team: "A" | "B" }[] {
+    if (!plazas.some((p) => p.team !== null)) return [];
+
+    const equipos = {
+        A: { jugadores: 0, elo: 0 },
+        B: { jugadores: 0, elo: 0 },
+    };
+    for (const p of plazas) {
+        if (p.team === null) continue;
+        equipos[p.team].jugadores += 1;
+        equipos[p.team].elo += eloDe(p.user_id);
+    }
+    const media = (e: { jugadores: number; elo: number }) => (e.jugadores === 0 ? 0 : e.elo / e.jugadores);
+
+    const colocados: { user_id: string; team: "A" | "B" }[] = [];
+    for (const p of plazas) {
+        if (p.team !== null) continue;
+        const { A, B } = equipos;
+        const team: "A" | "B" =
+            A.jugadores !== B.jugadores ? (A.jugadores < B.jugadores ? "A" : "B") : media(A) <= media(B) ? "A" : "B";
+        equipos[team].jugadores += 1;
+        equipos[team].elo += eloDe(p.user_id);
+        colocados.push({ user_id: p.user_id, team });
+    }
+    return colocados;
+}

@@ -37,11 +37,11 @@ test.describe("Unirse a un partido @smoke", () => {
     // Comparten partido y plazas
     test.describe.configure({ mode: "serial" });
 
-    test("el organizador organiza y no puede borrarse @smoke", async ({ page }) => {
+    test("el organizador organiza y también puede borrarse @smoke", async ({ page }) => {
         const matchPage = new MatchPage(page);
         await page.goto(`/matches/${ownMatchId}`);
         await expect(matchPage.organizeButton).toBeVisible({ timeout: 5_000 });
-        await expect(matchPage.leaveButton).toHaveCount(0);
+        await expect(matchPage.leaveButton).toBeVisible();
         await expect(matchPage.joinButton).toHaveCount(0);
     });
 

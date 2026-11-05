@@ -196,7 +196,6 @@ async function Portada({ userId, seasonId }: { userId: string; seasonId: string 
   if (error) return <PortadaSinDatos pregunta={preguntaPortada(null, ahora)} />;
 
   const { partido } = elegirPartidoPortada(partidos, userId, ahora);
-  const organizo = partido?.created_by === userId;
   const empezado = !!partido && new Date(partido.date) < new Date(ahora);
   const conPeto = !!partido?.participants.some((plaza) => plaza.user_id === userId && plaza.team !== null);
 
@@ -212,7 +211,7 @@ async function Portada({ userId, seasonId }: { userId: string; seasonId: string 
       yo={userId}
       miNombre={perfil?.username ?? null}
       ahora={ahora}
-      puedeBorrarse={partido?.status === "open" && !organizo && !(empezado && conPeto)}
+      puedeBorrarse={partido?.status === "open" && !(empezado && conPeto)}
       candidatos={candidatos}
       puesto={
         <Suspense fallback={<div className="skeleton h-5 w-32 min-w-0" />}>
