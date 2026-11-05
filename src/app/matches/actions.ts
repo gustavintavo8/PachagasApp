@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { revalidatePath, revalidateTag } from "next/cache";
 import { redirect } from "next/navigation";
-import { balanceTeams, barajarEquipos } from "@/lib/team-balancer";
+import { balanceTeams, barajarEquipos, colocarSinPeto } from "@/lib/team-balancer";
 import { computeMatchEloUpdates, ELO_BASE } from "@/lib/elo";
 import { rateLimit } from "@/lib/rate-limit";
 import { isAdmin } from "@/lib/permissions";
@@ -37,6 +37,59 @@ function getParticipantProfile<T extends ParticipantProfileLike>(
     profile: T | T[] | null
 ): T | null {
     return Array.isArray(profile) ? (profile[0] as T | undefined) ?? null : profile;
+}
+
+/**
+ * Con los equipos ya hechos nadie se queda en el banquillo: quien está sin peto entra en el equipo
+ * que tiene menos. Se llama al apuntarse, al borrarse y al expulsar. Si falla, lo anterior ya está
+ * hecho: el organizador siempre puede barajar.
+ */
+async function colocarEnEquipos(matchId: string, quienActua: string): Promise<void> {
+    try {
+        const admin = createAdminClient();
+        const { data: match } = await admin
+            .from("matches")
+            .select("status, season_id, location")
+            .eq("id", matchId)
+            .single();
+        if (!match || match.status !== "open") return;
+
+        const { data: plazas } = await admin
+            .from("match_participants")
+            .select("user_id, team")
+            .eq("match_id", matchId);
+        if (!plazas || !plazas.some((p) => p.team !== null) || !plazas.some((p) => p.team === null)) return;
+
+        const stats = await getStatsForUsers(match.season_id, plazas.map((p) => p.user_id));
+        const eloPorJugador = new Map(stats.map((s) => [s.user_id, s.elo_rating] as const));
+        const colocados = colocarSinPeto(plazas, (id) => eloPorJugador.get(id) ?? ELO_BASE);
+
+        const hechos = await Promise.all(
+            colocados.map(async (c) => {
+                const { error } = await admin
+                    .from("match_participants")
+                    .update({ team: c.team })
+                    .eq("match_id", matchId)
+                    .eq("user_id", c.user_id)
+                    .is("team", null);
+                return error ? null : c;
+            })
+        );
+
+        // Quien se apunta ya ve su equipo en pantalla; a los que estaban en el banquillo hay que avisarles
+        for (const c of hechos) {
+            if (!c || c.user_id === quienActua) continue;
+            await sendNotification(
+                [c.user_id],
+                "teams",
+                "Ya tienes equipo",
+                `Juegas de ${c.team === "A" ? "Rojo" : "Azul"} en ${match.location || "el partido"}`,
+                matchId
+            );
+        }
+    } catch (error) {
+        console.error("No se pudo colocar a los jugadores sin peto", error);
+    }
 }
 
 export async function createMatch(formData: FormData): Promise<ActionResult> {
@@ -164,6 +217,8 @@ export async function joinMatch(matchId: string): Promise<ActionResult> {
 
     if (error) return { success: false, error: error.message };
 
+    await colocarEnEquipos(matchId, currentUser.id);
+
     // Notify the organizer that someone joined
     const { data: joinerProfile } = await supabase
         .from("profiles")
@@ -216,7 +271,8 @@ export async function leaveMatch(matchId: string): Promise<ActionResult> {
     if (match.status === "finished") return { success: false, error: "No puedes abandonar un partido que ya ha finalizado" };
     // Con peto ya cuentas en el reparto. Sin él se puede deshacer: los partidos en pasado se rellenan apuntándose.
     const conPeto = match.match_participants.some((plaza) => plaza.team !== null);
-    if (conPeto && new Date(match.date).getTime() < Date.now()) {
+    // Un admin sí puede: organizar sin jugar no depende de la hora
+    if (conPeto && new Date(match.date).getTime() < Date.now() && !(await isAdmin(currentUser.id))) {
         return { success: false, error: "Este partido ya ha empezado" };
     }
 
@@ -227,6 +283,9 @@ export async function leaveMatch(matchId: string): Promise<ActionResult> {
         .eq("user_id", currentUser.id);
 
     if (error) return { success: false, error: error.message };
+
+    // El hueco que deja lo ocupa quien estaba en el banquillo
+    await colocarEnEquipos(matchId, currentUser.id);
 
     revalidatePath(`/matches/${matchId}`);
     revalidatePath("/");
@@ -748,6 +807,8 @@ export async function kickPlayer(
         .eq("user_id", targetUserId);
 
     if (error) return { success: false, error: error.message };
+
+    await colocarEnEquipos(matchId, currentUser.id);
 
     // Notify the kicked player
     const { data: match } = await supabase

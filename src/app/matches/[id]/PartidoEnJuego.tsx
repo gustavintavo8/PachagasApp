@@ -88,7 +88,8 @@ export function PartidoEnJuego({
         ahora,
     });
 
-    const sePuedeBorrar = abierto && !!yo && !isOrganizer && !(pasado && yo.team !== null);
+    // El organizador también: puede organizar sin jugar. Un admin, aunque ya haya empezado.
+    const sePuedeBorrar = abierto && !!yo && (isAdmin || !(pasado && yo.team !== null));
     const aviso = avisoBorrarse({ equipo: yo ? equipoDeTeam(yo.team) : null, lleno: faltan === 0 });
     const sePuedeApuntar = abierto && !yo && faltan > 0;
     const seBusca = abierto && !!yo && faltan > 0 && !pasado;
